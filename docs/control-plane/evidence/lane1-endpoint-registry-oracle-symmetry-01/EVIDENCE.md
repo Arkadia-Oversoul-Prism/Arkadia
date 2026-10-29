@@ -79,3 +79,48 @@ composition hazard recorded at `17988afd` is closed for this gate.
 No production deployment, merge, or acceptance. `deployment build output observed`
 remains outside this change; the canonical origin was not reachable from this sandbox
 (`curl` → exit 28, connection timeout), so no runtime claim is made either way.
+
+## Repair — stray runtime journal removed from the branch (2026-10-29)
+
+`0bb4a18` carried a **357 KB** `data/economic_seams.db-journal` (a SQLite rollback
+journal, `Bin 0 -> 357560 bytes`). It was not an intended artifact: the commit's message
+concerns a `GH_TOKEN` recovery, and its parent did not contain the file, so a `git add -A`
+swept it in from the worktree.
+
+Provenance — `economic_seams/engine.py:9` resolves its store under the same
+`SOLSPIRE_DATA_DIR` convention as the canonical SolSpire store:
+
+    DB_PATH = os.environ.get("ECONOMIC_SEAMS_DB") or os.path.join(
+        os.environ.get("SOLSPIRE_DATA_DIR", "data"), "economic_seams.db")
+
+`.gitignore` had `data/solspire_projects.db*` but no rule for this store, and `*.db`
+covers only the database file, never `-journal`/`-wal`/`-shm`. `git check-ignore
+--no-index -q data/economic_seams.db-journal` → exit 1 (stageable). `main` tracks
+neither `economic_seams.db` nor any sidecar, so nothing of value was removed.
+
+Three bounded repairs, all inside Lane 1's "shared shell/endpoint contract tests"
+ownership plus the repository-hygiene surface:
+
+1. `git rm --cached data/economic_seams.db-journal` — untracked from the branch.
+2. `.gitignore` — added `data/economic_seams.db*`.
+3. `conftest.py::_sandbox_economic_seams_store` — the load-bearing fix. The engine
+   snapshots `DB_PATH` (unprefixed, unlike the SolSpire modules' `_DB_PATH`) at import
+   time, so it inherited `data/` rather than a sandbox. The fixture forces
+   `ECONOMIC_SEAMS_DB` and rebinds every already-imported copy, mirroring
+   `_sandbox_solspire_store`.
+4. `tests/test_repo_hygiene_gitignore.py` — `ECONOMIC_SEAMS_FAMILY` (4 paths) pinned,
+   plus a `data/`-scoped negative control.
+
+### Verification
+
+| Check | Result |
+| --- | --- |
+| `pytest tests/test_repo_hygiene_gitignore.py -q` | **16 passed** |
+| Negative control: delete `data/economic_seams.db*` | **3 failed, 13 passed** — exactly the three sidecars; `*.db` still covers the base file |
+| Restore byte-identically | **16 passed** |
+| The 5 economic-seam modules that previously left the journal behind | **47 passed**, `data/` left **clean** |
+| `git diff --numstat AGENTS.md` | **26 / 0** — insert-only append preserved |
+
+The negative control is the load-bearing evidence: it shows the new guard detects the
+artifact class rather than merely passing alongside it. It also discriminates correctly —
+reddening on three of four paths, not on all four or none.

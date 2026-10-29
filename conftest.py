@@ -88,3 +88,31 @@ def _sandbox_solspire_store():
             module._DB_PATH = db_path
 
     yield
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _sandbox_economic_seams_store():
+    """Point the economic seam engine's store at a throwaway DB.
+
+    `economic_seams/engine.py` snapshots
+
+        DB_PATH = os.environ.get("ECONOMIC_SEAMS_DB") or os.path.join(
+            os.environ.get("SOLSPIRE_DATA_DIR", "data"), "economic_seams.db"
+        )
+
+    at *import* time, so it inherited `data/` rather than a sandbox. A session that
+    reached it left a SQLite rollback journal in the repository, and a `git add -A`
+    folded 357 KB of it into lane commit `0bb4a18`. The env var is forced before
+    the rebind so a later import agrees with it, mirroring the SolSpire fixture.
+    """
+    db_path = os.path.join(_SESSION_STATE, "economic_seams.db")
+    os.environ["ECONOMIC_SEAMS_DB"] = db_path
+
+    for module in list(sys.modules.values()):
+        if module is None:
+            continue
+        current = getattr(module, "DB_PATH", None)
+        if isinstance(current, str) and os.path.basename(current) == "economic_seams.db":
+            module.DB_PATH = db_path
+
+    yield

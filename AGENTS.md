@@ -1695,3 +1695,29 @@ Keep `feat/prism-ui-reconciliation-overnight-01` as this reconciliation workstre
   fall back on in this sandbox. The working value is the injected PAT, not a helper entry.
 - Re-verify the final head **after** any such recovery: checks read before the failure are
   evidence about the head they were read at, not about the current one.
+
+## `git add -A` sweeps SQLite sidecars whose family rule is missing (gate-hygiene)
+- `economic_seams/engine.py` resolves its store under the **same** `SOLSPIRE_DATA_DIR`
+  convention as the canonical SolSpire store, so a session that reaches it materialises
+  the same SQLite family. `.gitignore` had `data/solspire_projects.db*` but **no**
+  `data/economic_seams.db*`, so the sidecars were stageable — and lane commit `0bb4a18`
+  ("Record the mid-pulse GH_TOKEN expiry and its working recovery") folded a **357 KB**
+  rollback journal into the branch via a `git add -A`. The commit's own message is about
+  something else entirely, which is the tell: an unrelated hygiene sweep carried it in.
+- **The asymmetry is per-store, not per-extension.** `*.db` covers every database *file*;
+  it never covers `-journal`/`-wal`/`-shm`. Each store needs its own family rule, so
+  `tests/test_repo_hygiene_gitignore.py` now pins `ECONOMIC_SEAMS_FAMILY` (4 paths)
+  alongside the existing SolSpire family. `git check-ignore --no-index -q` is the oracle,
+  so any equivalent rule form satisfies it.
+- **The load-bearing fix is the sandbox, not the ignore rule.** Ignoring hides the
+  symptom; `conftest.py::_sandbox_economic_seams_store` rebinds `DB_PATH` (note: the
+  engine uses the **unprefixed** name `DB_PATH`, not `_DB_PATH` like the SolSpire
+  modules) and forces `ECONOMIC_SEAMS_DB`, so a later import agrees with the rebind.
+  Measured: the five economic-seam test modules that previously left the journal behind
+  now leave `data/` clean.
+- Prove the guard with a **live negative control**: delete the `data/economic_seams.db*`
+  line and exactly the three sidecar parametrizations fail (`*.db` still covers the base
+  file); restore byte-identically and all 16 pass. A guard that reddens on all four or on
+  none is measuring the wrong thing.
+- **Check `.gitignore` family coverage before any `git add -A` in a hygiene pass**, and
+  prefer explicit paths over `-A` when committing inside a lane branch.
