@@ -477,3 +477,30 @@ The code paths were changed intentionally to prevent execution or authorization 
 **Verification:** fresh CI required on the new head; no pass is claimed from the failed run. The independent runtime probe and other completed workflow checks at the affected head were successful, but they do not replace the contract suite.
 
 No production, backend, identity, authorization subsystem, canonical API, merge, or deployment action occurred.
+
+## 8.5 Resume Mission Control context — 2026-10-29 22:02 UTC
+
+**Move ID:** `DEA-01-RESUME-AGENT-CONTEXT-01`  
+**Canonical directive:** [Issue #590](https://github.com/Arkadia-Oversoul-Prism/Arkadia/issues/590)  
+**Existing PR updated:** [#591](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/591)  
+**Baseline head:** `6984d2b9a1d1c299e68295d083ef9350f432b3c9`  
+**Implementation commit:** `ffcad3d06b986834e34e05cf32e8c23ae7e4c8dc`  
+**Regression-test commit:** `0475e195dd893ded648ecbfb00bb97bfb46d21dc`
+
+### Defect and bounded repair
+
+On resume, `MissionWorkspace` re-read the session from the canonical session-view endpoint and restored the session, objective, target hint, events and last run, but did not restore the session's server-returned `agent_id` into the local view state. The state-derived Next decision checks `!agentId` before `!session`, so a valid resumed mission could incorrectly tell the operator to deploy an agent instead of describing the active mission's next decision.
+
+- Resume now sets the local agent context from `view.session.agent_id`.
+- This is session context only. It does not restore or manufacture an authorization object, change the backend, or grant capabilities.
+- Added `test_resume_restores_server_confirmed_agent_context` to the existing mission workspace contract suite.
+- Updated this existing PR; no competing branch or PR was created.
+
+### Verification and limitations
+
+- GitHub Contents API accepted both source and test updates on `feat/dea-01-mission-state-guard-01`.
+- The existing evidence record was updated through the same PR branch.
+- Fresh CI must be checked against the final PR head after these commits. No local pytest/build or authenticated browser run is claimed.
+- Desktop/mobile interaction, preview acceptance and production verification remain UNKNOWN / unclaimed.
+- No merge, deployment, backend change, protected-boundary change, or production configuration change occurred.
+
