@@ -452,3 +452,19 @@ def test_scope_preview_is_truthful_and_locks_persisted_intent():
     assert workspace.count("disabled={Boolean(session) || Boolean(run) || busy}") >= 2
     assert "requires_write: false" in contract
     assert 'kind: "read"' in contract
+
+
+def test_resume_restores_server_intent_and_scoped_local_target_hint():
+    """Resume re-reads authoritative intent and never invents unavailable targets."""
+    contract = _read(CONTRACT)
+    workspace = _read(WORKSPACE)
+    assert "interface MissionSessionHint" in contract
+    assert "JSON.stringify(hint)" in contract
+    assert "candidate.session_id" in contract
+    assert "return { session_id: stored }" in contract  # legacy id-only hint
+    assert "getSessionView(retained.session_id)" in workspace
+    assert "setObjective(view.session.objective)" in workspace
+    assert 'resumable.targets.join(", ")' in workspace
+    assert 'setTargets("")' in workspace
+    assert "resumeScopeKnown === false" in workspace
+    assert "const canExecute = Boolean(session) && sessionAuthorized && executableState && targetList.length > 0 && !run && !busy;" in workspace
