@@ -592,3 +592,25 @@ The prior head `09d880eb4c3979ea55ac38cd96eaead4f7b2bc5a` passed the console con
 - Preview unavailable because Render pull-request previews are disabled; production remains on main revision `d9a16f1269b2ab8ce74b527b3f2f0f00ad2793c2`.
 - Human review/merge and production authority remain final.
 
+## 8.9 Evidence panel contract hardening — 2026-10-29 22:21 UTC
+
+**Move ID:** `DEA-01-SESSION-EVIDENCE-01` (continuation)  
+**Canonical directive:** [Issue #590](https://github.com/Arkadia-Oversoul-Prism/Arkadia/issues/590)  
+**Existing PR updated:** [#591](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/591)  
+**Baseline head:** `5d8a53ec68d2326332a80db08b7fc0b236d7d5b5`  
+**Panel wrapper correction:** `0e4df9e41c9d07516b0c281879d091fa8c6e22bf`  
+**Missing-vs-empty state correction:** `81e793722089b30142b962443a25e573273dcc8e`  
+**Regression-test update:** `a92a8a9ce12a0a015ffd836fae962f5e71446263`
+
+### Corrections after diff inspection
+
+- The shared `Panel` component accepts only `children` and `className`; the evidence test ID is therefore placed on a native wrapper rather than passed as an unsupported prop.
+- Because the session-view contract types `evidence` and `artifacts` as optional, missing collections are now `UNAVAILABLE`, not falsely presented as `EMPTY`. If one collection is returned with records while the other is missing, the available records remain visible with an explicit partial-response warning.
+- Extended the source-contract test to pin both conditions.
+
+### Verification
+
+- GitHub Contents API accepted the source and test updates on the existing PR branch.
+- Fresh CI is required on the successor head after this evidence append. No build/test pass is claimed for the evidence panel or its state corrections yet.
+- No backend/API, persistence, identity, authorization, provenance schema, WorkEvent, production configuration, merge, or deployment change.
+
