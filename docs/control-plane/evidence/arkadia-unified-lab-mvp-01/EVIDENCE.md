@@ -330,3 +330,34 @@ NEW: NONE      GONE: NONE      collect: 3490 -> 3495 = +5 == the new tests
   produced were deleted; `git status` shows only the four intended changes plus the two
   new files.
 - No production, Render, or Vercel action was taken.
+
+
+## 8. DEA-01 mission-state execution guard — 2026-10-29
+
+**Move ID:** `DEA-01-MISSION-STATE-01`  
+**Canonical directive:** [Issue #590](https://github.com/Arkadia-Oversoul-Prism/Arkadia/issues/590)  
+**Baseline latest observed commit:** `d9a16f1269b2ab8ce74b527b3f2f0f00ad2793c2` before branch creation.  
+**Branch:** `feat/dea-01-mission-state-guard-01`  
+**PR:** [#591 — fix(lab): make mission next action follow substrate state](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/591)  
+**Code commit:** `9b5b55f567b4fd18e6b6c2b866c6589fca2b8d73`  
+**Contract-test commit:** `a913dd2df0abad2317d7915b47dd4d7d7882a76f`  
+**PR head at creation:** `a913dd2df0abad2317d7915b47dd4d7d7882a76f`
+
+### Problem
+
+The prior UI enabled Execute when a session had an authorization reference and no local run object, without checking the session's current state. Existing §6.2 evidence records that a resumed session at `READY_FOR_REVIEW` is rejected by the backend if executed again. The UI therefore offered an action the substrate would refuse.
+
+### Bounded change
+
+- Execution now requires the canonical state `AUTHORIZED` or `QUEUED`, the existing authorization signal, and no local run.
+- A visible **Next decision** line is derived from the actual agent/session/run state.
+- `READY_FOR_REVIEW` directs the operator to inspect recorded events and evidence and explicitly says that this session cannot execute again.
+- Added a regression assertion in `tests/test_lab_mission_workspace_contract.py`.
+- No backend, API, identity, authorization, provenance, WorkEvent, persistence, production, or deployment code changed.
+
+### Verification and limitations
+
+- Source mutation and regression-test addition were accepted by GitHub's file API.
+- Local test/build commands and authenticated browser/device checks were not available in this connector-backed run; no local pass is claimed.
+- PR CI must be read from the current PR head. Preview and production verification remain unclaimed.
+- Human review, merge, and production authority remain final.
