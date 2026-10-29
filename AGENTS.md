@@ -1648,3 +1648,35 @@ Keep `feat/prism-ui-reconciliation-overnight-01` as this reconciliation workstre
   question". Read the existing decision record before re-deriving a governance question from
   scratch — and record `merged_acceptance_pending` as **already present** when the guard behaviour
   exists under different vocabulary rather than as "blocked".
+
+## A one-way prefix strip makes a served-path oracle wrong in both directions (gate-hygiene)
+- `tests/test_console_endpoint_registry_contract.py` decided "is this advertised `contract=` string
+  served?" by stripping a leading `/api/` from the **advertised** value only
+  (`value[4:] if value.startswith("/api/") else value`). A one-way prefix removal is not a
+  normalization — it is a *falsification* in the direction it was not written for.
+- Measured at `main` `b5bc34cb`, wrong both ways: a **served** route advertised with a page-local
+  parameter name (`/api/lab/engineering/sessions/{id}/execute` vs the served `{session_id}`) read
+  as **unserved**, and an **invented** `/api/solspire/proposals` read as **served** by collapsing
+  onto its real bare twin. `grep -rn '"/api/solspire' api/ solspire/` -> no match; the mount is
+  `/solspire`. The false negative is the dangerous one: a guard whose whole job is catching an
+  invented endpoint must not manufacture a match by removing the prefix that made it invented.
+- **A guard that keys its extraction by file judges only one literal per file.** The extractor fed
+  the oracle via `found[name] = match.group(1)`, so a page with four `NotYetWired` panels had
+  **three** of them silently unjudged. Return *every* literal per file; a dict keyed by file is a
+  last-one-wins race against the source order.
+- **Parameter names are display copy, not contract.** Normalize `{...}` to a placeholder on **both**
+  sides (`_param_normalized`) and keep `/api` significant on **both**, so the oracle compares route
+  *identity*. Editing the page's parameter name to match the backend is a scope violation when that
+  page belongs to another lane (`SHARED-CONTRACTS.md` §1) — record the drift instead.
+- `RECORDED_ADVERTISED_DRIFT` fell 6 -> 1 on the repair: four entries had never been drift (they
+  were artifacts of the one-way strip) and two are no longer advertised. A drift set that grows
+  monotonically is the symptom; a *shrinking* set is what a correct oracle produces.
+- Two negative controls, one per polarity, fail against the pre-repair shape and the file was
+  restored byte-identically afterwards. `--collect-only` attributes the delta: 18 -> 20 nodes
+  (+2) = exactly the new controls; the full-suite failing/error node set (9 nodes,
+  `c280ddc616fe4f4e9110bf4e6b6e538783a83d3764148d8a6d7ac45f6e8bc46b`) contains **zero**
+  endpoint-registry nodes.
+- The console-contract gate derives its inventory (`scripts/console_contract_domain.py`) rather than
+  restating it, so this guard is executed without editing the workflow: the CI step log reads
+  `944 passed` / `30 passed`, not merely a green job. Evidence:
+  `docs/control-plane/evidence/lane1-endpoint-registry-oracle-symmetry-01/EVIDENCE.md`. PR #588.
