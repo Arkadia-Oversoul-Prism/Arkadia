@@ -504,3 +504,22 @@ def test_engineering_lab_leads_with_mission_control_and_discloses_diagnostics():
     ):
         assert surface in diagnostics, f"{surface} must remain reachable in the disclosure"
 
+def test_mission_control_reads_server_evidence_and_artifacts_with_truthful_states():
+    """Evidence is rendered from the session-view response, never fabricated locally."""
+    workspace = _read(WORKSPACE)
+    contract = _read(CONTRACT)
+
+    assert "interface LabSessionView" in contract
+    assert "evidence?: Array<Record<string, unknown>>" in contract
+    assert "artifacts?: Array<Record<string, unknown>>" in contract
+    assert "view.evidence ?? []" in workspace
+    assert "view.artifacts ?? []" in workspace
+    assert 'data-testid="mission-recorded-evidence"' in workspace
+    for state in ('"LOADING"', '"LIVE"', '"EMPTY"', '"UNAVAILABLE"', '"FAILED"'):
+        assert state in workspace
+    assert 'recordText(record, "evidence_id"' in workspace
+    assert 'recordText(artifact, "artifact_id"' in workspace
+    assert 'recordJson(record, "provenance"' in workspace
+    assert 'recordJson(artifact, "content"' in workspace
+    assert "No local substitute is shown." in workspace
+
