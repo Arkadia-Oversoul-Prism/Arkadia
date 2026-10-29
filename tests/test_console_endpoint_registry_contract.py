@@ -689,16 +689,20 @@ def test_advertised_extractor_returns_every_literal_not_just_the_last():
 #: does not serve as written. Each is display copy inside a feature page owned by
 #: another workstream, so it is recorded here rather than edited.
 #:
-#: Re-measured 2026-10-29 at ``main`` ``b5bc34cb``. Four entries were **not drift at
-#: all** — ``/api/solspire/{projects/{id}/runtime-context,workloads,proposals,pulses}``
-#: are served under the ``/solspire`` prefix, and the oracle's one-way ``/api/`` strip
-#: had collapsed them onto that handler (see :func:`_is_served`). Two of them
-#: (``proposals``, ``workloads``) are no longer advertised by any page. The single
-#: surviving entry is real: the page advertises ``{id}`` where the handler serves
-#: ``{session_id}`` — display copy only, and it resolves, so it is recorded, not edited.
-RECORDED_ADVERTISED_DRIFT = {
-    "/api/lab/engineering/sessions/{id}/execute",
-}
+#: Re-measured 2026-10-29 at ``main`` ``b5bc34cb``, and again at the repaired oracle.
+#: The record is now **empty**, and that is a measurement, not a cleanup: every entry
+#: the pre-repair oracle reported was an artifact of its one-way ``/api/`` strip
+#: (see :func:`_is_served`). Four named routes the app *does* serve under the
+#: ``/solspire`` prefix had been collapsed onto their bare twin; two of those
+#: (``proposals``, ``workloads``) are no longer advertised by any page; and the last
+#: entry, ``/api/lab/engineering/sessions/{id}/execute``, advertised by
+#: ``pages/WeaverPage.tsx``, **resolves** — the handler serves ``{session_id}`` and
+#: parameter normalization keeps it, which is the intended page-local naming case.
+#:
+#: So the repaired oracle leaves no unserved advertised contract at this revision.
+#: This stays a floor, not an exact match: a *new* invented contract string is still
+#: visible, because the assertion below fails on any advertised string outside it.
+RECORDED_ADVERTISED_DRIFT: set[str] = set()
 
 
 def test_advertised_contract_strings_are_recorded():
@@ -723,8 +727,24 @@ def test_advertised_contract_strings_are_recorded():
         "advertised contract string(s) that the canonical app does not serve and that are "
         "not in RECORDED_ADVERTISED_DRIFT: " + ", ".join(unrecorded)
     )
-    # Positive control: the recorded set is not vacuous -- at least one recorded
-    # string is genuinely unserved at this revision.
-    assert any(v in advertised for v in RECORDED_ADVERTISED_DRIFT), (
-        "no recorded drift string is still advertised -- prune RECORDED_ADVERTISED_DRIFT"
+    # The recorded set is a floor, and it may legitimately be empty. What it may
+    # not be is *stale*: an entry that is still advertised and that the app now
+    # serves is a false record, so it must be pruned rather than carried.
+    stale = sorted(
+        v for v in RECORDED_ADVERTISED_DRIFT if v in advertised and _is_served(v, served)
+    )
+    assert stale == [], (
+        "recorded drift string(s) that the canonical app actually serves -- prune "
+        "RECORDED_ADVERTISED_DRIFT: " + ", ".join(stale)
+    )
+    # Negative control for the detector: it must not be trivially true. An invented
+    # ``/api`` route with a served bare twin is exactly the shape the pre-repair
+    # oracle passed by collapsing the prefix, and it must be reported here.
+    invented = "/api/solspire/proposals"
+    assert "/solspire/proposals" in served, "control premise: the bare twin must be served"
+    assert _is_served(invented, served) is False, (
+        "detector control: an invented /api route must not read as served"
+    )
+    assert invented not in RECORDED_ADVERTISED_DRIFT, (
+        "the invented control route must not be pre-recorded, or the control is vacuous"
     )

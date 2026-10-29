@@ -170,3 +170,52 @@ The negative control is live against the real workflow file, not a synthetic fix
 proves the judge reads the gate rather than merely agreeing with it.
 
 `api/main.py` is untouched by this pass.
+
+## Follow-up repair — the recorded drift set was itself a false record (2026-10-29)
+
+Independently re-measured at head `52b30212` in an unshallowed clone. The oracle repair
+above is confirmed by its own decisive control (pre-repair oracle restored in place →
+**2 failed**; restored byte-identically, md5 `d3155158…` → **20 passed**). Re-measuring the
+oracle's *output*, however, exposed a defect this branch introduced and did not reconcile.
+
+**Defect.** `RECORDED_ADVERTISED_DRIFT` still carried
+`/api/lab/engineering/sessions/{id}/execute` (advertised by `pages/WeaverPage.tsx:19`) with
+the docstring *"the single surviving entry is real"* and the comment *"display copy only, and
+it resolves"*. Those two statements contradict each other, and the second is the true one:
+under the **repaired** oracle that entry now reads `_is_served(...) is True`, because the
+handler serves `{session_id}` and parameter normalization keeps it. A set named
+"advertised strings the app does not serve" therefore contained a string the app serves.
+
+**Why it was not caught.** The test's positive control was
+`assert any(v in advertised for v in RECORDED_ADVERTISED_DRIFT)` — it required the entry to be
+*advertised*, and asserted nothing about whether it was *unserved*. The pre-repair oracle made
+the entry read unserved, so the two agreed by accident; after the repair the control was
+satisfied by a stale entry, and the docstring's claim (*"genuinely unserved"*) became
+unreachable. The set was a floor with no staleness check, so a false record could never redden.
+
+**Repair** (one file, still no production code):
+
+- `RECORDED_ADVERTISED_DRIFT` → **empty**. The whole recorded set was an artifact of the
+  one-way `/api/` strip: the four `/api/solspire/...` entries were served all along, two of
+  them are no longer advertised, and the survivor resolves.
+- The vacuous positive control is replaced by a **staleness detector** — a recorded entry
+  that is still advertised *and* is served is a false record and must be pruned — plus an
+  explicit **negative control** for the detector itself (`/api/solspire/proposals` must read
+  unserved, and must not be pre-recorded, or the control would be vacuous).
+
+### Verification
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Guard | `pytest tests/test_console_endpoint_registry_contract.py -q -rEf` | **20 passed** |
+| Decisive control — pre-repair oracle restored | rerun, then restored byte-identically | **2 failed, 18 passed** |
+| Control — stale entry re-added to the record | rerun, then restored byte-identically | **1 failed, 19 passed** |
+| Console-contract gate (exact CI command) | `pytest -q $(python scripts/console_contract_domain.py)` | **944 passed** |
+| Architecture fitness | `pytest tests/architecture -q` | **11 passed** |
+| CP10 admission | `printf '<path>' \| python scripts/cp10_mutation_boundary_policy.py --judge` | PASS (exit 0) |
+
+The staleness control is proven live against the real file, not a synthetic fixture: re-adding
+the exact pre-repair entry reddens it, and restoring byte-identically returns 20 passed.
+
+**Not claimed.** No merge, no production deployment, no acceptance. The canonical origin was
+not probed in this pass, so no runtime claim is made in either direction.
