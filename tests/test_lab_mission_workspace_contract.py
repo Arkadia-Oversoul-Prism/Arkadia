@@ -468,3 +468,11 @@ def test_resume_restores_server_intent_and_scoped_local_target_hint():
     assert 'setTargets("")' in workspace
     assert "resumeScopeKnown === false" in workspace
     assert "const canExecute = Boolean(session) && sessionAuthorized && executableState && targetList.length > 0 && !run && !busy;" in workspace
+
+def test_resume_restores_server_confirmed_agent_context():
+    """A resumed mission must not keep showing the pre-session 'deploy agent' decision."""
+    workspace = _read(WORKSPACE)
+    body = _resume_handler_body(workspace)
+    assert body is not None
+    assert "setAgentId(view.session.agent_id)" in body
+
