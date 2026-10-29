@@ -81,9 +81,10 @@ def test_execute_is_gated_by_a_separate_authorization_call():
     # not that this component recorded one locally: a resumed session carries
     # the reference while the local object is empty, and gating on the local
     # object would let step 3 succeed and raise a false BOUNDARY NOT ENFORCED.
-    assert re.search(r"const canExecute = Boolean\(session\) && sessionAuthorized", workspace), (
-        "execution must require a recorded authorization"
-    )
+    assert re.search(
+        r"const canExecute = Boolean\(session\) && sessionAuthorized && executableState && !run && !busy;",
+        workspace,
+    ), "execution must require authorization, an executable substrate state, and no active/completed local run"
     assert "sessionAuthorized" in workspace
     assert "session?.authorization_ref" in workspace
     # And an explicit pre-approval attempt exists, so the gate is observable.
@@ -429,3 +430,12 @@ def _resume_reconstructs_authorization(source: str) -> bool:
     if body is None:
         return False
     return re.search(r"setAuthorization\s*\(", body) is not None
+
+
+def test_resumed_review_boundary_does_not_offer_reexecution():
+    """A resumed READY_FOR_REVIEW session must expose review, not a false execute affordance."""
+    workspace = _read(WORKSPACE)
+    assert 'const executableState = session?.state === "AUTHORIZED" || session?.state === "QUEUED";' in workspace
+    assert 'session.state === "READY_FOR_REVIEW"' in workspace
+    assert 'data-testid="mission-next-decision"' in workspace
+    assert "cannot execute again" in workspace
