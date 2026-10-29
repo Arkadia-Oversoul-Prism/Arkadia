@@ -476,3 +476,31 @@ def test_resume_restores_server_confirmed_agent_context():
     assert body is not None
     assert "setAgentId(view.session.agent_id)" in body
 
+def test_engineering_lab_leads_with_mission_control_and_discloses_diagnostics():
+    """Mission Control is primary; existing technical surfaces remain reachable on demand."""
+    page = _read(PAGE)
+    workspace = _read(WORKSPACE)
+    mission_at = page.index("<MissionWorkspace />")
+    details_at = page.index("<details", mission_at)
+    details_end = page.index("</details>", details_at)
+    diagnostics = page[details_at:details_end]
+
+    assert mission_at < details_at
+    assert 'data-testid="lab-engineering-details"' in diagnostics
+    assert "Engineering evidence &amp; diagnostics" in diagnostics
+    assert 'subtitle="Plan and run bounded engineering work' in page
+    assert "Mission Control" in workspace
+    for surface in (
+        "Lab overview",
+        "<LabOperationalSurfaces",
+        "<ExecutionLoop",
+        "<LabAuthorityReadings",
+        "<LabSessionList",
+        "<LabArtifactCanvas",
+        "<LabAgentRegistry",
+        "<LabModelGateway",
+        "<LabAutomationGrammar",
+        "<NotYetWired",
+    ):
+        assert surface in diagnostics, f"{surface} must remain reachable in the disclosure"
+
