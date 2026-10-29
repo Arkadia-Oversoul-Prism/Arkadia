@@ -1648,3 +1648,70 @@ Keep `feat/prism-ui-reconciliation-overnight-01` as this reconciliation workstre
   question". Read the existing decision record before re-deriving a governance question from
   scratch — and record `merged_acceptance_pending` as **already present** when the guard behaviour
   exists under different vocabulary rather than as "blocked".
+
+## A snapshot cannot record the merge of the PR that carries it (gate-hygiene)
+- `scripts/lane_state.py --check --verify-live` requires every PR the lane-state snapshot
+  claims is open to be **authoritatively open**. `claimed_open_prs()` collects both
+  `open_prs` and `deferred_to_pr`, so a PR that edits its own lane doc is claimed open
+  **twice** (as `lane N open_prs` and `lane N deferred_to_pr`). Measured on #588
+  (`main` `b5bc34cb`, head `a0194866`): `{588: ['lane 1 open_prs', 'lane 1 deferred_to_pr']}`.
+- **The `lane-doc-currency` gate runs twice — on `pull_request` AND on `push` to `main`**
+  (`on.push.branches: ["main"]`, `paths: docs/control-plane/parallel-ui/**`). Only the PR
+  event is visible on the PR. A PR that touches `docs/control-plane/parallel-ui/**` therefore
+  shows **all checks green and `MERGEABLE`/`CLEAN`** while the merge itself fires a second run
+  that fails. `gh pr checks <n>` cannot see the post-merge verdict — this is the false
+  negative that makes "green and mergeable" insufficient for this gate.
+- **Runtime proof exists, so this is not a simulation-only claim.** Push run `40676215628`
+  (head `fe6701a8`) is a real red `main` from the same `_pr_state_findings` and message
+  template: `DRIFT PR #499 (lane 4 open_prs) is recorded as open but is CLOSED without
+  merging; the thread is dead`. The only difference for a merged carrier is the status word
+  (`MERGED` instead of `CLOSED without merging`). Live confirmation of the `341867eb`
+  instance: #507 and #529 are both `state=closed merged=false` today.
+- **Why this is a design decision, not a patch.** A snapshot is a point-in-time measurement
+  and cannot know about the merge of the PR that carries it. At PR time the carrier genuinely
+  *is* open, so a truthful refresh records it open — and the `pull_request` gate *requires*
+  the lane doc to point at it. The two coherent configurations are (a) carrier stays
+  `unassigned`, lane `idle`, doc names no active thread → green on both events but a lane PR
+  is attributed to no lane; or (b) carrier assigned to its lane with the doc pointing at it →
+  truthful but red on the post-merge push until a follow-up refresh lands. Do not treat the
+  choice as a bug fix: it decides what the guard is for, and a fail-closed table gating all
+  four lanes is an authority question. Escalate it; do not silently pick a side.
+- **Green precedents did not solve it — they avoided it.** `6d299eb8` and `b5bc34cb` are green
+  because they record **every lane idle**; `b5bc34cb` lists its own PR #587 under
+  `unassigned_open_prs`, which `grep -rn unassigned_open_prs scripts/lane_state.py` shows is
+  **never read** by any decision. The field is a write-only artifact
+  (`lane_state_refresh.py` writes and prints it; no reader exists), so a snapshot can satisfy
+  the gate while being untruthful about its own PR. A merged PR listed as "unassigned open"
+  is the same class of stale self-claim, one field over.
+- **Two red herrings measured and excluded.** (1) Not a shallow clone: the single failing node
+  `test_detector_flags_a_merged_pr_left_recorded_as_open` fails identically on unmerged `main`
+  in a shallow clone and passes in a full clone, and the finding above is derived in a full
+  clone. (2) Not the `declared_idle` repair (idle compared against the *last* `_PR_RE` match
+  instead of the first) — that change is sound, orthogonal, and green; it does not touch
+  `_pr_state_findings`.
+- **Prefer deriving the post-merge verdict before recommending a merge.** Loading the guard
+  module directly and calling `_pr_state_findings(snapshot, {n: {"state": "closed", "merged":
+  True, ...}})` reproduces the post-merge outcome in one command, with no clone surgery. Do
+  this for any PR that edits the guard's own governed paths, and say which event each check
+  result came from.
+
+## Lane ownership must be closed under the tests a lane PR is allowed to touch (gate-hygiene)
+- `scripts/lane_state_refresh.py::LANE_OWNERSHIP` decides which lane a PR belongs to, by
+  exclusive path ownership. A lane that owns a *source* surface but not that surface's
+  **contract test** cannot own the PR that repairs it: the refresh classifies the PR as
+  unowned, drops it to `unassigned_open_prs`, and leaves the lane `idle`. Measured: lane 1
+  listed `tests/test_console_shell_nav_contract.py` but not
+  `tests/test_console_endpoint_registry_contract.py`, so a Lane 1 endpoint-registry PR was
+  unassignable to Lane 1.
+- **The repair and its consequence are a single atomic change.** Adding the missing ownership
+  line makes the refresh assign the PR to its lane — which is what then *creates* the
+  post-merge red described above, because the lane is no longer `idle` and the snapshot
+  claims the carrier open. An ownership-only change to this table is therefore never
+  behaviour-neutral for the gate; measure the composed effect (ownership + refreshed snapshot
+  + oracle repair) rather than the one-line diff.
+- The measured composition matrix on two trees is the reviewable artifact: on `main`
+  `b5bc34cb`, ownership-only is `3 failed, 43 passed` and ownership+oracle is also
+  `3 failed, 43 passed`; on the carrier's own tree, oracle-only turns the guard red
+  (`--check` exit **1**) because the doc's appended `**Active PR:**` pointer makes the
+  corrected oracle see a live lane that the stale snapshot still calls `idle`. Oracle and
+  snapshot must land together — the refresh is part of the repair, not a follow-up.
