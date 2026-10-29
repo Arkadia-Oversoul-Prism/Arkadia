@@ -512,8 +512,10 @@ def test_mission_control_reads_server_evidence_and_artifacts_with_truthful_state
     assert "interface LabSessionView" in contract
     assert "evidence?: Array<Record<string, unknown>>" in contract
     assert "artifacts?: Array<Record<string, unknown>>" in contract
-    assert "view.evidence ?? []" in workspace
-    assert "view.artifacts ?? []" in workspace
+    assert "Array.isArray(view.evidence)" in workspace
+    assert "Array.isArray(view.artifacts)" in workspace
+    assert "The session view did not return both evidence and artifact collections." in workspace
+    assert "The session view omitted one or more evidence collections; only returned records are shown." in workspace
     assert 'data-testid="mission-recorded-evidence"' in workspace
     for state in ('"LOADING"', '"LIVE"', '"EMPTY"', '"UNAVAILABLE"', '"FAILED"'):
         assert state in workspace
