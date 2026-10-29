@@ -1680,3 +1680,18 @@ Keep `feat/prism-ui-reconciliation-overnight-01` as this reconciliation workstre
   restating it, so this guard is executed without editing the workflow: the CI step log reads
   `944 passed` / `30 passed`, not merely a green job. Evidence:
   `docs/control-plane/evidence/lane1-endpoint-registry-oracle-symmetry-01/EVIDENCE.md`. PR #588.
+
+## `GH_TOKEN` can expire mid-pulse; the PAT secret is the working fallback (gate-hygiene)
+- A pulse can start with `gh` authenticated and lose it partway through: measured this
+  pass, `gh pr checks` returned `HTTP 401: Bad credentials` after several successful calls
+  in the same session, and `gh auth status` then reported "The token in GH_TOKEN is
+  invalid." The `git` push path was unaffected because it uses the credential helper.
+- **Do not classify this as BLOCKED, and do not curl the stale env token to "prove" it.**
+  `${GITHUB_PERSONAL_ACCESS_TOKEN}` was valid and answered `gh api user` -> the expected
+  account. Recover with `export GH_TOKEN="${GITHUB_PERSONAL_ACCESS_TOKEN}"` and re-run the
+  read. The token that fails is the ambient `GH_TOKEN`, not the session credential.
+- An unset-`GH_TOKEN` retry does **not** help: with both env tokens removed, `gh` reports
+  "You are not logged into any GitHub hosts", so there is no stored host credential to
+  fall back on in this sandbox. The working value is the injected PAT, not a helper entry.
+- Re-verify the final head **after** any such recovery: checks read before the failure are
+  evidence about the head they were read at, not about the current one.
