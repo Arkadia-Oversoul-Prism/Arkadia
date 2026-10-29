@@ -361,3 +361,37 @@ The prior UI enabled Execute when a session had an authorization reference and n
 - Local test/build commands and authenticated browser/device checks were not available in this connector-backed run; no local pass is claimed.
 - PR CI must be read from the current PR head. Preview and production verification remain unclaimed.
 - Human review, merge, and production authority remain final.
+
+
+## 8.1 CI verification snapshot — 2026-10-29 21:23–21:26 UTC
+
+**Observed PR head:** `158b3f48277de994442074df224e6c5e6d3420d3`  
+**PR:** [#591](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/591)
+
+### Completed checks
+
+| Workflow / command | Run or job | Observed result |
+|---|---|---|
+| `python -m pytest -q $(python scripts/console_contract_domain.py)` | Prism Console Contract run `40957276646`, job `123740508728` | **945 passed in 25.18s** |
+| `python -m pytest tests/test_prism_console_ci_wiring.py -q` | Same job | **30 passed in 3.33s** |
+| Build Arkadia Console | `SG-02-FE.2-V` run `40957276506`, job `123740507581`, step 6 | **Completed / success** |
+| CP10-A Lab tests | Same SG-02 job, step 19 | **Completed / success** |
+| SolSpire isolated runtime and integration contract tests | Same SG-02 job, step 20 | **Completed / success** |
+| `security-secret-scan` | Run `40957276491` | **Success** |
+| `Boot Syntax Boundary` | Run `40957276859` | **Success** |
+| `Operator Console Posture Currency` | Run `40957276303` | **Success** |
+| `Canonical Render Runtime Probe` | Run `40957276298` | **Success** |
+| `N-ATLAS provider forensics` | Run `40957276445` | **Success** |
+| `N-ATLAS external beta validation` | Run `40957276595` | **Success** |
+| `N-ATLAS Developer Lab` | Run `40957276921` | **Success** |
+| `economic-seam-engine` | Run `40957276873` | **Success** |
+
+The derived console-contract domain includes `tests/test_lab_mission_workspace_contract.py` because the domain derives tracked test modules from the active-console path needles. The new review-boundary regression assertion was therefore included in the 945-test run.
+
+### Still unverified at this snapshot
+
+- `SG-02-FE.2-V` run `40957276506` remained **in progress**; its CP10-B broader backend regression step was running. CP10 API verification and authenticated browser route verification had not started at the last step inspection.
+- A successful canonical runtime probe does not prove this PR is deployed or that production reflects its code.
+- No manual desktop/mobile interaction or preview acceptance is claimed.
+
+This snapshot records results observed on the stated head. Any subsequent evidence-only commit causes CI to evaluate the new PR head again; the results above are not represented as checks on that future head.
