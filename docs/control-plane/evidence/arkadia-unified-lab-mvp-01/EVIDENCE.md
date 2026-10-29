@@ -429,3 +429,31 @@ Those results apply to the baseline head only. This implementation commit and th
 - Authenticated browser verification of the new scope preview at desktop and mobile widths remains UNKNOWN.
 - Preview and production verification remain unclaimed.
 - Human review/merge and production authority remain final.
+
+
+## 8.3 Resume scope continuity — 2026-10-29 21:43 UTC
+
+**Move ID:** `DEA-01-RESUME-SCOPE-02`  
+**Canonical directive:** [Issue #590](https://github.com/Arkadia-Oversoul-Prism/Arkadia/issues/590)  
+**Existing PR updated:** [#591](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/591)  
+**Baseline head:** `406f8c4eea066a5fb4b182a41a99fa54d03d8456`  
+**Implementation commits:** `59b3c70028273342812f24fe2d6a4e48e931365c` (resume hint), `c4a3b7175c7620cb058eaa640c4e7858bad3e1aa` (resume UI)  
+**Contract-test commit:** `62540aedcf490801c7e8153a8b5b21aac14ac9c4`
+
+### Problem and bounded change
+
+The existing resume hint stored only a session ID. The server session view returns the persisted objective but does not return the original read-target list. After reload, the UI could therefore show the default objective/README target and offer an execution scope that did not match the original mission.
+
+- Extended the existing uid-scoped localStorage resume hint to include the objective and read-target list; no new store or tracker was added.
+- Resume re-reads the session and uses the server-returned objective as authoritative.
+- Read targets are restored only from the existing local hint and explicitly labeled as local, not server-confirmed.
+- Legacy raw session-ID hints remain readable.
+- If no saved target hint exists, the target list is blank and authorization/execution affordances remain disabled; the UI does not silently substitute `README.md`.
+- Added a source-level regression contract test for server-first intent, local target hints, legacy compatibility, and fail-closed behavior.
+
+### Verification
+
+- Implementation and contract-test changes are committed on the existing PR branch; fresh CI is required on the resulting head.
+- No local build/pytest or authenticated browser/device run is claimed from this connector-backed execution.
+- No backend, canonical API, identity, authorization subsystem, provenance, WorkEvent, workspace, database, merge, or production deployment changes.
+- Desktop/mobile behavior and preview/production verification remain UNKNOWN / unclaimed.
