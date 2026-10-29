@@ -113,3 +113,28 @@ from live GitHub state at `main` `4de6fc4d`:
 
 Retained as provenance. This block adds no pointer declaration, so the idle disposition
 recorded above remains the last-wins declaration for this lane.
+
+## Status — 2026-10-29 (LANE 1, endpoint-registry oracle repair)
+
+**Active branch:** `feat/prism-l1-endpoint-registry-oracle-symmetry-01`
+**Active PR:** opened as draft from base `b5bc34cb178d0ec8a804ce6f5761e4bd5e0c7989`
+**Base:** `b5bc34cb178d0ec8a804ce6f5761e4bd5e0c7989` (measured live this pulse; supersedes
+every earlier base recorded above).
+
+Lane 1 is no longer idle: the lane holds one bounded draft PR again. The task-currency
+block above discharged its forward-looking handoff and its own last-wins idle declaration
+is now superseded by this pointer, which is the declaration the guard reads.
+
+The slice repairs the served-path oracle in this lane's own guard
+(`tests/test_console_endpoint_registry_contract.py`). Measured at `b5bc34cb`, the oracle
+stripped `/api/` from the *advertised* value only, so it was wrong in both directions —
+a served `/api/...` route read as unserved, and an invented `/api/solspire/proposals`
+read as served by collapsing onto its real bare twin. The extractor feeding it also
+keyed by file, leaving three of `SolSpirePage.tsx`'s four `NotYetWired` panels unjudged.
+`RECORDED_ADVERTISED_DRIFT` drops 6 → 1; the survivor is another workstream's display
+copy and is recorded, not edited (§1). Evidence:
+`docs/control-plane/evidence/lane1-endpoint-registry-oracle-symmetry-01/EVIDENCE.md`.
+
+Reconciliation was exhausted before this PR was opened: the repository held **zero open
+PRs** across all four lanes, so N1–N8 are satisfied and no lane's PR was duplicated or
+continued.
