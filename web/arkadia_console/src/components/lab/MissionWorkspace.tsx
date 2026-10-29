@@ -300,7 +300,7 @@ export function MissionWorkspace() {
   const targetList = useMemo(
     () =>
       targets
-        .split(/[,\\n]/)
+        .split(/[,\n]/)
         .map((t) => t.trim())
         .filter(Boolean),
     [targets],

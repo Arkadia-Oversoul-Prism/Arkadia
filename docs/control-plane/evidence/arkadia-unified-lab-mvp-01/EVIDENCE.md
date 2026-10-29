@@ -651,3 +651,8 @@ Fresh inspection found that `onCreateSession` used `targetList` and `refreshView
 - Before this change, commit `086b283cb9e748e1fddf393dc8be37dd0c032ca6` had 16 successful GitHub check runs, including **Prism Console Contract** (run `40965521458`, completed `2026-10-29T22:25:18Z`) and **SG-02-FE.2-V** (run `40965521534`, completed `2026-10-29T22:28:26Z`). These are baseline results only and do not verify this change.
 - New branch-head CI is required after this commit. No local test/build or authenticated browser/device run is claimed from this connector-backed execution.
 - Not merged, not deployed, not accepted.
+
+
+### Pre-CI correction — same move
+
+During post-write source inspection, the first draft had over-escaped the newline separator and its new source-contract regex. Both were corrected in follow-up commit \`fix(lab): preserve literal newline target separator\` before treating any check result as acceptance. The branch-head CI on the superseded draft is not evidence for the corrected source; use only the latest head's checks.
