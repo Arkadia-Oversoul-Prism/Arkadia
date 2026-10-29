@@ -1,16 +1,25 @@
 {
  "schema": "arkadia.lane-state/1.2",
- "observed_at": "2026-10-28T17:09:17Z",
- "base_main": "4de6fc4d8e52553985a7b5d6183d53f1017f8d44",
+ "observed_at": "2026-10-29T10:58:24Z",
+ "base_main": "b5bc34cb178d0ec8a804ce6f5761e4bd5e0c7989",
  "source": "GitHub REST reads API (Arkadia-Oversoul-Prism/Arkadia), read-only, derived by scripts/lane_state_refresh.py",
  "note": "Machine-readable mirror of the four Prism UI lane threads, DERIVED from live PR state rather than hand-transcribed. Lane assignment is by exclusive path ownership (SHARED-CONTRACTS.md section 1); a PR touching more than one lane's owned paths appears in each. scripts/lane_state.py judges the docs against this file; --verify-live additionally requires every claimed-open PR to be authoritatively open. Refresh with scripts/lane_state_refresh.py --write.",
  "lanes": {
   "1": {
    "doc": "AGENT-01-SHELL.md",
    "title": "Shell / navigation / design system / integration seam",
-   "active_pr": null,
-   "active_branch": null,
-   "open_prs": [],
+   "active_pr": 588,
+   "active_branch": "feat/prism-l1-endpoint-registry-oracle-symmetry-01",
+   "open_prs": [
+    {
+     "number": 588,
+     "branch": "feat/prism-l1-endpoint-registry-oracle-symmetry-01",
+     "head_sha": "eb80bcca1c71051056025c35849336da1d813fd8",
+     "draft": false,
+     "updated_at": "2026-10-29T10:30:39Z",
+     "title": "Lane 1: repair the endpoint-registry served-path oracle in both directions"
+    }
+   ],
    "merged_prs": [
     {
      "number": 423,
@@ -33,7 +42,8 @@
      "merge_commit_sha": "65403304b6dcaa4f4e818cabbb7722892b3b152b"
     }
    ],
-   "doc_guard": "idle"
+   "doc_guard": "deferred",
+   "deferred_to_pr": 588
   },
   "2": {
    "doc": "AGENT-02-NOVANET-OPPORTUNITY.md",
@@ -94,16 +104,7 @@
    "doc_guard": "idle"
   }
  },
- "unassigned_open_prs": [
-  {
-   "number": 587,
-   "branch": "lane-doc-task-currency-01",
-   "head_sha": "1f2d0499c1df6e7e27af98849810b82cebf24db6",
-   "draft": true,
-   "updated_at": "2026-10-28T17:08:15Z",
-   "title": "Lane-doc task currency: discharge delivered tasks and refresh the snapshot"
-  }
- ],
+ "unassigned_open_prs": [],
  "closed_unmerged": [
   {
    "number": 499,

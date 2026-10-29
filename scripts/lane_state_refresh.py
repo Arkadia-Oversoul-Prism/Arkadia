@@ -68,6 +68,7 @@ LANE_OWNERSHIP: dict[str, dict] = {
             "web/arkadia_console/src/lib/surfaces.ts",
             "web/arkadia_console/src/lib/endpoints.ts",
             "web/arkadia_console/src/lib/types.ts",
+            "tests/test_console_endpoint_registry_contract.py",
             "tests/test_console_shell_nav_contract.py",
             "tests/test_console_legacy_route_coverage.py",
             "tests/test_console_document_title_contract.py",

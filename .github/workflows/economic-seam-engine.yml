@@ -11,6 +11,13 @@ name: economic-seam-engine
 # sovereign-boundary pin) and `tests/test_m02a_ci_gate_integrity.py` (which pins the
 # CP10 coupling to this seam). This change adds them.
 #
+# Re-measured 2026-10-29 at `main` `b5bc34cb`: `tests/test_repo_hygiene_gitignore.py`
+# joined the domain when a guard for the `data/economic_seams.db*` SQLite family was
+# added there (the store resolves under the same `SOLSPIRE_DATA_DIR` convention as the
+# canonical SolSpire store, so its `-journal`/`-wal`/`-shm` sidecars materialise in
+# `data/`). It is added to the executing step below in the same change, as this
+# inventory's own contract requires.
+#
 # The inventory is asserted against `git ls-files` by the wiring judge below, so a
 # guard added, renamed, or removed reddens that judge until this step is updated in
 # the same change. The `paths` filter selects `tests/**` rather than an enumerated
@@ -71,6 +78,7 @@ jobs:
           tests/test_m02a_ci_gate_integrity.py
           tests/test_market_data.py
           tests/test_nocopo_adapter.py
+          tests/test_repo_hygiene_gitignore.py
       - name: Economic-seam CI-wiring guard
         # Judges the gate's own trigger: the domain must be selected by this file's
         # `paths` filter and every executing step must be able to fail. A rewrite of

@@ -1648,3 +1648,131 @@ Keep `feat/prism-ui-reconciliation-overnight-01` as this reconciliation workstre
   question". Read the existing decision record before re-deriving a governance question from
   scratch — and record `merged_acceptance_pending` as **already present** when the guard behaviour
   exists under different vocabulary rather than as "blocked".
+
+## A one-way prefix strip makes a served-path oracle wrong in both directions (gate-hygiene)
+- `tests/test_console_endpoint_registry_contract.py` decided "is this advertised `contract=` string
+  served?" by stripping a leading `/api/` from the **advertised** value only
+  (`value[4:] if value.startswith("/api/") else value`). A one-way prefix removal is not a
+  normalization — it is a *falsification* in the direction it was not written for.
+- Measured at `main` `b5bc34cb`, wrong both ways: a **served** route advertised with a page-local
+  parameter name (`/api/lab/engineering/sessions/{id}/execute` vs the served `{session_id}`) read
+  as **unserved**, and an **invented** `/api/solspire/proposals` read as **served** by collapsing
+  onto its real bare twin. `grep -rn '"/api/solspire' api/ solspire/` -> no match; the mount is
+  `/solspire`. The false negative is the dangerous one: a guard whose whole job is catching an
+  invented endpoint must not manufacture a match by removing the prefix that made it invented.
+- **A guard that keys its extraction by file judges only one literal per file.** The extractor fed
+  the oracle via `found[name] = match.group(1)`, so a page with four `NotYetWired` panels had
+  **three** of them silently unjudged. Return *every* literal per file; a dict keyed by file is a
+  last-one-wins race against the source order.
+- **Parameter names are display copy, not contract.** Normalize `{...}` to a placeholder on **both**
+  sides (`_param_normalized`) and keep `/api` significant on **both**, so the oracle compares route
+  *identity*. Editing the page's parameter name to match the backend is a scope violation when that
+  page belongs to another lane (`SHARED-CONTRACTS.md` §1) — record the drift instead.
+- `RECORDED_ADVERTISED_DRIFT` fell 6 -> 1 on the repair: four entries had never been drift (they
+  were artifacts of the one-way strip) and two are no longer advertised. A drift set that grows
+  monotonically is the symptom; a *shrinking* set is what a correct oracle produces.
+- Two negative controls, one per polarity, fail against the pre-repair shape and the file was
+  restored byte-identically afterwards. `--collect-only` attributes the delta: 18 -> 20 nodes
+  (+2) = exactly the new controls; the full-suite failing/error node set (9 nodes,
+  `c280ddc616fe4f4e9110bf4e6b6e538783a83d3764148d8a6d7ac45f6e8bc46b`) contains **zero**
+  endpoint-registry nodes.
+- The console-contract gate derives its inventory (`scripts/console_contract_domain.py`) rather than
+  restating it, so this guard is executed without editing the workflow: the CI step log reads
+  `944 passed` / `30 passed`, not merely a green job. Evidence:
+  `docs/control-plane/evidence/lane1-endpoint-registry-oracle-symmetry-01/EVIDENCE.md`. PR #588.
+
+## `GH_TOKEN` can expire mid-pulse; the PAT secret is the working fallback (gate-hygiene)
+- A pulse can start with `gh` authenticated and lose it partway through: measured this
+  pass, `gh pr checks` returned `HTTP 401: Bad credentials` after several successful calls
+  in the same session, and `gh auth status` then reported "The token in GH_TOKEN is
+  invalid." The `git` push path was unaffected because it uses the credential helper.
+- **Do not classify this as BLOCKED, and do not curl the stale env token to "prove" it.**
+  `${GITHUB_PERSONAL_ACCESS_TOKEN}` was valid and answered `gh api user` -> the expected
+  account. Recover with `export GH_TOKEN="${GITHUB_PERSONAL_ACCESS_TOKEN}"` and re-run the
+  read. The token that fails is the ambient `GH_TOKEN`, not the session credential.
+- An unset-`GH_TOKEN` retry does **not** help: with both env tokens removed, `gh` reports
+  "You are not logged into any GitHub hosts", so there is no stored host credential to
+  fall back on in this sandbox. The working value is the injected PAT, not a helper entry.
+- Re-verify the final head **after** any such recovery: checks read before the failure are
+  evidence about the head they were read at, not about the current one.
+
+## `git add -A` sweeps SQLite sidecars whose family rule is missing (gate-hygiene)
+- `economic_seams/engine.py` resolves its store under the **same** `SOLSPIRE_DATA_DIR`
+  convention as the canonical SolSpire store, so a session that reaches it materialises
+  the same SQLite family. `.gitignore` had `data/solspire_projects.db*` but **no**
+  `data/economic_seams.db*`, so the sidecars were stageable — and lane commit `0bb4a18`
+  ("Record the mid-pulse GH_TOKEN expiry and its working recovery") folded a **357 KB**
+  rollback journal into the branch via a `git add -A`. The commit's own message is about
+  something else entirely, which is the tell: an unrelated hygiene sweep carried it in.
+- **The asymmetry is per-store, not per-extension.** `*.db` covers every database *file*;
+  it never covers `-journal`/`-wal`/`-shm`. Each store needs its own family rule, so
+  `tests/test_repo_hygiene_gitignore.py` now pins `ECONOMIC_SEAMS_FAMILY` (4 paths)
+  alongside the existing SolSpire family. `git check-ignore --no-index -q` is the oracle,
+  so any equivalent rule form satisfies it.
+- **The load-bearing fix is the sandbox, not the ignore rule.** Ignoring hides the
+  symptom; `conftest.py::_sandbox_economic_seams_store` rebinds `DB_PATH` (note: the
+  engine uses the **unprefixed** name `DB_PATH`, not `_DB_PATH` like the SolSpire
+  modules) and forces `ECONOMIC_SEAMS_DB`, so a later import agrees with the rebind.
+  Measured: the five economic-seam test modules that previously left the journal behind
+  now leave `data/` clean.
+- Prove the guard with a **live negative control**: delete the `data/economic_seams.db*`
+  line and exactly the three sidecar parametrizations fail (`*.db` still covers the base
+  file); restore byte-identically and all 16 pass. A guard that reddens on all four or on
+  none is measuring the wrong thing.
+- **Check `.gitignore` family coverage before any `git add -A` in a hygiene pass**, and
+  prefer explicit paths over `-A` when committing inside a lane branch.
+
+## A hygiene guard can enter a content-derived gate domain and redden a file you never touched (gate-hygiene)
+- Measured 2026-10-29 at `main` `b5bc34cb`. The `data/economic_seams.db*` `.gitignore` guard
+  added to `tests/test_repo_hygiene_gitignore.py` names the `economic_seams` seam, so it entered
+  the domain that `tests/test_economic_seam_ci_wiring.py` derives **at test time** (`git ls-files
+  -- tests/` plus a needle scan). The `economic-seam-engine.yml` executing step **enumerates** that
+  domain, so the guard was in the domain and executed by no gate: `21 passed` on `main`, `2 failed,
+  17 passed` on the branch, with `_complete_gates()` returning `[]`. The failing file was one the
+  change never touched. This is the composition hazard already recorded for the console-contract
+  gate: **a content-derived domain cannot be validated by the branch that adds a member to it, only
+  by the composition.**
+- The gate's own header comment carries the contract — "a guard added, renamed, or removed reddens
+  that judge until this step is updated in the same change" — so the repair is mechanical: add the
+  guard to the executing step (1 line) and record provenance. No `paths` filter change was needed
+  because it already selects `tests/**`.
+- Prove it with a **live** negative control on the real workflow file (remove the guard from the
+  step → both judge nodes return; restore byte-identically → 21 passed). A synthetic fixture would
+  only prove the judge agrees with itself.
+- Attribute by the failing/error **node set**, not the count: the two nodes are
+  `test_a_workflow_executes_the_whole_economic_seam_contract` and
+  `test_wiring_workflow_is_a_complete_gate_that_selects_itself`.
+
+
+## A guard that reads the FIRST declaration when its contract says LAST stops judging a live lane (lane-doc-currency)
+- `scripts/lane_state.py::declared_idle` compared the idle declaration against the **first** `_PR_RE`
+  match while the sibling `declared_pr` — and `declared_idle`'s own docstring — specify **last-wins**.
+  A doc carrying a pointer *before* the idle line and a newer pointer *after* it was reported idle, so
+  the guard silently stopped judging a live lane. Reproduce with pointers at `[0, 51, 78]` and idle at
+  `26`: pre-repair `declared_idle` -> `True` (reads the stale #121), repaired -> `False` (reads #11099).
+  A shape with the idle line **outside** the pointer range does not reproduce the defect — the
+  discriminating shape needs pointers on **both sides** of the idle declaration.
+- **The oracle repair and the snapshot refresh are one atomic change.** Repairing `declared_idle` alone
+  is green on `main` but red on the branch that owns the doc (`--check` exit **1**): `AGENT-01-SHELL.md`
+  appends its own `**Active PR:**` pointer, so the corrected oracle finally sees lane 1 as live and then
+  requires the doc to agree with a snapshot that still calls it idle. Adding the ownership line alone is
+  red on **both** trees. Compose the matrix before choosing the slice; a variant that is green on `main`
+  can be red on the tree that carries it.
+- **A synthetic control that deep-copies live state is not hermetic.** `_state_with_open_lane` copied the
+  live snapshot and overrode one lane, so a `deferred_to_pr` / `doc_guard` on *another* lane leaked in and
+  failed a test the control never constructed. Clear the live disposition before applying the synthetic one.
+- **`unassigned_open_prs` is written and printed but never judged.** `lane_state_refresh.py` writes it
+  (line 289) and prints it (line 390); `grep -rn unassigned_open_prs` finds **no reader** in
+  `lane_state.py` or its tests. The committed snapshot listed #587 there while #587 was merged and *was*
+  `main` HEAD. A merged PR cannot be "unassigned open" — the field is a write-only artifact. Wiring it
+  into a decision changes what the gate judges: a separate bounded workstream, recorded not repaired.
+- **`check_lane_docs` returns `[]` when a lane's doc declares a PR the snapshot calls idle**
+  (`lane 1: open_prs=[], unassigned=[588]`, doc declares #588 -> no finding). Recorded, not repaired.
+- Lane 1's `LANE_OWNERSHIP` omitted `tests/test_console_endpoint_registry_contract.py`, so a Lane 1 PR
+  touching its own contract test was classified unassigned and lane 1 stayed idle.
+- Measured on PR #588 head `77ef6792`: lane suite **46 passed**, lane + wiring **58 passed**,
+  `--check` exit 0, `--check --verify-live` exit 0 (`doc-guard lanes: ['2','3','4']; deferred: ['1']`),
+  architecture **11 passed**, and the `lane-doc-currency` check-run itself **success** — the repaired
+  guard is runtime-proven, not source-asserted. Full suite once: 8 failed / 3680 passed / 1 error, and
+  the 9 failing/error nodes are **identical** to the same files on `main` `b5bc34cb` — zero regression,
+  attributed by node identity.

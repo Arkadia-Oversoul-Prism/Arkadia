@@ -24,6 +24,12 @@ tests/_spine_test.db*
 # `tests/test_repo_hygiene_gitignore.py` pins the whole family.
 data/solspire_projects.db*
 
+# The economic seam engine resolves its store under `SOLSPIRE_DATA_DIR`
+# (`economic_seams/engine.py`), so a session that reaches it leaves the same
+# family. A `git add -A` in a hygiene pass swept a 357 KB rollback journal into a
+# lane commit, which is what this rule and its guard exist to prevent.
+data/economic_seams.db*
+
 # API key stores (contain sensitive credentials — never commit)
 data/api_keys.json
 data/provider_keys.json

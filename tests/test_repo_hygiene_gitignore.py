@@ -31,6 +31,18 @@ CANONICAL_DB = "data/solspire_projects.db"
 #: Every file SQLite may materialise for a WAL-mode database.
 SQLITE_FAMILY = (CANONICAL_DB, f"{CANONICAL_DB}-wal", f"{CANONICAL_DB}-shm")
 
+#: The economic seam engine's store, which resolves under the same
+#: `SOLSPIRE_DATA_DIR` convention (`economic_seams/engine.py`) and therefore
+#: materialises the same family.
+ECONOMIC_SEAMS_DB = "data/economic_seams.db"
+
+ECONOMIC_SEAMS_FAMILY = (
+    ECONOMIC_SEAMS_DB,
+    f"{ECONOMIC_SEAMS_DB}-journal",
+    f"{ECONOMIC_SEAMS_DB}-wal",
+    f"{ECONOMIC_SEAMS_DB}-shm",
+)
+
 
 def _is_ignored(path: str) -> bool:
     """Ask git itself, so the assertion tracks any equivalent ignore rule."""
@@ -67,6 +79,43 @@ def test_scratch_db_sidecars_remain_ignored() -> None:
     for path in ("tests/_spine_test.db", "tests/_spine_test.db-wal",
                  "tests/_spine_test.db-shm"):
         assert _is_ignored(path), f"{path} lost its ignore rule"
+
+
+@pytest.mark.parametrize("path", ECONOMIC_SEAMS_FAMILY)
+def test_economic_seams_store_is_never_stageable(path: str) -> None:
+    """The engine's store family must be as unstageable as the canonical store's.
+
+    `economic_seams/engine.py` resolves `DB_PATH` under `SOLSPIRE_DATA_DIR`, so a
+    session that reaches it materialises the same SQLite family. A `git add -A`
+    swept a 357 KB rollback journal into lane commit `0bb4a18`; this pins the
+    family rather than the single literal that happened to be caught.
+    """
+    assert _is_ignored(path), (
+        f"{path} is not ignored; a test session that reaches the economic seam "
+        f"engine would leave it stageable by `git add -A`"
+    )
+
+
+def test_economic_seams_store_is_not_tracked() -> None:
+    """Ignoring is the guardrail; not being tracked is the actual invariant."""
+    tracked = subprocess.run(
+        ["git", "ls-files", "--error-unmatch", ECONOMIC_SEAMS_DB],
+        cwd=REPO_ROOT, capture_output=True, text=True,
+    )
+    assert tracked.returncode != 0, f"{ECONOMIC_SEAMS_DB} is tracked and must not be"
+
+
+def test_economic_seams_ignore_is_scoped_to_the_store_family() -> None:
+    """Negative control: the rule names the store, not the whole `data/` tree.
+
+    Without this, the assertions above would still pass if a future edit ignored
+    all of `data/`, which would also hide tracked review state a later session
+    must be able to read.
+    """
+    assert not _is_ignored("data/__hygiene_control__.txt"), (
+        "a non-store file under data/ is ignored; the rule is broader than the "
+        "runtime database it is meant to cover"
+    )
 
 
 def test_attention_outbox_is_never_stageable() -> None:
