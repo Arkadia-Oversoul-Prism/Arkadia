@@ -614,3 +614,15 @@ The prior head `09d880eb4c3979ea55ac38cd96eaead4f7b2bc5a` passed the console con
 - Fresh CI is required on the successor head after this evidence append. No build/test pass is claimed for the evidence panel or its state corrections yet.
 - No backend/API, persistence, identity, authorization, provenance schema, WorkEvent, production configuration, merge, or deployment change.
 
+## 8.10 Resume contract assertion updated after evidence projection — 2026-10-29 22:24 UTC
+
+**Move ID:** `DEA-01-SESSION-EVIDENCE-01` (regression-test correction)  
+**Failed-test head:** `45b0e0cf6985000d1bdad3b8e40dda8addc88f99`  
+**Test correction commit:** `0ec1dbc96490550b0fa02e641192301cf146ecbd`
+
+The first fresh Prism Console Contract run on `45b0e0cf` reported **1 failed, 949 passed in 37.67s**. The failure was `test_resume_never_reconstructs_an_authorization`: its source assertion required `setSession` to appear directly in the resume handler. The implementation now delegates session application to `applySessionView(view)`, which still calls `setSession(view.session)` and applies the canonical server-returned evidence/artifacts without reconstructing authorization.
+
+Updated the assertion to require both `applySessionView(view)` and `getSessionView`, preserving the actual invariant: resume must re-read and apply server state and must not reconstruct authorization. This was a stale test assertion caused by the refactor, not evidence of an authorization regression.
+
+Fresh CI is required on the successor head after this evidence append. No merge or deployment occurred.
+
