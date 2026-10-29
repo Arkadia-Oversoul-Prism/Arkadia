@@ -783,7 +783,8 @@ export function MissionWorkspace() {
       ) : null}
 
       {session ? (
-        <Panel data-testid="mission-recorded-evidence">
+        <div data-testid="mission-recorded-evidence">
+        <Panel>
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <div>
               <p className="font-mono text-[11px] uppercase tracking-widest text-white/40">Recorded evidence &amp; artifacts</p>
@@ -876,6 +877,7 @@ detail: {recordJson(record, "detail", "not supplied by the server")}</pre>
             </div>
           ) : null}
         </Panel>
+      </div>
       ) : null}
     </div>
   );
