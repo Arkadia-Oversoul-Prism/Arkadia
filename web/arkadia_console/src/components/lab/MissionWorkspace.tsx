@@ -343,7 +343,7 @@ export function MissionWorkspace() {
     }
     return `No next action is enabled for substrate state ${session.state}. Refresh the session or inspect its recorded events.`;
   })();
-  const canCreateSession = Boolean(agentId) && !session && !busy;
+  const canCreateSession = Boolean(agentId) && objective.trim().length > 0 && targetList.length > 0 && !session && !busy;
   const canAttempt = Boolean(session) && !sessionAuthorized && !busy;
   const canAuthorize = Boolean(session) && !sessionAuthorized && !busy;
   const canExecute = Boolean(session) && sessionAuthorized && executableState && !run && !busy;
@@ -431,7 +431,7 @@ export function MissionWorkspace() {
             <input
               value={targets}
               onChange={(e) => setTargets(e.target.value)}
-              disabled={Boolean(run) || busy}
+              disabled={Boolean(session) || Boolean(run) || busy}
               data-testid="mission-targets"
               className="mt-1 w-full rounded border border-line bg-ink px-2 py-1.5 font-mono text-xs text-white disabled:opacity-50"
             />
@@ -443,11 +443,61 @@ export function MissionWorkspace() {
           <input
             value={objective}
             onChange={(e) => setObjective(e.target.value)}
-            disabled={Boolean(run) || busy}
+            disabled={Boolean(session) || Boolean(run) || busy}
             data-testid="mission-objective"
             className="mt-1 w-full rounded border border-line bg-ink px-2 py-1.5 text-sm text-white disabled:opacity-50"
           />
         </label>
+
+        <div className="mt-4 rounded-lg border border-azure/25 bg-azure/5 p-3" data-testid="mission-scope-preview">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="font-mono text-[10px] uppercase tracking-widest text-azure/90">Scope preview</p>
+            <span className="font-mono text-[10px] uppercase tracking-widest text-white/45">
+              {session ? "SERVER SESSION CREATED" : "LOCAL DRAFT · NOT PERSISTED"}
+            </span>
+          </div>
+          <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+            <div className="min-w-0">
+              <dt className="font-mono text-[10px] uppercase tracking-widest text-white/35">Intent</dt>
+              <dd className="mt-1 break-words text-sm text-white/80">{objective.trim() || "No intent entered."}</dd>
+            </div>
+            <div className="min-w-0">
+              <dt className="font-mono text-[10px] uppercase tracking-widest text-white/35">Agent role</dt>
+              <dd className="mt-1 break-words text-sm text-white/80">
+                {role} · {READ_ONLY_ROLES.includes(role) ? "read-only role" : "broader registered role; this mission still requests read operations only"}
+              </dd>
+            </div>
+            <div className="min-w-0 sm:col-span-2">
+              <dt className="font-mono text-[10px] uppercase tracking-widest text-white/35">Read targets</dt>
+              <dd className="mt-1">
+                {targetList.length === 0 ? (
+                  <p className="text-sm text-amber-300/90">No targets configured. Add at least one read target before creating an executable mission.</p>
+                ) : (
+                  <ul className="flex flex-wrap gap-2">
+                    {targetList.map((target, index) => (
+                      <li key={`${target}-${index}`} className="max-w-full break-all rounded border border-line bg-ink/50 px-2 py-1 font-mono text-xs text-white/70">
+                        {target}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt className="font-mono text-[10px] uppercase tracking-widest text-white/35">Operation ceiling</dt>
+              <dd className="mt-1 text-sm text-white/75">READ only · {targetList.length} target(s) · requires_write: false</dd>
+            </div>
+            <div>
+              <dt className="font-mono text-[10px] uppercase tracking-widest text-white/35">Human gate</dt>
+              <dd className="mt-1 text-sm text-white/75">Authorization is separate. Merge and production deployment are not available here.</dd>
+            </div>
+          </dl>
+          <p className="mt-3 text-xs leading-5 text-white/45">
+            {session
+              ? `Session ${session.session_id} is confirmed by the server. Intent and target inputs are locked to prevent scope drift; authorization remains a separate human action.`
+              : "This is a local draft preview, not a backend-generated plan or evidence. The mission is persisted only after the server confirms Create mission. Authorization remains a separate human action."}
+          </p>
+        </div>
 
         <div className="mt-4 flex flex-wrap gap-2">
           <button
