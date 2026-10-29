@@ -219,15 +219,34 @@ export const MISSION_WORKSPACE_REF = "workspace:engineering-lab-mission";
  * another. This is a convenience hint only: the server is the authority, and a
  * stale or foreign id is refused with `404` on read.
  */
+export interface MissionSessionHint {
+  session_id: string;
+  objective?: string;
+  targets?: string[];
+}
+
 const RESUME_KEY = "arkadia_engineering_lab_mission_session";
 
 function resumeKey(uid: string): string {
   return `${RESUME_KEY}:${uid}`;
 }
 
-export function rememberMissionSession(uid: string, sessionId: string): void {
+/**
+ * Store a user-scoped resume hint. The server remains authoritative for the
+ * session and objective; targets are a local scope hint because the served
+ * session view does not include the original requested target list.
+ */
+export function rememberMissionSession(
+  uid: string,
+  sessionId: string,
+  objective?: string,
+  targets?: string[],
+): void {
   try {
-    window.localStorage.setItem(resumeKey(uid), sessionId);
+    const hint: MissionSessionHint = { session_id: sessionId };
+    if (typeof objective === "string") hint.objective = objective;
+    if (targets) hint.targets = targets;
+    window.localStorage.setItem(resumeKey(uid), JSON.stringify(hint));
   } catch {
     /* storage unavailable — resume is a convenience, never a requirement */
   }
@@ -241,9 +260,27 @@ export function forgetMissionSession(uid: string): void {
   }
 }
 
-export function recallMissionSession(uid: string): string | null {
+export function recallMissionSession(uid: string): MissionSessionHint | null {
   try {
-    return window.localStorage.getItem(resumeKey(uid));
+    const stored = window.localStorage.getItem(resumeKey(uid));
+    if (!stored) return null;
+    try {
+      const parsed: unknown = JSON.parse(stored);
+      if (typeof parsed === "string" && parsed.length > 0) return { session_id: parsed };
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+      const candidate = parsed as Record<string, unknown>;
+      if (typeof candidate.session_id !== "string" || candidate.session_id.length === 0) return null;
+      return {
+        session_id: candidate.session_id,
+        objective: typeof candidate.objective === "string" ? candidate.objective : undefined,
+        targets: Array.isArray(candidate.targets)
+          ? candidate.targets.filter((target): target is string => typeof target === "string")
+          : undefined,
+      };
+    } catch {
+      // Backward compatibility: earlier versions stored only the raw session id.
+      return { session_id: stored };
+    }
   } catch {
     return null;
   }
