@@ -656,3 +656,7 @@ Fresh inspection found that `onCreateSession` used `targetList` and `refreshView
 ### Pre-CI correction — same move
 
 During post-write source inspection, the first draft had over-escaped the newline separator and its new source-contract regex. Both were corrected in follow-up commit \`fix(lab): preserve literal newline target separator\` before treating any check result as acceptance. The branch-head CI on the superseded draft is not evidence for the corrected source; use only the latest head's checks.
+
+### CI result and guard correction — 2026-10-29
+
+On commit `e6262e05587c6b183524a5fcc94962166777d4f8`, Prism Console Contract run `40967600085` reported **1 failed, 950 passed in 37.26s**. The failing assertion was the new scope-closure regression test's over-escaped regular expression; it did not indicate a runtime or backend failure. Replaced that expression with scoped source assertions for the memoized target block, persisted target list, and callback dependencies. The next branch-head CI run is the verification authority for this correction.

@@ -530,13 +530,20 @@ def test_mission_control_reads_server_evidence_and_artifacts_with_truthful_state
 def test_session_creation_persists_current_scope_hint():
     """The persisted resume hint must capture the current targets, not a stale callback closure."""
     workspace = _read(WORKSPACE)
-    assert re.search(r"const targetList = useMemo\(\(\) =>[\s\S]*?\}, \[targets\]\);", workspace), (
+    target_start = workspace.index("const targetList = useMemo(")
+    target_end = workspace.index(";", target_start)
+    target_block = workspace[target_start:target_end + 1]
+    assert "targets" in target_block and "[targets]" in target_block, (
         "the parsed target list must be memoized against the editable target input"
     )
-    assert re.search(
-        r"const onCreateSession = useCallback\(async \(\) => \{[\s\S]*?"
-        r"rememberMissionSession\(uid, created\.session_id, created\.objective \|\| objective, targetList\);"
-        r"[\s\S]*?\}, \[agentId, objective, note, uid, targetList, refreshView\]\);",
-        workspace,
-    ), "session creation must capture current scope and refresh callback dependencies"
+
+    callback_start = workspace.index("const onCreateSession = useCallback")
+    callback_end = workspace.index("const onExecuteUnauthorized", callback_start)
+    callback = workspace[callback_start:callback_end]
+    assert "rememberMissionSession(uid, created.session_id, created.objective || objective, targetList);" in callback, (
+        "session creation must persist the current parsed target list"
+    )
+    assert "}, [agentId, objective, note, uid, targetList, refreshView]);" in callback, (
+        "session creation must track target-list and refresh callback dependencies"
+    )
 
