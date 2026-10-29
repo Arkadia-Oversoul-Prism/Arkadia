@@ -43,6 +43,7 @@ import {
   type LabEvent,
   type LabRunResult,
   type LabSession,
+  type MissionSessionHint,
   MISSION_WORKSPACE_REF,
 } from "./missionContract";
 
@@ -100,7 +101,8 @@ export function MissionWorkspace() {
   /** A retained session this operator could resume, if the server still serves
    *  it. Held separately from `session` so nothing renders as live until the
    *  server confirms it. */
-  const [resumable, setResumable] = useState<string | null>(null);
+  const [resumable, setResumable] = useState<MissionSessionHint | null>(null);
+  const [resumeScopeKnown, setResumeScopeKnown] = useState<boolean | null>(null);
 
   const note = useCallback((label: string, detail: string, ok = true) => {
     setSteps((prev) => [...prev, { label, detail, ok, at: stamp() }]);
@@ -127,10 +129,10 @@ export function MissionWorkspace() {
     const retained = recallMissionSession(uid);
     if (!retained) return;
     let cancelled = false;
-    getSessionView(retained)
+    getSessionView(retained.session_id)
       .then((view) => {
         if (cancelled || !view.session) return;
-        setResumable(view.session.session_id);
+        setResumable({ ...retained, session_id: view.session.session_id, objective: view.session.objective });
       })
       .catch(() => {
         if (cancelled) return;
@@ -154,8 +156,16 @@ export function MissionWorkspace() {
     setPhase("working");
     setError(null);
     try {
-      const view = await getSessionView(resumable);
+      const view = await getSessionView(resumable.session_id);
       setSession(view.session);
+      setObjective(view.session.objective);
+      if (resumable.targets && resumable.targets.length > 0) {
+        setTargets(resumable.targets.join(", "));
+        setResumeScopeKnown(true);
+      } else {
+        setTargets("");
+        setResumeScopeKnown(false);
+      }
       setBackendEvents(view.events ?? []);
       setResumable(null);
       const runs = view.runs ?? [];
@@ -198,6 +208,7 @@ export function MissionWorkspace() {
     setSession(null);
     setAuthorization(null);
     setRun(null);
+    setResumeScopeKnown(null);
     setSteps([]);
     setBackendEvents([]);
     setError(null);
@@ -232,7 +243,8 @@ export function MissionWorkspace() {
     try {
       const created = await createSession(MISSION_WORKSPACE_REF, agentId, objective);
       setSession(created);
-      if (uid) rememberMissionSession(uid, created.session_id);
+      if (uid) rememberMissionSession(uid, created.session_id, created.objective || objective, targetList);
+      setResumeScopeKnown(true);
       note("Mission created", `${created.session_id} · state ${created.state}`);
       await refreshView(created.session_id);
     } catch (e) {
@@ -335,6 +347,7 @@ export function MissionWorkspace() {
       return "Inspect the recorded events and evidence. This session is at the human-review boundary and cannot execute again.";
     }
     if (run) return "Inspect the returned evidence. Human acceptance remains a separate act.";
+    if (resumeScopeKnown === false) return "The server confirms this session\u2019s intent, but its original read targets are unavailable. Execution stays disabled; reset this view and create a new mission with explicit targets.";
     if (executableState && sessionAuthorized) {
       return "Execute the bounded read-only run; the substrate reports this session as executable.";
     }
@@ -344,9 +357,9 @@ export function MissionWorkspace() {
     return `No next action is enabled for substrate state ${session.state}. Refresh the session or inspect its recorded events.`;
   })();
   const canCreateSession = Boolean(agentId) && objective.trim().length > 0 && targetList.length > 0 && !session && !busy;
-  const canAttempt = Boolean(session) && !sessionAuthorized && !busy;
-  const canAuthorize = Boolean(session) && !sessionAuthorized && !busy;
-  const canExecute = Boolean(session) && sessionAuthorized && executableState && !run && !busy;
+  const canAttempt = Boolean(session) && targetList.length > 0 && !sessionAuthorized && !busy;
+  const canAuthorize = Boolean(session) && targetList.length > 0 && !sessionAuthorized && !busy;
+  const canExecute = Boolean(session) && sessionAuthorized && executableState && targetList.length > 0 && !run && !busy;
 
   return (
     <div className="space-y-4" data-testid="mission-workspace">
@@ -379,8 +392,7 @@ export function MissionWorkspace() {
           >
             <p className="text-xs text-white/70">
               A mission from a previous visit is still on the substrate:{" "}
-              <span className="font-mono text-azure">{resumable}</span>. Resuming re-reads it from the server — it
-              does not restore an authorization record, because no served route reads one back.
+              <span className="font-mono text-azure">{resumable.session_id}</span>. Resuming re-reads its session and objective from the server. Targets come from a user-scoped local hint because the session contract does not return them; if the hint is absent, execution remains disabled. Authorization is not reconstructed.
             </p>
             <div className="mt-2 flex flex-wrap gap-2">
               <button
@@ -453,7 +465,7 @@ export function MissionWorkspace() {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="font-mono text-[10px] uppercase tracking-widest text-azure/90">Scope preview</p>
             <span className="font-mono text-[10px] uppercase tracking-widest text-white/45">
-              {session ? "SERVER SESSION CREATED" : "LOCAL DRAFT · NOT PERSISTED"}
+              {!session ? "LOCAL DRAFT · NOT PERSISTED" : resumeScopeKnown === false ? "SESSION CONFIRMED · TARGETS UNKNOWN" : "SESSION CONFIRMED · TARGETS FROM LOCAL SCOPE"}
             </span>
           </div>
           <dl className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -494,7 +506,9 @@ export function MissionWorkspace() {
           </dl>
           <p className="mt-3 text-xs leading-5 text-white/45">
             {session
-              ? `Session ${session.session_id} is confirmed by the server. Intent and target inputs are locked to prevent scope drift; authorization remains a separate human action.`
+              ? resumeScopeKnown === false
+                ? "The server confirms the session and objective, but the original read targets are unavailable from the session contract and no saved local scope hint was found. Execution remains disabled; reset this view and start a new mission to define targets."
+                : "The server confirms the session and objective. Read targets are retained as a user-scoped local hint, not returned by the server. Intent and targets are locked to prevent scope drift; authorization remains a separate human action."
               : "This is a local draft preview, not a backend-generated plan or evidence. The mission is persisted only after the server confirms Create mission. Authorization remains a separate human action."}
           </p>
         </div>
