@@ -146,12 +146,12 @@ function AuthenticatedThreadHistory({ compact }: { compact?: boolean }) {
   );
 }
 
-export function ArkanaThreadHistory({ compact = false }: { compact?: boolean }) {
+export function ArkanaThreadHistory() {
   const { loading, isAuthenticated } = useAuth();
 
   if (loading) {
     return (
-      <ThreadHistoryFrame compact={compact}>
+      <ThreadHistoryFrame>
         <Loading label="Verifying identity…" />
       </ThreadHistoryFrame>
     );
@@ -159,18 +159,11 @@ export function ArkanaThreadHistory({ compact = false }: { compact?: boolean }) 
 
   if (!isAuthenticated) {
     return (
-      <ThreadHistoryFrame compact={compact}>
-        {compact ? (
-          <p className="rounded border border-gold/25 bg-gold/5 px-2.5 py-2 text-xs text-white/60" data-testid="arkana-threads-auth-required">
-            <span className="font-display text-sm text-gold">Sign in</span>
-            <span className="mt-0.5 block">Thread history is owner-scoped.</span>
-          </p>
-        ) : (
-          <ContractState state="auth-required" />
-        )}
+      <ThreadHistoryFrame>
+        <ContractState state="auth-required" />
       </ThreadHistoryFrame>
     );
   }
 
-  return <AuthenticatedThreadHistory compact={compact} />;
+  return <AuthenticatedThreadHistory />;
 }
