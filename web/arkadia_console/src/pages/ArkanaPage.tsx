@@ -14,6 +14,7 @@ import { ReadAloud } from "../components/ReadAloud";
 import { ArkanaShell } from "../components/arkana/shell/ArkanaShell";
 
 interface Turn extends ArkanaMessage {
+  id: number;
   resonance?: number;
   provenance?: ArkanaProvenance;
 }
@@ -42,21 +43,27 @@ export function ArkanaPage() {
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [modeOpen, setModeOpen] = useState(false);
+  const [mode, setMode] = useState("Auto");
+  const nextId = useRef(0);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ block: "end" });
+    endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [turns, sending]);
 
-  async function send(messageOverride?: string) {
-    const message = (messageOverride ?? draft).trim();
+  async function send(event?: FormEvent) {
+    event?.preventDefault();
+    const message = draft.trim();
     if (!message || sending) return;
     if (!messageOverride) setDraft("");
     setError(null);
     setSending(true);
-    const history: ArkanaMessage[] = turns.map((t) => ({ role: t.role, content: t.content }));
-    setTurns((prev) => [...prev, { role: "user", content: message }]);
+    const history: ArkanaMessage[] = turns.map(({ role, content }) => ({ role, content }));
+    const userTurn: Turn = { id: nextId.current++, role: "user", content: message };
+    setTurns((prev) => [...prev, userTurn]);
     try {
       const result = await askArkana(message, history);
       setTurns((prev) => [
@@ -71,7 +78,9 @@ export function ArkanaPage() {
     } catch (caught) {
       const detail = caught instanceof ApiError ? caught.message : "Arkana could not respond.";
       setError(detail);
-      setTurns((prev) => prev.slice(0, -1));
+      setTurns((prev) => prev.filter((turn) => turn.id !== userTurn.id));
+      setDraft(message);
+      requestAnimationFrame(() => inputRef.current?.focus());
     } finally {
       setSending(false);
       inputRef.current?.focus();
