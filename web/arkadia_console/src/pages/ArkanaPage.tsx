@@ -146,7 +146,7 @@ export function ArkanaPage() {
     <ArkanaShell
       brand="Arkana"
       statusLabel={sending ? "Synthesising" : "Online"}
-      sidebar={<ArkanaThreadHistory compact />}
+      sidebar={<ArkanaThreadHistory />}
       topTrailing={
         <span className="hidden font-mono text-[10px] uppercase tracking-widest text-white/35 sm:inline">
           Intelligence interface
@@ -198,11 +198,11 @@ export function ArkanaPage() {
                   >
                     {turn.content}
                   </p>
-                  {turn.role === "assistant" ? (
+                  {turn.role === "assistant" && (
                     <div className="mt-3 flex flex-wrap items-center gap-3">
                       <ReadAloud text={turn.content} label="Listen" testId={`arkana-listen-${i}`} />
                     </div>
-                  ) : null}
+                  )}
                   {turn.provenance ? (
                     <div className="mt-3">
                       <ArkanaProvenancePanel provenance={turn.provenance} />
