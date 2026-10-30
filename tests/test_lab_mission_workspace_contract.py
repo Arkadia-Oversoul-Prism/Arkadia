@@ -81,9 +81,10 @@ def test_execute_is_gated_by_a_separate_authorization_call():
     # not that this component recorded one locally: a resumed session carries
     # the reference while the local object is empty, and gating on the local
     # object would let step 3 succeed and raise a false BOUNDARY NOT ENFORCED.
-    assert re.search(r"const canExecute = Boolean\(session\) && sessionAuthorized", workspace), (
-        "execution must require a recorded authorization"
-    )
+    assert re.search(
+        r"const canExecute = Boolean\(session\) && sessionAuthorized && executableState && targetList\.length > 0 && !run && !busy;",
+        workspace,
+    ), "execution must require authorization, an executable substrate state, and no active/completed local run"
     assert "sessionAuthorized" in workspace
     assert "session?.authorization_ref" in workspace
     # And an explicit pre-approval attempt exists, so the gate is observable.
@@ -293,8 +294,8 @@ def test_resume_never_reconstructs_an_authorization():
     assert "setAuthorization" not in body, (
         "resume must not reconstruct an authorization; no route can read one back"
     )
-    assert "setSession" in body and "getSessionView" in body, (
-        "resume must re-read the session from the server"
+    assert "applySessionView(view)" in body and "getSessionView" in body, (
+        "resume must apply the session view re-read from the server"
     )
 
     # And the client must not offer an authorization accessor at all.
@@ -321,7 +322,7 @@ def test_resume_does_not_treat_a_stored_id_as_authority():
     )
     # The offer is held separately from the live session.
     assert "resumable" in workspace
-    assert re.search(r"setResumable\(view\.session\.session_id\)", workspace), (
+    assert re.search(r"setResumable\(\{\s*\.\.\.retained,\s*session_id:\s*view\.session\.session_id,\s*objective:\s*view\.session\.objective\s*\}\)", workspace), (
         "the offer must be set from the server's own session, not from storage"
     )
 
@@ -341,9 +342,9 @@ def test_authorized_state_is_read_from_the_substrate_not_local_state():
     assert "session?.authorization_ref" in workspace, (
         "the authorization test must consult the server-reported reference"
     )
-    assert re.search(r"const canAttempt = Boolean\(session\) && !sessionAuthorized", workspace)
-    assert re.search(r"const canAuthorize = Boolean\(session\) && !sessionAuthorized", workspace)
-    assert re.search(r"const canExecute = Boolean\(session\) && sessionAuthorized", workspace)
+    assert re.search(r"const canAttempt = Boolean\(session\) && targetList\.length > 0 && !sessionAuthorized", workspace)
+    assert re.search(r"const canAuthorize = Boolean\(session\) && targetList\.length > 0 && !sessionAuthorized", workspace)
+    assert re.search(r"const canExecute = Boolean\(session\) && sessionAuthorized && executableState && targetList\.length > 0", workspace)
     # The bare-object form must be gone.
     assert not re.search(r"const canExecute = Boolean\(session && authorization\)", workspace), (
         "gating on the local object reintroduces the false BOUNDARY NOT ENFORCED alarm"
@@ -429,3 +430,120 @@ def _resume_reconstructs_authorization(source: str) -> bool:
     if body is None:
         return False
     return re.search(r"setAuthorization\s*\(", body) is not None
+
+
+def test_resumed_review_boundary_does_not_offer_reexecution():
+    """A resumed READY_FOR_REVIEW session must expose review, not a false execute affordance."""
+    workspace = _read(WORKSPACE)
+    assert 'const executableState = session?.state === "AUTHORIZED" || session?.state === "QUEUED";' in workspace
+    assert 'session.state === "READY_FOR_REVIEW"' in workspace
+    assert 'data-testid="mission-next-decision"' in workspace
+    assert "cannot execute again" in workspace
+
+
+def test_scope_preview_is_truthful_and_locks_persisted_intent():
+    """The operator can inspect the exact draft scope, and persisted intent cannot drift."""
+    workspace = _read(WORKSPACE)
+    contract = _read(CONTRACT)
+    assert 'data-testid="mission-scope-preview"' in workspace
+    assert "LOCAL DRAFT · NOT PERSISTED" in workspace
+    assert "not a backend-generated plan or evidence" in workspace
+    assert 'const canCreateSession = Boolean(agentId) && objective.trim().length > 0 && targetList.length > 0 && !session && !busy;' in workspace
+    assert workspace.count("disabled={Boolean(session) || Boolean(run) || busy}") >= 2
+    assert "requires_write: false" in contract
+    assert 'kind: "read"' in contract
+
+
+def test_resume_restores_server_intent_and_scoped_local_target_hint():
+    """Resume re-reads authoritative intent and never invents unavailable targets."""
+    contract = _read(CONTRACT)
+    workspace = _read(WORKSPACE)
+    assert "interface MissionSessionHint" in contract
+    assert "JSON.stringify(hint)" in contract
+    assert "candidate.session_id" in contract
+    assert "return { session_id: stored }" in contract  # legacy id-only hint
+    assert "getSessionView(retained.session_id)" in workspace
+    assert "setObjective(view.session.objective)" in workspace
+    assert 'resumable.targets.join(", ")' in workspace
+    assert 'setTargets("")' in workspace
+    assert "resumeScopeKnown === false" in workspace
+    assert "const canExecute = Boolean(session) && sessionAuthorized && executableState && targetList.length > 0 && !run && !busy;" in workspace
+
+def test_resume_restores_server_confirmed_agent_context():
+    """A resumed mission must not keep showing the pre-session 'deploy agent' decision."""
+    workspace = _read(WORKSPACE)
+    body = _resume_handler_body(workspace)
+    assert body is not None
+    assert "setAgentId(view.session.agent_id)" in body
+
+def test_engineering_lab_leads_with_mission_control_and_discloses_diagnostics():
+    """Mission Control is primary; existing technical surfaces remain reachable on demand."""
+    page = _read(PAGE)
+    workspace = _read(WORKSPACE)
+    mission_at = page.index("<MissionWorkspace />")
+    details_at = page.index("<details", mission_at)
+    details_end = page.index("</details>", details_at)
+    diagnostics = page[details_at:details_end]
+
+    assert mission_at < details_at
+    assert 'data-testid="lab-engineering-details"' in diagnostics
+    assert "Engineering evidence &amp; diagnostics" in diagnostics
+    assert 'subtitle="Plan and run bounded engineering work' in page
+    assert "Mission Control" in workspace
+    for surface in (
+        "Lab overview",
+        "<LabOperationalSurfaces",
+        "<ExecutionLoop",
+        "<LabAuthorityReadings",
+        "<LabSessionList",
+        "<LabArtifactCanvas",
+        "<LabAgentRegistry",
+        "<LabModelGateway",
+        "<LabAutomationGrammar",
+        "<NotYetWired",
+    ):
+        assert surface in diagnostics, f"{surface} must remain reachable in the disclosure"
+
+def test_mission_control_reads_server_evidence_and_artifacts_with_truthful_states():
+    """Evidence is rendered from the session-view response, never fabricated locally."""
+    workspace = _read(WORKSPACE)
+    contract = _read(CONTRACT)
+
+    assert "interface LabSessionView" in contract
+    assert "evidence?: Array<Record<string, unknown>>" in contract
+    assert "artifacts?: Array<Record<string, unknown>>" in contract
+    assert "Array.isArray(view.evidence)" in workspace
+    assert "Array.isArray(view.artifacts)" in workspace
+    assert "The session view did not return both evidence and artifact collections." in workspace
+    assert "The session view omitted one or more evidence collections; only returned records are shown." in workspace
+    assert 'data-testid="mission-recorded-evidence"' in workspace
+    for state in ('"LOADING"', '"LIVE"', '"EMPTY"', '"UNAVAILABLE"', '"FAILED"'):
+        assert state in workspace
+    assert 'recordText(record, "evidence_id"' in workspace
+    assert 'recordText(artifact, "artifact_id"' in workspace
+    assert 'recordJson(record, "provenance"' in workspace
+    assert 'recordJson(artifact, "content"' in workspace
+    assert "No local substitute is shown." in workspace
+
+
+
+def test_session_creation_persists_current_scope_hint():
+    """The persisted resume hint must capture the current targets, not a stale callback closure."""
+    workspace = _read(WORKSPACE)
+    target_start = workspace.index("const targetList = useMemo(")
+    target_end = workspace.index(";", target_start)
+    target_block = workspace[target_start:target_end + 1]
+    assert "targets" in target_block and "[targets]" in target_block, (
+        "the parsed target list must be memoized against the editable target input"
+    )
+
+    callback_start = workspace.index("const onCreateSession = useCallback")
+    callback_end = workspace.index("const onExecuteUnauthorized", callback_start)
+    callback = workspace[callback_start:callback_end]
+    assert "rememberMissionSession(uid, created.session_id, created.objective || objective, targetList);" in callback, (
+        "session creation must persist the current parsed target list"
+    )
+    assert "}, [agentId, objective, note, uid, targetList, refreshView]);" in callback, (
+        "session creation must track target-list and refresh callback dependencies"
+    )
+

@@ -33,40 +33,8 @@ export function EngineeringLabPage() {
   return (
     <Page
       title="Engineering Lab"
-      subtitle="Technical operations: task state, provider status, execution history, and evidence. Reads are owner-scoped."
+      subtitle="Plan and run bounded engineering work with explicit human authorization. Technical evidence and diagnostics remain available on demand."
     >
-      <Panel className="mb-4">
-        <p className="mb-3 font-mono text-[11px] uppercase tracking-widest text-white/40">Lab overview</p>
-        {overview.state === "ready" && overview.data ? (
-          <Facts rows={scalarOverview(overview.data)} />
-        ) : (
-          <ContractState state={overview.state} error={overview.error?.message} onRetry={overview.reload} />
-        )}
-      </Panel>
-
-      <LabOperationalSurfaces overview={overview.state === "ready" ? overview.data ?? null : null} />
-
-      <ExecutionLoop stages={readLoopStages(overview.state === "ready" ? overview.data : null)} />
-
-      <Panel className="mb-4">
-        <p className="mb-3 font-mono text-[11px] uppercase tracking-widest text-white/40">N-ATLAS provider (effective state)</p>
-        {catalog.state === "ready" && catalog.data ? (
-          <Facts
-            rows={[
-              { label: "status", value: catalog.data.status },
-              { label: "detail", value: catalog.data.detail ?? "—" },
-            ]}
-          />
-        ) : (
-          <ContractState state={catalog.state} error={catalog.error?.message} onRetry={catalog.reload} />
-        )}
-        <p className="mt-3 text-xs text-white/40">
-          This reports the deployment's effective configuration, not repository defaults.
-        </p>
-      </Panel>
-
-      <LabAuthorityReadings source={overview.data as LabGovernanceSource | null} />
-
       <MissionWorkspace />
 
       <LabRepositoryContext />
