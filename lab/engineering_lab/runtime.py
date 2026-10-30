@@ -598,7 +598,20 @@ class EngineeringLabRuntime:
             result_state=result_state, observations=observations,
             summary=f"agent loop {result.state}",
             evidence_refs=(evidence.evidence_id,),
-        ) | {"loop_state": result.state, "turns": [t.to_dict() for t in result.turns]}
+        ) | {
+            "loop_state": result.state,
+            # P0.5: the dispatch outcome must be legible to the caller without
+            # digging through evidence — *why* a run stopped (e.g. no inference
+            # adapter) is the difference between an honest UNAVAILABLE and an
+            # opaque failure.
+            "loop_reason": result.reason,
+            # The tool envelope actually granted, so an authorization's effect
+            # on this run is observable rather than assumed.
+            "effective_tools": list(effective),
+            "provider": provider,
+            "model": descriptor.model,
+            "turns": [t.to_dict() for t in result.turns],
+        }
 
     def session_view(self, session_id: str, subject_ref: str) -> dict[str, Any]:
         """Full inspectable state of one session (EL-10 'what is happening')."""

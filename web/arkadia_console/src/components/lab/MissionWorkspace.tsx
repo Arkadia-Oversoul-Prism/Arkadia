@@ -47,6 +47,7 @@ import {
   type MissionSessionHint,
   MISSION_WORKSPACE_REF,
 } from "./missionContract";
+import { LabWorkerDispatch } from "./LabWorkerDispatch";
 
 type Phase = "idle" | "working";
 
@@ -691,6 +692,14 @@ export function MissionWorkspace() {
             {SESSION_STATE_MEANING[session.state] ?? "State reported verbatim by the substrate."}
           </p>
         </Panel>
+      ) : null}
+
+      {session ? (
+        <LabWorkerDispatch
+          sessionId={session.session_id}
+          authorized={session.state === "AUTHORIZED" || session.state === "QUEUED"}
+          objective={objective}
+        />
       ) : null}
 
       <Panel>
