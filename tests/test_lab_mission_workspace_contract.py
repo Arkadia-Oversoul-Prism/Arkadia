@@ -24,6 +24,7 @@ CONSOLE = REPO / "web" / "arkadia_console" / "src"
 CONTRACT = CONSOLE / "components" / "lab" / "missionContract.ts"
 WORKSPACE = CONSOLE / "components" / "lab" / "MissionWorkspace.tsx"
 PAGE = CONSOLE / "pages" / "EngineeringLabPage.tsx"
+DISPATCH = CONSOLE / "components" / "lab" / "LabWorkerDispatch.tsx"
 LAB_ROUTES = REPO / "api" / "lab_routes.py"
 
 
@@ -110,13 +111,13 @@ def test_run_is_presented_as_a_proposal_not_an_acceptance():
 
 
 def test_workspace_is_read_only_by_construction():
-    """The MVP surface must not be able to request a write."""
+    """The workspace admits read and bounded test operations, never writes."""
     contract = _read(CONTRACT)
     assert "requires_write: false" in contract, (
-        "the mission workspace is read-only; a write request must not be expressible"
+        "the mission workspace must keep bounded execution explicitly non-write"
     )
-    # Only read operations are constructed.
     assert 'kind: "read"' in contract
+    assert 'kind: "test"' in contract
     assert not re.search(r'kind:\s*"write"', contract)
 
 
@@ -316,9 +317,13 @@ def test_resume_does_not_treat_a_stored_id_as_authority():
     workspace = _read(WORKSPACE)
     effect = _resume_effect_body(workspace)
     assert effect is not None, "the mount effect must exist"
-    assert "getSessionView" in effect, "the retained id must be confirmed by a real read"
-    assert "forgetMissionSession" in effect, (
-        "an unconfirmable id must be discarded, not left to offer a mission that is not there"
+    assert "getSessionView(retained.session_id)" in effect, "the retained id must be confirmed by a real read"
+    assert re.search(
+        r"if \(!view\.session\) \{\s*forgetMissionSession\(uid\);",
+        effect,
+    ), "a missing server session must discard its stale local resume hint"
+    assert "forgetMissionSession(uid);" in effect, (
+        "a failed server read must also discard the stale local resume hint"
     )
     # The offer is held separately from the live session.
     assert "resumable" in workspace
@@ -409,14 +414,21 @@ def _resume_handler_body(source: str) -> str | None:
 
 
 def _resume_effect_body(source: str) -> str | None:
-    """The body of the mount effect that confirms a retained session."""
-    match = re.search(r"useEffect\(\(\) => \{", source)
-    if match is None:
-        return None
-    brace = source.find("{", match.end() - 1)
-    if brace == -1:
-        return None
-    return _function_body(source, brace)
+    """Find the mount effect that confirms a retained session.
+
+    MissionWorkspace also has an execute-polling effect. Select by the
+    resume-specific reads rather than assuming the resume effect is first.
+    """
+    for match in re.finditer(r"useEffect\(\(\) => \{", source):
+        brace = source.find("{", match.end() - 1)
+        if brace == -1:
+            continue
+        body = _function_body(source, brace)
+        if body is None:
+            continue
+        if "recallMissionSession(uid)" in body and "getSessionView(retained.session_id)" in body:
+            return body
+    return None
 
 
 def _resume_reconstructs_authorization(source: str) -> bool:
@@ -452,6 +464,51 @@ def test_scope_preview_is_truthful_and_locks_persisted_intent():
     assert workspace.count("disabled={Boolean(session) || Boolean(run) || busy}") >= 2
     assert "requires_write: false" in contract
     assert 'kind: "read"' in contract
+
+
+def _ts_function(source: str, name: str) -> str:
+    marker = f"export function {name}"
+    start = source.find(marker)
+    assert start != -1, name
+    nxt = source.find("\nexport ", start + len(marker))
+    return source[start:] if nxt == -1 else source[start:nxt]
+
+
+def test_bounded_test_uses_the_execute_route_and_does_not_send_a_command():
+    """A test run is one operation on the existing execute route.
+
+    The client may name a selector. It must not choose the process, open a new
+    endpoint, or hand the operation to the model loop.
+    """
+    contract = _read(CONTRACT)
+    body = _ts_function(contract, "executeBoundedTest")
+    assert 'sessionAction(sessionId, "execute")' in body
+    assert 'kind: "test"' in body
+    assert "requires_write: false" in body
+    assert "argv" not in body
+    assert "run-agent" not in body
+    assert "localTestSelectorRefusal" in contract
+    assert "must not start with '-'" in contract
+
+    panel = _read(CONSOLE / "components" / "lab" / "LabBoundedTest.tsx")
+    workspace = _read(WORKSPACE)
+    assert "executeBoundedTest" in panel
+    assert "dispatchWorker" not in panel
+    assert 'data-testid="mission-test-panel"' in panel
+    assert "not an independent verification" in panel
+    assert "UNAVAILABLE" in panel
+    assert "does not send a command" in panel
+    assert "LIVE" not in panel
+    assert "VERIFIED" not in panel
+    assert "ACCEPTED" not in panel
+    mount = re.search(r"<LabBoundedTest[\s\S]*?/>", workspace)
+    assert mount, "the mission workspace must mount the bounded test panel"
+    assert "busy" not in mount.group(0), "a test request must not take the workspace busy lock"
+    assert "sessionState={session.state}" in mount.group(0)
+    assert "namedOperations={null}" in mount.group(0), (
+        "the client must not reconstruct authorization terms the server does not return"
+    )
+    assert "onSettled={() => refreshView(session.session_id)}" in mount.group(0)
 
 
 def test_resume_restores_server_intent_and_scoped_local_target_hint():
@@ -547,3 +604,23 @@ def test_session_creation_persists_current_scope_hint():
         "session creation must track target-list and refresh callback dependencies"
     )
 
+
+
+def test_worker_dispatch_distinguishes_gateway_catalog_states():
+    """An empty provider catalog is EMPTY, not an endless loading indicator."""
+    dispatch = _read(DISPATCH)
+
+    assert 'type GatewayPanelState = "LOADING" | "LIVE" | "EMPTY" | "UNAVAILABLE" | "FAILED";' in dispatch
+    assert 'setGatewayState(providers.length > 0 ? "LIVE" : "EMPTY");' in dispatch
+    assert 'setGatewayState("UNAVAILABLE");' in dispatch
+    assert 'setGatewayState(classifyGatewayFailure(err));' in dispatch
+    assert 'gatewayState === "LOADING"' in dispatch
+    assert 'gatewayState === "EMPTY"' in dispatch
+    assert 'gatewayState === "UNAVAILABLE"' in dispatch
+    assert 'gatewayState === "FAILED"' in dispatch
+    assert 'data-state="LIVE"' in dispatch
+    assert "The gateway returned an empty provider catalog." in dispatch
+    assert "The gateway response did not include a provider catalog." in dispatch
+    assert 'catalog.length === 0 ? (' not in dispatch, (
+        "an empty catalog must not be rendered as a still-loading gateway read"
+    )

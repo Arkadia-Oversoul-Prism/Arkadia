@@ -21,6 +21,7 @@
  *     and no dispatch implies acceptance.
  */
 import { useCallback, useEffect, useState } from "react";
+import { ApiError } from "../../lib/apiClient";
 import { Panel } from "../ui";
 import {
   dispatchWorker,
@@ -43,20 +44,44 @@ function describeError(error: unknown): string {
   return String(error);
 }
 
+type GatewayPanelState = "LOADING" | "LIVE" | "EMPTY" | "UNAVAILABLE" | "FAILED";
+
+function classifyGatewayFailure(error: unknown): "UNAVAILABLE" | "FAILED" {
+  if (
+    error instanceof ApiError &&
+    (error.kind === "NETWORK_ERROR" || [401, 403, 404, 503].includes(error.status ?? 0))
+  ) {
+    return "UNAVAILABLE";
+  }
+  return "FAILED";
+}
+
 export function LabWorkerDispatch({ sessionId, authorized, objective }: LabWorkerDispatchProps) {
   const [gateway, setGateway] = useState<LabGatewayView | null>(null);
+  const [gatewayState, setGatewayState] = useState<GatewayPanelState>("LOADING");
   const [gatewayError, setGatewayError] = useState<string | null>(null);
   const [dispatching, setDispatching] = useState(false);
   const [result, setResult] = useState<LabDispatchResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const loadGateway = useCallback(async () => {
+    setGatewayState("LOADING");
+    setGatewayError(null);
     try {
-      setGateway(await getGatewayView());
-      setGatewayError(null);
+      const view = await getGatewayView();
+      setGateway(view);
+      const providers = Array.isArray(view.catalog) ? view.catalog : null;
+      if (providers === null) {
+        setGatewayState("UNAVAILABLE");
+        setGatewayError("The gateway response did not include a provider catalog.");
+        return;
+      }
+      setGatewayState(providers.length > 0 ? "LIVE" : "EMPTY");
     } catch (err) {
       // A failed availability read is reported, not treated as "available".
+      setGateway(null);
       setGatewayError(describeError(err));
+      setGatewayState(classifyGatewayFailure(err));
     }
   }, []);
 
@@ -121,14 +146,24 @@ export function LabWorkerDispatch({ sessionId, authorized, objective }: LabWorke
         <p className="mb-2 font-mono text-[10px] uppercase tracking-widest text-white/35">
           Inference availability — reported by the gateway
         </p>
-        {gatewayError ? (
-          <p className="text-xs text-red-300">
-            Availability could not be read: {gatewayError}. Availability is unknown, not assumed.
+        {gatewayState === "LOADING" ? (
+          <p className="text-xs text-white/35" data-testid="mission-provider-state" data-state="LOADING">
+            Reading provider status…
           </p>
-        ) : catalog.length === 0 ? (
-          <p className="text-xs text-white/35">Reading provider status…</p>
+        ) : gatewayState === "EMPTY" ? (
+          <p className="text-xs text-white/45" data-testid="mission-provider-state" data-state="EMPTY">
+            The gateway returned an empty provider catalog. No provider availability was reported.
+          </p>
+        ) : gatewayState === "UNAVAILABLE" ? (
+          <p className="text-xs text-amber-200" data-testid="mission-provider-state" data-state="UNAVAILABLE">
+            Provider availability is unavailable: {gatewayError ?? "The gateway did not return a provider catalog."}. No provider state is assumed.
+          </p>
+        ) : gatewayState === "FAILED" ? (
+          <p className="text-xs text-red-300" data-testid="mission-provider-state" data-state="FAILED">
+            Provider availability read failed: {gatewayError ?? "The gateway response could not be read."}.
+          </p>
         ) : (
-          <ul className="space-y-1.5">
+          <ul className="space-y-1.5" data-testid="mission-provider-state" data-state="LIVE">
             {catalog.map((p) => (
               <li
                 key={p.provider}
@@ -157,7 +192,7 @@ export function LabWorkerDispatch({ sessionId, authorized, objective }: LabWorke
             ))}
           </ul>
         )}
-        {catalog.length > 0 && dispatchable.length === 0 ? (
+        {gatewayState === "LIVE" && catalog.length > 0 && dispatchable.length === 0 ? (
           <p className="mt-2 rounded border border-amber-300/30 bg-amber-300/5 px-3 py-2 text-xs text-amber-200/90">
             No dispatchable inference provider is configured. A dispatch will stop{" "}
             <span className="font-mono">BLOCKED</span> with the gateway's own reason — this surface reports that

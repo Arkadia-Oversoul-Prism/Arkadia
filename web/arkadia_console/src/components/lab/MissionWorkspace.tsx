@@ -28,7 +28,7 @@
  *     serve them. There is no SSE/WebSocket transport and no decorative LIVE
  *     indicator — only "request in flight" and substrate-reported state.
  */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Panel } from "../ui";
 import { ApiError } from "../../lib/apiClient";
 import { useAuth } from "../../contexts/AuthContext";
@@ -45,7 +45,6 @@ import {
   registerAgent,
   rememberMissionSession,
   type AgentRole,
-  type LabAuthorization,
   type LabEvent,
   type LabRunResult,
   type LabSession,
@@ -54,6 +53,7 @@ import {
   MISSION_WORKSPACE_REF,
 } from "./missionContract";
 import { LabWorkerDispatch } from "./LabWorkerDispatch";
+import { LabBoundedTest } from "./LabBoundedTest";
 
 /** Which mutating act is currently awaiting a server response.
  *  Only that act's controls are blocked; the rest of the panel stays readable.
@@ -143,7 +143,6 @@ export function MissionWorkspace() {
 
   const [agentId, setAgentId] = useState<string | null>(null);
   const [session, setSession] = useState<LabSession | null>(null);
-  const [authorization, setAuthorization] = useState<LabAuthorization | null>(null);
   const [run, setRun] = useState<LabRunResult | null>(null);
   const [steps, setSteps] = useState<StepRecord[]>([]);
   const [backendEvents, setBackendEvents] = useState<LabEvent[]>([]);
@@ -178,6 +177,26 @@ export function MissionWorkspace() {
     }
     setSession(view.session);
     setBackendEvents(view.events ?? []);
+    const hasEvidenceCollection = Array.isArray(view.evidence);
+    const hasArtifactCollection = Array.isArray(view.artifacts);
+    if (!hasEvidenceCollection && !hasArtifactCollection) {
+      setSessionEvidence([]);
+      setSessionArtifacts([]);
+      setEvidenceState("UNAVAILABLE");
+      setEvidenceError("The session view did not return both evidence and artifact collections.");
+      return view;
+    }
+    const evidence = Array.isArray(view.evidence) ? view.evidence : [];
+    const artifacts = Array.isArray(view.artifacts) ? view.artifacts : [];
+    setSessionEvidence(evidence);
+    setSessionArtifacts(artifacts);
+    const incompleteCollections = !hasEvidenceCollection || !hasArtifactCollection;
+    setEvidenceState(evidence.length > 0 || artifacts.length > 0 ? "LIVE" : "EMPTY");
+    setEvidenceError(
+      incompleteCollections
+        ? "The session view omitted one or more evidence collections; only returned records are shown."
+        : null,
+    );
     return view;
   }, []);
 
@@ -194,6 +213,30 @@ export function MissionWorkspace() {
       throw e;
     }
   }, [applySessionView]);
+
+  useEffect(() => {
+    if (!uid) return;
+    const retained = recallMissionSession(uid);
+    if (!retained) return;
+    let cancelled = false;
+    getSessionView(retained.session_id)
+      .then((view) => {
+        if (cancelled) return;
+        if (!view.session) {
+          forgetMissionSession(uid);
+          setResumable(null);
+          return;
+        }
+        setResumable({ ...retained, session_id: view.session.session_id, objective: view.session.objective });
+      })
+      .catch(() => {
+        if (cancelled) return;
+        forgetMissionSession(uid);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [uid]);
 
   /**
    * While an execute HTTP request is in flight, poll the existing session view.
@@ -234,25 +277,6 @@ export function MissionWorkspace() {
       window.clearInterval(handle);
     };
   }, [activeAction, session?.session_id]);
-
-  useEffect(() => {
-    if (!uid) return;
-    const retained = recallMissionSession(uid);
-    if (!retained) return;
-    let cancelled = false;
-    getSessionView(retained.session_id)
-      .then((view) => {
-        if (cancelled || !view.session) return;
-        setResumable({ ...retained, session_id: view.session.session_id, objective: view.session.objective });
-      })
-      .catch(() => {
-        if (cancelled) return;
-        forgetMissionSession(uid);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [uid]);
 
   const onResume = useCallback(async () => {
     if (!uid || !resumable) return;
@@ -313,7 +337,6 @@ export function MissionWorkspace() {
     if (uid) forgetMissionSession(uid);
     setAgentId(null);
     setSession(null);
-    setAuthorization(null);
     setRun(null);
     setResumeScopeKnown(null);
     setSteps([]);
@@ -324,6 +347,13 @@ export function MissionWorkspace() {
     setEvidenceError(null);
     setError(null);
   }, [uid]);
+
+  const onRefreshEvidence = useCallback(() => {
+    if (!session?.session_id) return;
+    void refreshView(session.session_id).catch(() => {
+      /* refreshView records the failure state and message */
+    });
+  }, [session?.session_id, refreshView]);
 
   const targetList = useMemo(
     () =>
@@ -366,7 +396,7 @@ export function MissionWorkspace() {
     } finally {
       setActiveAction(null);
     }
-  }, [agentId, objective, note, uid, refreshView]);
+  }, [agentId, objective, note, uid, targetList, refreshView]);
 
   const onExecuteUnauthorized = useCallback(async () => {
     if (!session) return;
@@ -390,7 +420,6 @@ export function MissionWorkspace() {
     setError(null);
     try {
       const result = await authorizeSession(session.session_id, ["read", "test"], 60);
-      setAuthorization(result.authorization);
       setSession(result.session);
       await refreshView(result.session.session_id);
       note(
@@ -437,13 +466,28 @@ export function MissionWorkspace() {
     }
   }, [session, objective, targetList, note, refreshView]);
 
-  const mutating = activeAction !== null;
+  const busy = activeAction !== null;
+  const mutating = busy;
   const executeInFlight = activeAction === "execute";
-  const sessionAuthorized = Boolean(session?.authorization_ref) || Boolean(authorization);
-  const canCreateSession = Boolean(agentId) && !session && !mutating;
-  const canAttempt = Boolean(session) && !sessionAuthorized && !mutating;
-  const canAuthorize = Boolean(session) && !sessionAuthorized && !mutating;
-  const canExecute = Boolean(session) && sessionAuthorized && !run && !mutating;
+  const sessionAuthorized = Boolean(session?.authorization_ref);
+  const executableState = session?.state === "AUTHORIZED" || session?.state === "QUEUED";
+  const canCreateSession = Boolean(agentId) && objective.trim().length > 0 && targetList.length > 0 && !session && !busy;
+  const canAttempt = Boolean(session) && targetList.length > 0 && !sessionAuthorized && !busy;
+  const canAuthorize = Boolean(session) && targetList.length > 0 && !sessionAuthorized && !busy;
+  const canExecute = Boolean(session) && sessionAuthorized && executableState && targetList.length > 0 && !run && !busy;
+  const nextDecision = !agentId
+    ? "Deploy the mission agent."
+    : !session
+      ? "Confirm the scope, then create the mission."
+      : session.state === "READY_FOR_REVIEW"
+        ? "This mission is at READY_FOR_REVIEW and cannot execute again. Review its evidence and record a separate human decision."
+        : !sessionAuthorized
+          ? "Review the scope and record a separate human authorization."
+          : !executableState
+            ? `The substrate reports ${session.state}; execution is not available in this state.`
+            : !run
+              ? "Execute the bounded run, then review its returned evidence."
+              : "Review the run and its evidence; acceptance remains a human decision.";
 
   return (
     <div className="space-y-4" data-testid="mission-workspace">
@@ -543,7 +587,7 @@ export function MissionWorkspace() {
             <input
               value={targets}
               onChange={(e) => setTargets(e.target.value)}
-              disabled={Boolean(run) || mutating}
+              disabled={Boolean(session) || Boolean(run) || busy}
               data-testid="mission-targets"
               className="mt-1 w-full rounded border border-line bg-ink px-2 py-1.5 font-mono text-xs text-white disabled:opacity-50"
             />
@@ -556,7 +600,6 @@ export function MissionWorkspace() {
             value={objective}
             onChange={(e) => setObjective(e.target.value)}
             disabled={Boolean(session) || Boolean(run) || busy}
-            disabled={Boolean(run) || mutating}
             data-testid="mission-objective"
             className="mt-1 w-full rounded border border-line bg-ink px-2 py-1.5 text-sm text-white disabled:opacity-50"
           />
@@ -681,6 +724,25 @@ export function MissionWorkspace() {
         ) : null}
       </Panel>
 
+      {session ? (
+        <LabWorkerDispatch
+          sessionId={session.session_id}
+          authorized={sessionAuthorized}
+          objective={objective}
+        />
+      ) : null}
+
+      {session ? (
+        <LabBoundedTest
+          sessionId={session.session_id}
+          sessionState={session.state}
+          namedOperations={null}
+          objective={objective}
+          onSettled={() => refreshView(session.session_id)}
+        />
+      ) : null}
+
+
       {steps.length > 0 ? (
         <Panel>
           <p className="mb-3 font-mono text-[11px] uppercase tracking-widest text-white/40">Operator timeline</p>
@@ -704,9 +766,12 @@ export function MissionWorkspace() {
 
       {backendEvents.length > 0 ? (
         <Panel>
-          <p className="mb-3 font-mono text-[11px] uppercase tracking-widest text-white/40">
-            Substrate events · {backendEvents.length}
-          </p>
+          <div data-testid="mission-event-stream">
+            <p className="mb-1 font-mono text-[11px] uppercase tracking-widest text-white/40">
+              Substrate events · {backendEvents.length}
+            </p>
+            <p className="mb-3 text-xs text-white/35">Events recorded by the substrate, not narrated by this surface.</p>
+          </div>
           <ol className="space-y-1" data-testid="mission-backend-events">
             {backendEvents.map((ev) => (
               <li key={ev.event_id} className="font-mono text-[11px] text-white/55">
@@ -783,7 +848,7 @@ export function MissionWorkspace() {
               <button
                 type="button"
                 onClick={onRefreshEvidence}
-                disabled={busy}
+                disabled={mutating || evidenceState === "LOADING"}
                 className="rounded border border-white/20 px-2 py-1 font-mono text-[10px] uppercase tracking-widest text-white/55 hover:border-white/40 disabled:opacity-30"
               >
                 Refresh evidence
