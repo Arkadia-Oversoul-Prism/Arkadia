@@ -27,4 +27,4 @@ def test_markdown_is_rendered_in_the_main_conversation_canvas():
     assert '<MarkdownViewer content={turn.content}' in source
     assert 'data-testid="arkana-conversation-canvas"' in source
     assert '"data-testid": "arkana-markdown"' in renderer
-    assert 'https?:\\\\/\\\\/' in renderer
+    assert 'const protocol = href.split(":")[0].toLowerCase()' in renderer
