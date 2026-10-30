@@ -1,11 +1,10 @@
 /**
  * Arkana — conversation-first intelligence interface (A1 shell + A1.1 rail).
  *
- * Preserves the existing non-streaming resonance contract (`askArkana`).
- * Streaming is A2.
+ * Streams resonance deltas while preserving the JSON fallback contract.
  */
 import { useEffect, useRef, useState } from "react";
-import { askArkana, type ArkanaMessage } from "../lib/arkana";
+import { streamArkana, type ArkanaMessage } from "../lib/arkana";
 import type { ArkanaProvenance } from "../components/arkana/arkanaProvenanceContract";
 import { ArkanaProvenancePanel } from "../components/arkana/ArkanaProvenancePanel";
 import { ApiError } from "../lib/apiClient";
@@ -17,6 +16,7 @@ interface Turn extends ArkanaMessage {
   id: number;
   resonance?: number;
   provenance?: ArkanaProvenance;
+  status?: string;
 }
 
 const SUGGESTIONS = [
@@ -59,21 +59,25 @@ export function ArkanaPage() {
     setSending(true);
     const history: ArkanaMessage[] = turns.map(({ role, content }) => ({ role, content }));
     const userTurn: Turn = { id: nextId.current++, role: "user", content: message };
-    setTurns((prev) => [...prev, userTurn]);
+    const assistantId = nextId.current++;
+    setTurns((prev) => [...prev, userTurn, { id: assistantId, role: "assistant", content: "" }]);
     try {
-      const result = await askArkana(message, history);
-      const assistantTurn: Turn = {
-        id: nextId.current++,
-        role: "assistant",
-          content: result.reply,
-          resonance: result.resonance,
-        provenance: result.provenance,
-      };
-      setTurns((prev) => [...prev, assistantTurn]);
+      const result = await streamArkana(message, history, {
+        onStatus: (label) => setTurns((prev) => prev.map((turn) =>
+          turn.id === assistantId ? { ...turn, status: label } : turn,
+        )),
+        onDelta: (delta) => setTurns((prev) => prev.map((turn) =>
+          turn.id === assistantId ? { ...turn, content: turn.content + delta } : turn,
+        )),
+      });
+      setTurns((prev) => prev.map((turn) => turn.id === assistantId
+        ? { ...turn, content: result.reply, resonance: result.resonance, provenance: result.provenance }
+        : turn,
+      ));
     } catch (caught) {
       const detail = caught instanceof ApiError ? caught.message : "Arkana could not respond.";
       setError(detail);
-      setTurns((prev) => prev.filter((turn) => turn.id !== userTurn.id));
+      setTurns((prev) => prev.filter((turn) => turn.id !== userTurn.id && turn.id !== assistantId));
       setDraft(message);
       requestAnimationFrame(() => inputRef.current?.focus());
     } finally {
