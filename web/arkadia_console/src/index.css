@@ -709,10 +709,6 @@ body {
   color: #78857f;
 }
 
-.arkana-composer-input:focus-visible {
-  outline: none;
-}
-
 .arkana-composer-footer {
   display: flex;
   align-items: center;
