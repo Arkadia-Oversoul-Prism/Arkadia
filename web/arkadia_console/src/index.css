@@ -40,18 +40,6 @@ body {
   padding-right: 16px;
 }
 
-/*
- * The one shared focus ring. Every interactive element takes the same emerald
- * outline, drawn from the `emerald` design token, so keyboard focus never
- * depends on the browser default ring — which flips colour with the OS theme
- * and can be near-invisible over the aurora field. Recovered from the archived
- * Prism (`index.css`): `button:focus-visible, a:focus-visible, input:focus-visible,
- * textarea:focus-visible { outline: 2px solid rgba(0,212,170,.65) }`.
- *
- * `:focus-visible` (not `:focus`) keeps the ring off a mouse click, matching
- * platform behaviour. A control that opts out with `outline-none` supplies its
- * own `focus:border-*` cue instead.
- */
 @layer base {
   a:focus-visible,
   button:focus-visible,
@@ -62,12 +50,6 @@ body {
   }
 }
 
-/*
- * Honour the OS "reduce motion" setting. Loading pulses and hover transitions
- * are decoration, never information, so they collapse to a single frame rather
- * than being the only thing on screen that still moves. Recovered verbatim from
- * the archived Prism (`index.css`).
- */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -76,5 +58,880 @@ body {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* Arkana — the one expressive element is its quiet orbital mark. */
+.arkana-shell {
+  --arkana-bg: #0b0e12;
+  --arkana-rail: #0d1014;
+  --arkana-surface: #14191e;
+  --arkana-rule: rgba(218, 231, 228, 0.09);
+  --arkana-text: #e8eeeb;
+  --arkana-muted: #8a9691;
+  --arkana-dim: #606d68;
+  --arkana-teal: #8ddccc;
+  position: relative;
+  z-index: 1;
+  display: flex;
+  width: 100%;
+  min-height: calc(100vh - 3rem);
+  overflow: hidden;
+  color: var(--arkana-text);
+  background:
+    radial-gradient(ellipse at 58% 43%, rgba(72, 115, 103, 0.075), transparent 49%),
+    var(--arkana-bg);
+  border: 1px solid rgba(218, 231, 228, 0.07);
+  border-radius: 18px;
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.24);
+  font-family: Inter, "DM Sans", system-ui, sans-serif;
+}
+
+.arkana-rail {
+  display: flex;
+  flex: 0 0 248px;
+  flex-direction: column;
+  min-width: 0;
+  padding: 23px 15px 14px;
+  background: rgba(9, 12, 15, 0.62);
+  border-right: 1px solid var(--arkana-rule);
+}
+
+.arkana-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  width: fit-content;
+  color: #e9efec;
+  font-size: 17px;
+  font-weight: 560;
+  letter-spacing: -0.045em;
+  text-decoration: none;
+}
+
+.arkana-brand-mark,
+.arkana-assistant-mark {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  color: #b9e8db;
+  font-family: Georgia, "Times New Roman", serif;
+  font-style: italic;
+  font-weight: 400;
+  border: 1px solid rgba(141, 220, 204, 0.42);
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, rgba(141, 220, 204, 0.18), rgba(141, 220, 204, 0.025) 69%);
+}
+
+.arkana-brand-mark {
+  width: 27px;
+  height: 27px;
+  font-size: 17px;
+}
+
+.arkana-new-button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 40px;
+  margin-top: 30px;
+  padding: 0 11px;
+  color: #dce5e1;
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  border: 1px solid rgba(141, 220, 204, 0.22);
+  border-radius: 9px;
+  background: rgba(141, 220, 204, 0.045);
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease;
+}
+
+.arkana-new-button:hover {
+  border-color: rgba(141, 220, 204, 0.42);
+  background: rgba(141, 220, 204, 0.09);
+}
+
+.arkana-new-button > span {
+  color: var(--arkana-teal);
+  font-size: 17px;
+  line-height: 1;
+}
+
+.arkana-rail-divider {
+  height: 1px;
+  margin: 20px 2px 18px;
+  background: var(--arkana-rule);
+}
+
+.arkana-history-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 5px;
+  color: var(--arkana-muted);
+  font-size: 11px;
+  letter-spacing: 0.01em;
+}
+
+.arkana-history-lock {
+  display: inline-grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  padding: 0;
+  color: #87958e;
+  font: inherit;
+  font-size: 15px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.arkana-history-lock:hover {
+  color: #dbe6e0;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.arkana-history-content {
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+  margin-top: 11px;
+}
+
+.arkana-history-content > section {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.arkana-history-content > section > p:first-child,
+.arkana-history-content > section > p:nth-child(2) {
+  display: none;
+}
+
+.arkana-history-content [data-testid="arkana-threads-empty"] {
+  padding: 8px 5px;
+  color: var(--arkana-dim);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.arkana-history-content > section > div:has(> div[data-testid]) {
+  margin: 0;
+}
+
+.arkana-history-content [data-testid^="arkana-thread-"] {
+  min-height: 36px;
+  padding: 8px 9px;
+  color: #aebbb5;
+  font-size: 11px;
+  border-color: transparent;
+  background: transparent;
+  transition: background 140ms ease;
+}
+
+.arkana-history-content [data-testid^="arkana-thread-"]:hover,
+.arkana-history-content [data-testid^="arkana-thread-"][aria-expanded="true"] {
+  border-color: transparent;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.arkana-history-content [data-testid^="arkana-thread-"] > span:first-child {
+  color: inherit;
+}
+
+.arkana-history-content [data-testid^="arkana-thread-"] > span:last-child {
+  display: block;
+  margin: 4px 0 0;
+  color: var(--arkana-dim);
+}
+
+.arkana-rail-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 13px 5px 3px;
+  color: var(--arkana-dim);
+  font-size: 10px;
+}
+
+.arkana-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #7bc6a8;
+  box-shadow: 0 0 9px rgba(123, 198, 168, 0.34);
+}
+
+.arkana-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: calc(100vh - 3rem);
+}
+
+.arkana-topbar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 66px;
+  padding: 0 28px;
+  border-bottom: 1px solid rgba(218, 231, 228, 0.055);
+}
+
+.arkana-topbar-title {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.arkana-topbar-product {
+  color: #e5ece8;
+  font-size: 13px;
+  font-weight: 560;
+  letter-spacing: -0.02em;
+}
+
+.arkana-topbar-context {
+  color: var(--arkana-dim);
+  font-size: 11px;
+}
+
+.arkana-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.arkana-model-caption {
+  color: var(--arkana-dim);
+  font-size: 10px;
+}
+
+.arkana-popover-wrap {
+  position: relative;
+}
+
+.arkana-model-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 32px;
+  padding: 0 10px;
+  color: #cbd5d0;
+  font: inherit;
+  font-size: 11px;
+  border: 1px solid var(--arkana-rule);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.025);
+  cursor: pointer;
+}
+
+.arkana-model-spark {
+  color: var(--arkana-teal);
+  font-size: 13px;
+}
+
+.arkana-chevron {
+  color: var(--arkana-dim);
+  font-size: 14px;
+}
+
+.arkana-mode-popover {
+  position: absolute;
+  z-index: 6;
+  top: calc(100% + 9px);
+  right: 0;
+  width: min(280px, calc(100vw - 32px));
+  padding: 15px;
+  border: 1px solid rgba(218, 231, 228, 0.13);
+  border-radius: 10px;
+  background: #161c1f;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.38);
+}
+
+.arkana-mode-popover strong {
+  font-size: 12px;
+  font-weight: 550;
+}
+
+.arkana-mode-popover p {
+  margin: 7px 0 12px;
+  color: var(--arkana-muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.arkana-mode-popover button {
+  padding: 5px 9px;
+  color: var(--arkana-teal);
+  font: inherit;
+  font-size: 10px;
+  border: 1px solid rgba(141, 220, 204, 0.25);
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.arkana-mobile-menu {
+  display: none;
+  color: #c8d3ce;
+  font-size: 16px;
+  border: 0;
+  background: transparent;
+}
+
+.arkana-content {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  width: min(100%, 880px);
+  min-height: 0;
+  margin: 0 auto;
+  padding: 0 38px;
+}
+
+.arkana-content-empty {
+  justify-content: center;
+}
+
+.arkana-content-active {
+  justify-content: flex-end;
+}
+
+.arkana-welcome {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  padding: 25px 0 38px;
+  text-align: center;
+}
+
+.arkana-orbit {
+  position: relative;
+  display: grid;
+  width: 76px;
+  height: 76px;
+  place-items: center;
+  margin-bottom: 27px;
+  border: 1px solid rgba(141, 220, 204, 0.18);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(141, 220, 204, 0.07), transparent 68%);
+  box-shadow: 0 0 48px rgba(97, 172, 153, 0.06), inset 0 0 27px rgba(141, 220, 204, 0.025);
+}
+
+.arkana-orbit::before,
+.arkana-orbit::after {
+  position: absolute;
+  inset: 8px;
+  border: 1px solid rgba(141, 220, 204, 0.14);
+  border-radius: 50%;
+  content: "";
+  transform: rotate(-34deg) scaleX(0.46);
+}
+
+.arkana-orbit::after {
+  transform: rotate(34deg) scaleX(0.46);
+}
+
+.arkana-orbit span {
+  width: 23px;
+  height: 23px;
+  border: 1px solid rgba(180, 233, 217, 0.7);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, rgba(202, 245, 228, 0.68), rgba(141, 220, 204, 0.16) 48%, transparent 73%);
+  box-shadow: 0 0 22px rgba(141, 220, 204, 0.32);
+}
+
+.arkana-orbit i,
+.arkana-orbit b {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #b5ead9;
+  box-shadow: 0 0 8px rgba(141, 220, 204, 0.7);
+}
+
+.arkana-orbit i { top: 14px; right: 21px; }
+.arkana-orbit b { bottom: 17px; left: 17px; width: 3px; height: 3px; }
+
+.arkana-welcome-kicker {
+  margin: 0 0 11px;
+  color: #9cb5aa;
+  font-size: 11px;
+  letter-spacing: 0.075em;
+}
+
+.arkana-welcome h1 {
+  margin: 0;
+  color: #e7eee9;
+  font-size: clamp(27px, 4vw, 38px);
+  font-weight: 430;
+  letter-spacing: -0.055em;
+  line-height: 1.14;
+}
+
+.arkana-welcome-copy {
+  max-width: 390px;
+  margin: 13px 0 0;
+  color: #8b9992;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.arkana-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 29px;
+}
+
+.arkana-suggestions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 11px;
+  color: #b4c0ba;
+  font: inherit;
+  font-size: 10px;
+  border: 1px solid rgba(218, 231, 228, 0.09);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.022);
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+.arkana-suggestions button:hover {
+  color: #e2ebe6;
+  border-color: rgba(141, 220, 204, 0.25);
+  background: rgba(141, 220, 204, 0.045);
+}
+
+.arkana-suggestion-symbol {
+  color: var(--arkana-teal);
+  font-size: 13px;
+}
+
+.arkana-conversation {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 38px 0 25px;
+  scrollbar-color: rgba(218, 231, 228, 0.16) transparent;
+}
+
+.arkana-turn-list {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  max-width: 700px;
+  margin: 0 auto;
+  padding: 0;
+  list-style: none;
+}
+
+.arkana-turn {
+  display: flex;
+  gap: 12px;
+  min-width: 0;
+}
+
+.arkana-turn-user {
+  justify-content: flex-end;
+}
+
+.arkana-assistant-mark {
+  width: 25px;
+  height: 25px;
+  margin-top: 1px;
+  font-size: 15px;
+}
+
+.arkana-turn-body {
+  min-width: 0;
+  max-width: min(100%, 650px);
+}
+
+.arkana-turn-user .arkana-turn-body {
+  max-width: min(88%, 560px);
+  padding: 13px 16px;
+  border: 1px solid rgba(218, 231, 228, 0.075);
+  border-radius: 13px 13px 3px 13px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.arkana-turn-label {
+  margin: 0 0 7px;
+  color: #9daaa4;
+  font-size: 10px;
+  font-weight: 550;
+}
+
+.arkana-turn-user .arkana-turn-label {
+  text-align: right;
+}
+
+.arkana-turn-text {
+  margin: 0;
+  color: #dce4df;
+  font-size: 13px;
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.arkana-turn-assistant .arkana-turn-text {
+  color: #d8e1dc;
+}
+
+.arkana-turn-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.arkana-turn-tools button {
+  color: #9ba8a1;
+}
+
+.arkana-response-note {
+  color: #74837b;
+  font-size: 9px;
+}
+
+.arkana-thinking {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 19px;
+  margin: 0;
+}
+
+.arkana-thinking span {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--arkana-teal);
+  animation: arkana-breathe 1.25s ease-in-out infinite;
+}
+
+.arkana-thinking span:nth-child(2) { animation-delay: 140ms; }
+.arkana-thinking span:nth-child(3) { animation-delay: 280ms; }
+
+@keyframes arkana-breathe {
+  0%, 60%, 100% { opacity: 0.28; transform: translateY(0); }
+  30% { opacity: 0.9; transform: translateY(-2px); }
+}
+
+.arkana-error {
+  display: flex;
+  gap: 10px;
+  max-width: 700px;
+  margin: 0 auto 12px;
+  padding: 12px 14px;
+  border: 1px solid rgba(212, 173, 112, 0.25);
+  border-radius: 9px;
+  background: rgba(212, 173, 112, 0.055);
+}
+
+.arkana-error-icon {
+  display: grid;
+  flex: none;
+  width: 17px;
+  height: 17px;
+  place-items: center;
+  color: #e2bc80;
+  font-size: 10px;
+  border: 1px solid rgba(226, 188, 128, 0.45);
+  border-radius: 50%;
+}
+
+.arkana-error strong {
+  color: #e5d2b5;
+  font-size: 11px;
+  font-weight: 550;
+}
+
+.arkana-error p {
+  margin: 4px 0 0;
+  color: #b8a990;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.arkana-composer-wrap {
+  flex: none;
+  width: min(100%, 700px);
+  margin: 0 auto;
+  padding: 14px 0 17px;
+}
+
+.arkana-composer {
+  padding: 12px 13px 9px 15px;
+  border: 1px solid rgba(218, 231, 228, 0.14);
+  border-radius: 14px;
+  background: linear-gradient(145deg, rgba(25, 32, 34, 0.97), rgba(17, 22, 25, 0.97));
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.2), inset 0 1px rgba(255, 255, 255, 0.025);
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.arkana-composer:focus-within {
+  border-color: rgba(141, 220, 204, 0.36);
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.22), 0 0 0 3px rgba(141, 220, 204, 0.035);
+}
+
+.arkana-composer-input {
+  display: block;
+  width: 100%;
+  min-height: 38px;
+  max-height: 180px;
+  resize: vertical;
+  padding: 5px 1px 8px;
+  color: #e5ece8;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.6;
+  border: 0;
+  outline: 0;
+  background: transparent;
+}
+
+.arkana-composer-input::placeholder {
+  color: #78857f;
+}
+
+.arkana-composer-input:focus-visible {
+  outline: none;
+}
+
+.arkana-composer-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 4px;
+}
+
+.arkana-composer-hint {
+  color: #728079;
+  font-size: 9px;
+}
+
+.arkana-composer-hint span {
+  padding: 0 3px;
+  color: #526059;
+}
+
+.arkana-send-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 67px;
+  min-height: 30px;
+  padding: 0 10px;
+  color: #0d1715;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  border: 1px solid rgba(141, 220, 204, 0.7);
+  border-radius: 7px;
+  background: #9cdecf;
+  cursor: pointer;
+  transition: background 130ms ease, opacity 130ms ease;
+}
+
+.arkana-send-button:hover:not(:disabled) {
+  background: #b3ecde;
+}
+
+.arkana-send-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.arkana-send-button > span:last-child {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.arkana-disclaimer {
+  margin: 9px 0 0;
+  color: #65716b;
+  font-size: 9px;
+  text-align: center;
+}
+
+.arkana-mobile-scrim {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .arkana-shell {
+    min-height: calc(100vh - 2rem);
+    border-radius: 14px;
+  }
+
+  .arkana-rail {
+    position: absolute;
+    z-index: 8;
+    inset: 0 auto 0 0;
+    width: min(290px, calc(100vw - 54px));
+    min-height: 100%;
+    transform: translateX(-105%);
+    transition: transform 180ms ease;
+    box-shadow: 16px 0 40px rgba(0, 0, 0, 0.22);
+  }
+
+  .arkana-rail-open {
+    transform: translateX(0);
+  }
+
+  .arkana-mobile-scrim {
+    position: absolute;
+    z-index: 7;
+    inset: 0;
+    display: block;
+    border: 0;
+    background: rgba(0, 0, 0, 0.52);
+  }
+
+  .arkana-main {
+    min-height: calc(100vh - 2rem);
+  }
+
+  .arkana-topbar {
+    min-height: 58px;
+    padding: 0 15px;
+  }
+
+  .arkana-mobile-menu {
+    display: inline-grid;
+    width: 32px;
+    height: 34px;
+    place-items: center;
+    padding: 0;
+    cursor: pointer;
+  }
+
+  .arkana-topbar-title {
+    flex: 1;
+    gap: 0;
+    padding-left: 4px;
+  }
+
+  .arkana-topbar-context,
+  .arkana-model-caption {
+    display: none;
+  }
+
+  .arkana-content {
+    padding: 0 17px;
+  }
+
+  .arkana-welcome {
+    padding: 24px 0 28px;
+  }
+
+  .arkana-orbit {
+    width: 66px;
+    height: 66px;
+    margin-bottom: 22px;
+  }
+
+  .arkana-welcome-copy {
+    max-width: 310px;
+    font-size: 12px;
+  }
+
+  .arkana-suggestions {
+    gap: 7px;
+    margin-top: 23px;
+  }
+
+  .arkana-suggestions button {
+    min-height: 34px;
+    padding: 0 9px;
+    font-size: 9px;
+  }
+
+  .arkana-conversation {
+    padding: 24px 0 13px;
+  }
+
+  .arkana-turn-list {
+    gap: 22px;
+  }
+
+  .arkana-composer-wrap {
+    padding-bottom: 12px;
+  }
+}
+
+@media (max-width: 430px) {
+  .arkana-topbar {
+    padding: 0 10px;
+  }
+
+  .arkana-model-button {
+    min-height: 30px;
+    padding: 0 7px;
+    font-size: 10px;
+  }
+
+  .arkana-content {
+    padding: 0 12px;
+  }
+
+  .arkana-welcome h1 {
+    font-size: 29px;
+  }
+
+  .arkana-suggestions {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: min(100%, 265px);
+  }
+
+  .arkana-suggestions button {
+    justify-content: flex-start;
+    min-height: 38px;
+    padding: 0 12px;
+    font-size: 10px;
+  }
+
+  .arkana-turn {
+    gap: 8px;
+  }
+
+  .arkana-assistant-mark {
+    width: 22px;
+    height: 22px;
+  }
+
+  .arkana-turn-user .arkana-turn-body {
+    max-width: 94%;
+    padding: 11px 12px;
+  }
+
+  .arkana-turn-text {
+    font-size: 12px;
+  }
+
+  .arkana-composer {
+    padding: 10px 10px 8px 12px;
+  }
+
+  .arkana-composer-hint {
+    font-size: 8px;
   }
 }
