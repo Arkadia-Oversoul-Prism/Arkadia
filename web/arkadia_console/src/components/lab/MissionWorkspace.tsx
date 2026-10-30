@@ -213,6 +213,30 @@ export function MissionWorkspace() {
     }
   }, [applySessionView]);
 
+  useEffect(() => {
+    if (!uid) return;
+    const retained = recallMissionSession(uid);
+    if (!retained) return;
+    let cancelled = false;
+    getSessionView(retained.session_id)
+      .then((view) => {
+        if (cancelled) return;
+        if (!view.session) {
+          forgetMissionSession(uid);
+          setResumable(null);
+          return;
+        }
+        setResumable({ ...retained, session_id: view.session.session_id, objective: view.session.objective });
+      })
+      .catch(() => {
+        if (cancelled) return;
+        forgetMissionSession(uid);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [uid]);
+
   /**
    * While an execute HTTP request is in flight, poll the existing session view.
    * This is not a live event stream: there is no SSE/WebSocket endpoint. The
@@ -252,30 +276,6 @@ export function MissionWorkspace() {
       window.clearInterval(handle);
     };
   }, [activeAction, session?.session_id]);
-
-  useEffect(() => {
-    if (!uid) return;
-    const retained = recallMissionSession(uid);
-    if (!retained) return;
-    let cancelled = false;
-    getSessionView(retained.session_id)
-      .then((view) => {
-        if (cancelled) return;
-        if (!view.session) {
-          forgetMissionSession(uid);
-          setResumable(null);
-          return;
-        }
-        setResumable({ ...retained, session_id: view.session.session_id, objective: view.session.objective });
-      })
-      .catch(() => {
-        if (cancelled) return;
-        forgetMissionSession(uid);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [uid]);
 
   const onResume = useCallback(async () => {
     if (!uid || !resumable) return;
