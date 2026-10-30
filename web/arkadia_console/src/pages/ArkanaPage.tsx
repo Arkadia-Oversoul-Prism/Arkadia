@@ -261,9 +261,11 @@ export function ArkanaPage() {
                 </li>)}
               </ol>
             </section> : null}
-            {turn.role === "assistant" ? <div className="mt-3 flex flex-wrap items-center gap-3">
-              <ReadAloud text={turn.content} label="Listen" testId={"arkana-listen-" + turn.id} />
-            </div> : null}
+            {turn.role === "assistant" && (
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <ReadAloud text={turn.content} label="Listen" testId={"arkana-listen-" + turn.id} />
+              </div>
+            )}
             {turn.provenance ? <div className="mt-3"><ArkanaProvenancePanel provenance={turn.provenance} /></div> : null}
           </li>)}
         </ul>
