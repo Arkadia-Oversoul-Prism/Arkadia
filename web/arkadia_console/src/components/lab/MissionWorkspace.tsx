@@ -53,6 +53,7 @@ import {
   MISSION_WORKSPACE_REF,
 } from "./missionContract";
 import { LabWorkerDispatch } from "./LabWorkerDispatch";
+import { LabBoundedTest } from "./LabBoundedTest";
 
 /** Which mutating act is currently awaiting a server response.
  *  Only that act's controls are blocked; the rest of the panel stays readable.
@@ -730,6 +731,17 @@ export function MissionWorkspace() {
           objective={objective}
         />
       ) : null}
+
+      {session ? (
+        <LabBoundedTest
+          sessionId={session.session_id}
+          sessionState={session.state}
+          namedOperations={null}
+          objective={objective}
+          onSettled={() => refreshView(session.session_id)}
+        />
+      ) : null}
+
 
       {steps.length > 0 ? (
         <Panel>
