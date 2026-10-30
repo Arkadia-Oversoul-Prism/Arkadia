@@ -670,3 +670,56 @@ On commit `e6262e05587c6b183524a5fcc94962166777d4f8`, Prism Console Contract run
 - At this snapshot, **15 of 16** checks had succeeded and SG-02-FE.2-V remained in progress at **CP10-B broader backend regression**. CP10 API verification and CP10 browser-route verification had not started.
 - Other completed checks on this head included frontend/backend jobs, canonical container-image build, self-host image build, boot-syntax, full-history secret scan, provider forensics, and the read-only production probe. Their success is CI evidence only, not production deployment or browser acceptance.
 - The evidence-only follow-up commit will trigger a fresh check set. No merge, production deployment, or protected-boundary change occurred.
+
+
+## 10. DEA-01 build recovery and P0.4 bounded-test surface restoration — 2026-10-30
+
+**Move ID:** `DEA-01-P04-TEST-SURFACE-RESTORE-01`  
+**Canonical directive:** [Issue #590](https://github.com/Arkadia-Oversoul-Prism/Arkadia/issues/590)  
+**Integration PR:** [#599 — restore Arkadia Console build and Engineering Lab workspace](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/599)  
+**Base:** `main` @ `3e73cf5ccce7d0312e6f57df83c00e8c2ed69329`  
+**Code head:** `e943ab1619002e5acddfe65bece743bd30078721` on `fix/render-typescript-build-2026-10-30`.
+
+### Problem and source of the move
+
+The P0.4 backend test operation from PR #593 is present on main, but the existing UI slice from PR #597 was stacked on the P0.5 branch and was not present in main after that branch's later merge. Main at `3e73cf5` had neither `executeBoundedTest` nor a mounted `LabBoundedTest` panel. The canonical Render build for that main revision failed with exit status 1, leaving the previous live revision in service.
+
+The current PR #599 is the sole open integration PR. No competing branch or PR was created.
+
+### Bounded implementation
+
+Restored the existing P0.4 surface into PR #599, reusing the existing session execute route and approval boundary:
+
+- `web/arkadia_console/src/components/lab/LabBoundedTest.tsx` — bounded test panel; selector only, no command/argv, no shell, no model-loop test tool. It distinguishes local preflight NOT_SENT, RUNNING, REPORTED, UNAVAILABLE, REFUSED and FAILED. A returned report is explicitly not independent verification or acceptance.
+- `web/arkadia_console/src/components/lab/missionContract.ts` — `executeBoundedTest` calls the existing `POST /sessions/{id}/execute` action with `kind: "test"` and `requires_write: false`; `localTestSelectorRefusal` mirrors the server selector grammar.
+- `web/arkadia_console/src/components/lab/MissionWorkspace.tsx` — mounts the panel for an existing session and refreshes the canonical session view after the request. It passes `namedOperations={null}` because the served session view does not return authorization terms; the panel states that the server decides rather than reconstructing a grant.
+- `tests/test_lab_mission_workspace_contract.py` — pins the existing execute route, selector-only request, no argv/run-agent path, truthful states, panel mount, and unknown authorization-term handling.
+
+The same test-file update also corrected the resume-effect source helper: it now selects the effect containing `recallMissionSession(uid)` and `getSessionView(retained.session_id)`, rather than assuming the first `useEffect` is the resume effect after the execution-polling effect was added. The guard now checks that both a missing server session and a failed read discard the stale local hint.
+
+No backend route, API registry, identity, authorization, provenance, WorkEvent, workspace, database, approval subsystem, production configuration, credentials, or Notion state was changed.
+
+### Verification on code head `e943ab1`
+
+- Prism Console Contract run [41030540681](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41030540681): **964 passed in 37.90s**; CI-wiring guard **30 passed in 4.71s**.
+- N-ATLAS Developer Lab run [41030540899](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41030540899): frontend, backend, canonical Render image build, and self-host image build all **success**.
+- SG-02-FE.2-V run [41030540935](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41030540935): Arkadia Console build, CP10-A Lab tests, and SolSpire isolated runtime/integration tests **success**. At this evidence snapshot, CP10-B broader backend regression was still **in progress**; CP10 API and browser-route steps had not started.
+- Other completed checks on this head: full-history secret scan, provider forensics, boot syntax, posture currency, external beta validation, economic-seam-engine and canonical read-only runtime probe — **success**.
+- A prior head `0e1ef392` completed CP10 API and unauthenticated browser-route verification successfully, but the authenticated Engineering Lab lens was explicitly **DEFERRED BY ACCEPTANCE CRITERIA** because Firebase web configuration was not supplied. That is historical evidence, not authenticated browser acceptance for `e943ab1`.
+
+### Runtime and deployment boundary
+
+Render service `srv-db49jbh42hec73aj84qg` is configured for auto-deploy from `main`; pull-request previews are disabled. The deployment for main revision `3e73cf5` (`dep-dbi5do97lnhs73e4cf10`) failed at `2026-10-30T08:36:08Z` with `Exited with status 1`. The previous live deployment is `dep-dbi58s97lnhs73e4839g`, revision `b1bfa2cbf8383d1ce9246bc1545ddf952e0e625a`, completed at `08:27:20Z`. The PR's canonical Render image build succeeded in GitHub Actions, but no Render deploy, merge, or production verification occurred. Production therefore remains on the previous live revision at this snapshot.
+
+### Remaining acceptance gaps
+
+- CP10-B broader backend regression and the current head's CP10 API/browser steps were not complete at this snapshot.
+- Authenticated browser acceptance remains unverified; the prior CP10 run deferred it for missing Firebase web configuration. Desktop/mobile visual acceptance is also unverified.
+- Render PR previews are disabled; no PREVIEW VERIFIED claim is made.
+- Model-backed worker dispatch remains `UNAVAILABLE`: the existing P0.5 evidence records no configured inference provider (`N_ATLAS_BASE_URL` / `OLLAMA_*` absent). No provider secret/configuration was added.
+- The bounded test panel is source-integrated; no production test execution is claimed. The existing backend requires a containerized policy and immutable digest-pinned `SOLSPIRE_AGENT_IMAGE`; no production configuration was inspected or changed.
+- The broader CP10-B suite on the preceding head reported `9 failed, 3778 passed, 17 skipped, 3 warnings, 1 error` even though its workflow step concluded success. The current head's CP10-B result is required before classifying those findings as current or baseline.
+
+### Next action
+
+Complete CP10-B and inspect the current CP10 API/browser artifacts. Then exercise the bounded-test panel with an authenticated disposable identity and an already-authorized container policy, recording the server's actual result as REPORTED, UNAVAILABLE or REFUSED. Human review of PR #599 remains the merge gate; no merge or production deployment is authorized here.
