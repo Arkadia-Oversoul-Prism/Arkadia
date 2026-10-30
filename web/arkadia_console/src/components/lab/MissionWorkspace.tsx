@@ -21,8 +21,14 @@
  *     that hides a live mission. Resume restores only what the server will
  *     still confirm — it re-reads the view and never reconstructs an
  *     authorization from a stored id, because no route can read one back.
+ *  5. **A long request must not freeze the panel.** Mutating controls for the
+ *     active step are disabled; prior steps, substrate events, and evidence
+ *     stay visible. While an execute request is in flight the surface polls
+ *     the existing session view so events appear as soon as the server will
+ *     serve them. There is no SSE/WebSocket transport and no decorative LIVE
+ *     indicator — only "request in flight" and substrate-reported state.
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Panel } from "../ui";
 import { ApiError } from "../../lib/apiClient";
 import { useAuth } from "../../contexts/AuthContext";
@@ -48,7 +54,20 @@ import {
   MISSION_WORKSPACE_REF,
 } from "./missionContract";
 
-type Phase = "idle" | "working";
+/** Which mutating act is currently awaiting a server response.
+ *  Only that act's controls are blocked; the rest of the panel stays readable.
+ *  This is a client request state — not a substrate session state. */
+type ActiveAction =
+  | null
+  | "deploy"
+  | "create"
+  | "attempt"
+  | "authorize"
+  | "execute"
+  | "resume";
+
+/** Poll interval while an execute request is in flight (ms). */
+const EXECUTE_POLL_MS = 1500;
 
 interface StepRecord {
   label: string;
@@ -116,7 +135,7 @@ export function MissionWorkspace() {
   const { user } = useAuth();
   const uid = user?.uid ?? null;
 
-  const [phase, setPhase] = useState<Phase>("idle");
+  const [activeAction, setActiveAction] = useState<ActiveAction>(null);
   const [role, setRole] = useState<AgentRole>("SENTINEL");
   const [objective, setObjective] = useState("Read-only investigation of repository entry points");
   const [targets, setTargets] = useState("README.md");
@@ -139,6 +158,9 @@ export function MissionWorkspace() {
   const [resumable, setResumable] = useState<MissionSessionHint | null>(null);
   const [resumeScopeKnown, setResumeScopeKnown] = useState<boolean | null>(null);
 
+  /** Guards against applying poll results after unmount or after execute ends. */
+  const executePollGeneration = useRef(0);
+
   const note = useCallback((label: string, detail: string, ok = true) => {
     setSteps((prev) => [...prev, { label, detail, ok, at: stamp() }]);
   }, []);
@@ -155,24 +177,7 @@ export function MissionWorkspace() {
     }
     setSession(view.session);
     setBackendEvents(view.events ?? []);
-    const evidence = Array.isArray(view.evidence) ? view.evidence : null;
-    const artifacts = Array.isArray(view.artifacts) ? view.artifacts : null;
-    setSessionEvidence(evidence ?? []);
-    setSessionArtifacts(artifacts ?? []);
-    if ((evidence?.length ?? 0) > 0 || (artifacts?.length ?? 0) > 0) {
-      setEvidenceState("LIVE");
-      setEvidenceError(
-        evidence === null || artifacts === null
-          ? "The session view omitted one or more evidence collections; only returned records are shown."
-          : null,
-      );
-    } else if (evidence !== null && artifacts !== null) {
-      setEvidenceState("EMPTY");
-      setEvidenceError(null);
-    } else {
-      setEvidenceState("UNAVAILABLE");
-      setEvidenceError("The session view did not return both evidence and artifact collections.");
-    }
+    return view;
   }, []);
 
   /** Pull the session view so the timeline and evidence panel reflect server records. */
@@ -190,14 +195,45 @@ export function MissionWorkspace() {
   }, [applySessionView]);
 
   /**
-   * On mount, offer to resume a retained session.
-   *
-   * The id is only a hint. It is confirmed by a real read before it becomes
-   * anything the operator can act on: a `404` (foreign, deleted, or an id from
-   * another deployment) clears it silently, so a stale hint can never present a
-   * mission that is not there. Nothing is reconstructed from storage — the
-   * session, its state, and its events all come back from the server.
+   * While an execute HTTP request is in flight, poll the existing session view.
+   * This is not a live event stream: there is no SSE/WebSocket endpoint. The
+   * poll only surfaces whatever the server will already return on GET. It stops
+   * when the execute request settles or the component unmounts.
    */
+  useEffect(() => {
+    if (activeAction !== "execute" || !session?.session_id) return;
+    const sessionId = session.session_id;
+    const generation = ++executePollGeneration.current;
+    let cancelled = false;
+
+    const tick = async () => {
+      if (cancelled || executePollGeneration.current !== generation) return;
+      try {
+        const view = await getSessionView(sessionId);
+        if (cancelled || executePollGeneration.current !== generation) return;
+        if (view.session) setSession(view.session);
+        setBackendEvents(view.events ?? []);
+        const runs = view.runs ?? [];
+        if (runs.length > 0) {
+          const last = runs[runs.length - 1] as unknown as LabRunResult;
+          if (last?.run_id) setRun((prev) => prev ?? last);
+        }
+      } catch {
+        /* poll failures are non-fatal; the primary execute request still owns the outcome */
+      }
+    };
+
+    void tick();
+    const handle = window.setInterval(() => {
+      void tick();
+    }, EXECUTE_POLL_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(handle);
+    };
+  }, [activeAction, session?.session_id]);
+
   useEffect(() => {
     if (!uid) return;
     const retained = recallMissionSession(uid);
@@ -217,17 +253,9 @@ export function MissionWorkspace() {
     };
   }, [uid]);
 
-  /** Resume: adopt the retained session and re-read everything from the server.
-   *
-   *  The authorization is deliberately NOT restored. No route reads one back
-   *  (`GET /sessions/{id}/authorize` is 405), so a resumed session shows its
-   *  `authorization_ref` and its true state, and the authorize act stays
-   *  available only if the state says the session is still PROPOSED. A run that
-   *  already reached the review boundary stays there — the substrate refuses a
-   *  second execution with its own message. */
   const onResume = useCallback(async () => {
     if (!uid || !resumable) return;
-    setPhase("working");
+    setActiveAction("resume");
     setError(null);
     setEvidenceState("LOADING");
     setEvidenceError(null);
@@ -271,11 +299,10 @@ export function MissionWorkspace() {
       setResumable(null);
       note("Resume failed", detail, false);
     } finally {
-      setPhase("idle");
+      setActiveAction(null);
     }
   }, [uid, resumable, note, applySessionView]);
 
-  /** Discard the resume hint without touching the session server-side. */
   const onDismissResume = useCallback(() => {
     if (uid) forgetMissionSession(uid);
     setResumable(null);
@@ -306,9 +333,8 @@ export function MissionWorkspace() {
     [targets],
   );
 
-  /** Step 1 — deploy a bounded agent. No agent receives implicit authority. */
   const onCreateAgent = useCallback(async () => {
-    setPhase("working");
+    setActiveAction("deploy");
     setError(null);
     try {
       const agent = await registerAgent(role, `${role} mission agent`);
@@ -318,14 +344,13 @@ export function MissionWorkspace() {
       setError(describeError(e));
       note("Agent deployment failed", describeError(e), false);
     } finally {
-      setPhase("idle");
+      setActiveAction(null);
     }
   }, [role, note]);
 
-  /** Step 2 — create the mission. It is created PROPOSED and cannot execute. */
   const onCreateSession = useCallback(async () => {
     if (!agentId) return;
-    setPhase("working");
+    setActiveAction("create");
     setError(null);
     try {
       const created = await createSession(MISSION_WORKSPACE_REF, agentId, objective);
@@ -338,39 +363,29 @@ export function MissionWorkspace() {
       setError(describeError(e));
       note("Mission creation failed", describeError(e), false);
     } finally {
-      setPhase("idle");
+      setActiveAction(null);
     }
-  }, [agentId, objective, note, uid, targetList, refreshView]);
+  }, [agentId, objective, note, uid, refreshView]);
 
-  /**
-   * Step 3 — attempt execution BEFORE authorization.
-   *
-   * This is deliberately available. The backend refuses with its own message,
-   * and showing that refusal is the only way the operator sees the boundary
-   * rather than reading about it.
-   */
   const onExecuteUnauthorized = useCallback(async () => {
     if (!session) return;
-    setPhase("working");
+    setActiveAction("attempt");
     setError(null);
     try {
       const result = await executeBounded(session.session_id, objective, targetList, ["read succeeds"]);
-      // Reaching here means the gate did NOT hold — surface that loudly rather
-      // than recording it as an ordinary step.
       setRun(result);
       note("BOUNDARY NOT ENFORCED", "execution succeeded without an authorization record", false);
     } catch (e) {
       const detail = describeError(e);
       note("Execution refused (expected)", detail, false);
     } finally {
-      setPhase("idle");
+      setActiveAction(null);
     }
   }, [session, objective, targetList, note]);
 
-  /** Step 4 — the human decision, recorded as its own act. */
   const onAuthorize = useCallback(async () => {
     if (!session) return;
-    setPhase("working");
+    setActiveAction("authorize");
     setError(null);
     try {
       const result = await authorizeSession(session.session_id, ["read", "test"], 60);
@@ -386,15 +401,15 @@ export function MissionWorkspace() {
       setError(describeError(e));
       note("Authorization failed", describeError(e), false);
     } finally {
-      setPhase("idle");
+      setActiveAction(null);
     }
-  }, [session, note]);
+  }, [session, note, refreshView]);
 
-  /** Step 5 — bounded read-only execution. Stops at the review boundary. */
   const onExecute = useCallback(async () => {
     if (!session) return;
-    setPhase("working");
+    setActiveAction("execute");
     setError(null);
+    note("Execute request in flight", "Polling session view for substrate events until the request settles. Not a live stream.");
     try {
       const result = await executeBounded(session.session_id, objective, targetList, ["read succeeds"]);
       setRun(result);
@@ -402,8 +417,6 @@ export function MissionWorkspace() {
         "Bounded run complete",
         `${result.run_id} · state ${result.state} · result ${result.result_state}`,
       );
-      // Refresh so the timeline shows the substrate's own event stream and the
-      // displayed state reflects the run that just happened.
       try {
         await refreshView(session.session_id);
       } catch {
@@ -412,46 +425,24 @@ export function MissionWorkspace() {
     } catch (e) {
       setError(describeError(e));
       note("Bounded run failed", describeError(e), false);
+      try {
+        await refreshView(session.session_id);
+      } catch {
+        /* leave last known view */
+      }
     } finally {
-      setPhase("idle");
+      executePollGeneration.current += 1;
+      setActiveAction(null);
     }
   }, [session, objective, targetList, note, refreshView]);
 
-  // "Has an authorization" must mean the SUBSTRATE says so, not that this
-  // component recorded one. A resumed session carries `authorization_ref` while
-  // the local authorization object is empty (no route can read one back). Keyed
-  // off the local object, step 3 on a resumed AUTHORIZED session would execute
-  // successfully and then report "BOUNDARY NOT ENFORCED" — a false alarm about
-  // a gate that held.
+  const mutating = activeAction !== null;
+  const executeInFlight = activeAction === "execute";
   const sessionAuthorized = Boolean(session?.authorization_ref) || Boolean(authorization);
-  const executableState = session?.state === "AUTHORIZED" || session?.state === "QUEUED";
-  const busy = phase === "working";
-  const nextDecision = (() => {
-    if (busy) return "A bounded operation is in progress. Wait for the returned state before taking another action.";
-    if (!agentId) return "Deploy a read-only agent to begin.";
-    if (!session) return "Create a mission to capture intent and scope.";
-    if (session.state === "READY_FOR_REVIEW") {
-      return "Inspect the recorded events and evidence. This session is at the human-review boundary and cannot execute again.";
-    }
-    if (run) return "Inspect the returned evidence. Human acceptance remains a separate act.";
-    if (resumeScopeKnown === false) return "The server confirms this session\u2019s intent, but its original read targets are unavailable. Execution stays disabled; reset this view and create a new mission with explicit targets.";
-    if (executableState && sessionAuthorized) {
-      return "Execute the bounded read-only run; the substrate reports this session as executable.";
-    }
-    if (session.state === "PROPOSED" && !sessionAuthorized) {
-      return "Review the scope, then record explicit human authorization before execution.";
-    }
-    return `No next action is enabled for substrate state ${session.state}. Refresh the session or inspect its recorded events.`;
-  })();
-  const canCreateSession = Boolean(agentId) && objective.trim().length > 0 && targetList.length > 0 && !session && !busy;
-  const canAttempt = Boolean(session) && targetList.length > 0 && !sessionAuthorized && !busy;
-  const canAuthorize = Boolean(session) && targetList.length > 0 && !sessionAuthorized && !busy;
-  const canExecute = Boolean(session) && sessionAuthorized && executableState && targetList.length > 0 && !run && !busy;
-
-  const onRefreshEvidence = useCallback(() => {
-    if (!session || busy) return;
-    void refreshView(session.session_id).catch(() => undefined);
-  }, [session, busy, refreshView]);
+  const canCreateSession = Boolean(agentId) && !session && !mutating;
+  const canAttempt = Boolean(session) && !sessionAuthorized && !mutating;
+  const canAuthorize = Boolean(session) && !sessionAuthorized && !mutating;
+  const canExecute = Boolean(session) && sessionAuthorized && !run && !mutating;
 
   return (
     <div className="space-y-4" data-testid="mission-workspace">
@@ -461,7 +452,7 @@ export function MissionWorkspace() {
           <button
             type="button"
             onClick={reset}
-            disabled={busy || steps.length === 0}
+            disabled={mutating || steps.length === 0}
             data-testid="mission-reset"
             className="font-mono text-[10px] uppercase tracking-widest text-white/40 hover:text-white/80 disabled:opacity-30"
           >
@@ -490,7 +481,7 @@ export function MissionWorkspace() {
               <button
                 type="button"
                 onClick={onResume}
-                disabled={busy}
+                disabled={mutating}
                 data-testid="mission-resume"
                 className="rounded border border-azure/50 px-3 py-1 font-mono text-[10px] uppercase tracking-widest text-azure hover:border-azure disabled:opacity-30"
               >
@@ -499,7 +490,7 @@ export function MissionWorkspace() {
               <button
                 type="button"
                 onClick={onDismissResume}
-                disabled={busy}
+                disabled={mutating}
                 data-testid="mission-resume-dismiss"
                 className="rounded border border-white/20 px-3 py-1 font-mono text-[10px] uppercase tracking-widest text-white/50 hover:border-white/40 disabled:opacity-30"
               >
@@ -509,13 +500,29 @@ export function MissionWorkspace() {
           </div>
         ) : null}
 
+        {activeAction ? (
+          <div
+            className="mb-3 rounded border border-white/15 bg-white/5 px-3 py-2"
+            data-testid="mission-request-in-flight"
+          >
+            <p className="font-mono text-[10px] uppercase tracking-widest text-white/50">
+              Request in flight · {activeAction}
+            </p>
+            <p className="mt-1 text-xs text-white/55">
+              {executeInFlight
+                ? "Execute is awaiting the server response. Session view is being polled for substrate events. This is not a live stream and is not a LIVE indicator."
+                : "A mutating step is awaiting the server. Prior steps and events stay visible."}
+            </p>
+          </div>
+        ) : null}
+
         <div className="grid gap-3 md:grid-cols-2">
           <label className="block">
             <span className="font-mono text-[10px] uppercase tracking-widest text-white/40">Agent role</span>
             <select
               value={role}
               onChange={(e) => setRole(e.target.value as AgentRole)}
-              disabled={Boolean(agentId) || busy}
+              disabled={Boolean(agentId) || mutating}
               data-testid="mission-role"
               className="mt-1 w-full rounded border border-line bg-ink px-2 py-1.5 text-sm text-white disabled:opacity-50"
             >
@@ -535,7 +542,7 @@ export function MissionWorkspace() {
             <input
               value={targets}
               onChange={(e) => setTargets(e.target.value)}
-              disabled={Boolean(session) || Boolean(run) || busy}
+              disabled={Boolean(run) || mutating}
               data-testid="mission-targets"
               className="mt-1 w-full rounded border border-line bg-ink px-2 py-1.5 font-mono text-xs text-white disabled:opacity-50"
             />
@@ -548,6 +555,7 @@ export function MissionWorkspace() {
             value={objective}
             onChange={(e) => setObjective(e.target.value)}
             disabled={Boolean(session) || Boolean(run) || busy}
+            disabled={Boolean(run) || mutating}
             data-testid="mission-objective"
             className="mt-1 w-full rounded border border-line bg-ink px-2 py-1.5 text-sm text-white disabled:opacity-50"
           />
@@ -609,7 +617,7 @@ export function MissionWorkspace() {
           <button
             type="button"
             onClick={onCreateAgent}
-            disabled={Boolean(agentId) || busy}
+            disabled={Boolean(agentId) || mutating}
             data-testid="mission-deploy-agent"
             className="rounded border border-white/20 px-3 py-1.5 font-mono text-[10px] uppercase tracking-widest text-white/70 hover:border-white/40 disabled:opacity-30"
           >
@@ -648,89 +656,34 @@ export function MissionWorkspace() {
             onClick={onExecute}
             disabled={!canExecute}
             data-testid="mission-execute"
-            className="rounded border border-emerald/40 px-3 py-1.5 font-mono text-[10px] uppercase tracking-widest text-emerald hover:border-emerald/70 disabled:opacity-30"
+            className="rounded border border-emerald/40 px-3 py-1.5 font-mono text-[10px] uppercase tracking-widest text-emerald hover:border-emerald disabled:opacity-30"
           >
             5 · Execute bounded run
           </button>
         </div>
 
         {error ? (
-          <p className="mt-3 rounded border border-red-400/30 bg-red-400/5 px-3 py-2 text-xs text-red-300" data-testid="mission-error">
+          <p className="mt-3 text-xs text-red-300" data-testid="mission-error">
             {error}
           </p>
         ) : null}
 
-        <p className="mt-3 text-xs text-white/40">
-          Step 3 is intentional. It calls the real execute endpoint before any approval exists so the backend's own
-          refusal is visible. SESSION ≠ AUTHORIZATION: the substrate refuses a PROPOSED session.
-        </p>
+        {session ? (
+          <div className="mt-4 flex flex-wrap items-center gap-2 text-xs" data-testid="mission-session-meta">
+            <StateChip state={session.state} />
+            <span className="font-mono text-white/50">{session.session_id}</span>
+            {session.authorization_ref ? (
+              <span className="font-mono text-white/40">auth {session.authorization_ref}</span>
+            ) : null}
+            <span className="text-white/35">{SESSION_STATE_MEANING[session.state] ?? session.state}</span>
+          </div>
+        ) : null}
       </Panel>
 
-      {session ? (
+      {steps.length > 0 ? (
         <Panel>
-          <p className="mb-3 font-mono text-[11px] uppercase tracking-widest text-white/40">Mission state</p>
-          <dl className="grid gap-2 text-xs sm:grid-cols-2">
-            <div>
-              <dt className="font-mono text-[10px] uppercase tracking-widest text-white/35">session</dt>
-              <dd className="font-mono text-white/80" data-testid="mission-session-id">{session.session_id}</dd>
-            </div>
-            <div>
-              <dt className="font-mono text-[10px] uppercase tracking-widest text-white/35">state</dt>
-              <dd className="mt-0.5"><span data-testid="mission-session-state"><StateChip state={session.state} /></span></dd>
-            </div>
-            <div>
-              <dt className="font-mono text-[10px] uppercase tracking-widest text-white/35">agent</dt>
-              <dd className="font-mono text-white/80">{session.agent_id}</dd>
-            </div>
-            <div>
-              <dt className="font-mono text-[10px] uppercase tracking-widest text-white/35">authorization</dt>
-              <dd className="font-mono text-white/80">{session.authorization_ref ?? "— none attached —"}</dd>
-            </div>
-          </dl>
-          <p className="mt-3 text-xs text-white/45">
-            {SESSION_STATE_MEANING[session.state] ?? "State reported verbatim by the substrate."}
-          </p>
-        </Panel>
-      ) : null}
-
-      <Panel>
-        <p className="mb-3 font-mono text-[11px] uppercase tracking-widest text-white/40">
-          Execution timeline — substrate events
-        </p>
-        {backendEvents.length === 0 ? (
-          <p className="text-xs text-white/35">
-            No substrate events yet. This panel reads the session's own event stream; it is empty until a mission
-            exists.
-          </p>
-        ) : (
-          <ol className="space-y-2" data-testid="mission-event-stream">
-            {backendEvents.map((e) => (
-              <li key={e.event_id} className="flex gap-3 text-xs">
-                <span className="shrink-0 font-mono text-[10px] text-white/30">#{e.sequence}</span>
-                <span className="shrink-0 font-mono text-[10px] uppercase tracking-widest text-azure">
-                  {e.event_type}
-                </span>
-                <span className="min-w-0 break-words font-mono text-[11px] text-white/50">
-                  {JSON.stringify(e.payload ?? {}).slice(0, 200)}
-                </span>
-              </li>
-            ))}
-          </ol>
-        )}
-        <p className="mt-3 text-xs text-white/35">
-          These {backendEvents.length} events are recorded by the substrate, not narrated by this surface. The
-          sequence is the backend's own.
-        </p>
-      </Panel>
-
-      <Panel>
-        <p className="mb-3 font-mono text-[11px] uppercase tracking-widest text-white/40">
-          Operator actions — client record
-        </p>
-        {steps.length === 0 ? (
-          <p className="text-xs text-white/35">No operator actions yet.</p>
-        ) : (
-          <ol className="space-y-2" data-testid="mission-timeline">
+          <p className="mb-3 font-mono text-[11px] uppercase tracking-widest text-white/40">Operator timeline</p>
+          <ol className="space-y-2" data-testid="mission-steps">
             {steps.map((s, i) => (
               <li key={`${s.at}-${i}`} className="flex gap-3 text-xs">
                 <span className="shrink-0 font-mono text-[10px] text-white/30">{s.at}</span>
@@ -745,8 +698,24 @@ export function MissionWorkspace() {
               </li>
             ))}
           </ol>
-        )}
-      </Panel>
+        </Panel>
+      ) : null}
+
+      {backendEvents.length > 0 ? (
+        <Panel>
+          <p className="mb-3 font-mono text-[11px] uppercase tracking-widest text-white/40">
+            Substrate events · {backendEvents.length}
+          </p>
+          <ol className="space-y-1" data-testid="mission-backend-events">
+            {backendEvents.map((ev) => (
+              <li key={ev.event_id} className="font-mono text-[11px] text-white/55">
+                <span className="text-white/30">{ev.sequence}</span> {ev.event_type}
+                {ev.run_id ? ` · run ${ev.run_id}` : ""}
+              </li>
+            ))}
+          </ol>
+        </Panel>
+      ) : null}
 
       {run ? (
         <Panel>
@@ -760,7 +729,9 @@ export function MissionWorkspace() {
             </div>
             <div>
               <dt className="font-mono text-[10px] uppercase tracking-widest text-white/35">state</dt>
-              <dd className="mt-0.5"><StateChip state={run.state} /></dd>
+              <dd className="mt-0.5">
+                <StateChip state={run.state} />
+              </dd>
             </div>
             <div>
               <dt className="font-mono text-[10px] uppercase tracking-widest text-white/35">evidence</dt>

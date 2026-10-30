@@ -50,7 +50,16 @@ def test_all_composed_operations_have_adjudicated_security_boundaries():
         f"{len(unreviewed)} operations still require auth-boundary adjudication:\n"
         + "\n".join(unreviewed)
     )
-    assert len(operations) == 331, f"Expected captured 331-operation inventory; got {len(operations)}"
+    # Inventory 331 -> 332 is a deliberate, reviewable act (AEAS-01 P0.3,
+    # issue #590): the Engineering Lab gained a read-only repository
+    # observation, `GET /api/lab/engineering/repository`. The count is pinned
+    # *and* the operation is named, so the number can only move when the
+    # operation it accounts for is actually present and adjudicated.
+    repository_op = schema["paths"].get("/api/lab/engineering/repository", {}).get("get", {})
+    assert repository_op, "the Lab repository observation is no longer served"
+    assert repository_op.get("x-arkadia-auth-boundary", {}).get("classification") == "firebase_bearer"
+    assert repository_op.get("security") == [{"FirebaseBearer": []}]
+    assert len(operations) == 332, f"Expected captured 332-operation inventory; got {len(operations)}"
     assert "FirebaseBearer" in schema["components"]["securitySchemes"]
     assert "SovereignKeyHeader" in schema["components"]["securitySchemes"]
     assert "GitHubWebhookHMAC" in schema["components"]["securitySchemes"]
