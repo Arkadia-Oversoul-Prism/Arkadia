@@ -723,3 +723,57 @@ Render service `srv-db49jbh42hec73aj84qg` is configured for auto-deploy from `ma
 ### Next action
 
 Complete CP10-B and inspect the current CP10 API/browser artifacts. Then exercise the bounded-test panel with an authenticated disposable identity and an already-authorized container policy, recording the server's actual result as REPORTED, UNAVAILABLE or REFUSED. Human review of PR #599 remains the merge gate; no merge or production deployment is authorized here.
+
+
+## 11. DEA-01 gateway catalog state accuracy — 2026-10-30 09:24 UTC
+
+**Move ID:** `DEA-01-GATEWAY-STATE-TRUTH-01`  
+**Canonical directive:** [Issue #590](https://github.com/Arkadia-Oversoul-Prism/Arkadia/issues/590)  
+**Existing integration PR:** [#599](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/599)  
+**Baseline head:** `ebe91d4bb764fa3106833b7a8f3303f736f8689b`  
+**Implementation commit:** `f9a2436aa4acce8ee406238622920b749a619425`  
+**Regression-contract commit:** `451d153c2f7947c431a42da4022313bf44e5a07e`
+
+### Proven defect
+
+`LabWorkerDispatch.tsx` treated every empty `catalog` as “Reading provider status…”. The branch was selected by `catalog.length === 0`, so a successful gateway response containing an empty array was indistinguishable from a request that had not settled. A missing `catalog` field was also not distinguished from an empty list. This contradicted the MVP's truthful LOADING / LIVE / EMPTY / UNAVAILABLE / FAILED state contract.
+
+### Bounded repair
+
+- Added an explicit gateway-panel state: `LOADING | LIVE | EMPTY | UNAVAILABLE | FAILED`.
+- A returned non-empty catalog is `LIVE`; a returned empty array is `EMPTY`.
+- A response missing the catalog is `UNAVAILABLE`, not empty.
+- Network/auth/not-found/service-unavailable reads are `UNAVAILABLE`; other thrown errors are `FAILED`.
+- “Reading provider status…” now appears only during an in-flight read.
+- The dispatchable-provider warning is rendered only for a live catalog. Dispatch remains governed by the existing authorized-session and backend checks; no provider is simulated.
+
+Changed paths:
+- `web/arkadia_console/src/components/lab/LabWorkerDispatch.tsx`
+- `tests/test_lab_mission_workspace_contract.py`
+
+No API, backend, provider configuration, credentials, identity, authorization, approval, provenance, WorkEvent, workspace, database, production configuration, or deployment changes.
+
+### Verification freshness
+
+The implementation and source-contract test are committed on PR #599. **Fresh checks for head `451d153c` are pending; no test pass is claimed for this move yet.** The added source-contract test is included in the existing Prism Console Contract domain.
+
+The immediately preceding head `ebe91d4` had these current-run observations (run [41031158339](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41031158339), job `123980959682`):
+- CP10-A Lab test output: **2 failed, 9 passed** in 0.58s. Both failures are in `tests/test_engineering_lab_api.py` and concern the read-only/authenticated router inventory.
+- CP10-B broad backend output: **9 failed, 3779 passed, 17 skipped, 3 warnings, 1 error** in 288.22s. Failures include the Lab route inventory, Firebase-persistence guard, identity-spine wording, shared-session-key contract, OpenAPI inventory count, SolSpire governance/runtime contracts; `tests/test_autonomy.py` had a collection error.
+- Both steps are configured `continue-on-error: true`; their green step/job conclusion is **not** a passing full-suite result. These findings are recorded, not repaired here; several touch unrelated or protected boundaries.
+- CP10 API verification completed successfully. The unauthenticated browser route check observed `/enterprise` and `/engineering-lab` returning 200, with empty console-error, page-error and failed-request arrays.
+- The authenticated Engineering Lab browser lens was **DEFERRED**, not passed: Firebase web config and disposable identity inputs were blank in this run.
+- N-ATLAS Developer Lab run [41031158189](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41031158189) reported frontend/typecheck, canonical Render image build, backend and self-host image jobs successful. This is CI build evidence, not preview or production acceptance.
+
+### Remaining gaps
+
+- Fresh CI on the new PR head, including the added gateway-state contract.
+- Authenticated browser acceptance and desktop/mobile visual inspection.
+- Real model-backed dispatch: remains `UNAVAILABLE` until an approved inference provider is configured; this move does not add credentials or configuration.
+- Real bounded container test execution against a configured digest-pinned image remains unverified.
+- CP10-A / CP10-B failing tests remain visible debt; this move does not weaken or rewrite those tests.
+- Render PR previews are disabled. No preview or production verification is claimed.
+
+### Next action
+
+Inspect the fresh PR #599 check set and verify the new state contract. Then prioritize authenticated workspace acceptance when an approved disposable Firebase identity/configuration is available. Human review/merge and production authority remain final; no merge or deployment occurred.
