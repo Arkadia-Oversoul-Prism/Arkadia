@@ -45,7 +45,6 @@ import {
   registerAgent,
   rememberMissionSession,
   type AgentRole,
-  type LabAuthorization,
   type LabEvent,
   type LabRunResult,
   type LabSession,
