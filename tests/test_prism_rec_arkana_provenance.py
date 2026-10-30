@@ -162,9 +162,12 @@ def test_negative_control_page_shape_is_flagged_as_constant_fed():
 def test_new_modules_issue_no_mutating_request():
     assert mutating_calls(_read(CONTRACT)) == []
     assert mutating_calls(_read(PANEL)) == []
-    assert mutating_calls(_read(LIB)) == ["POST"], (
-        "only the conversational POST may appear in the arkana library"
-    )
+    lib = _read(LIB)
+    # The JSON fallback and SSE stream are both conversational POSTs. No other
+    # write surface is introduced by the Arkana page or provenance modules.
+    assert mutating_calls(lib) == ["POST", "POST"]
+    assert re.search(r"apiRequest<ArkanaReply>\\(endpoints\\.arkanaResonance,", lib)
+    assert re.search(r"const path = endpoints\\.arkanaResonanceStream;", lib)
 
 
 def test_negative_control_detector_flags_a_mutating_module():
