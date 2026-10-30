@@ -48,6 +48,7 @@ import {
   MISSION_WORKSPACE_REF,
 } from "./missionContract";
 import { LabWorkerDispatch } from "./LabWorkerDispatch";
+import { LabBoundedTest } from "./LabBoundedTest";
 
 type Phase = "idle" | "working";
 
@@ -699,6 +700,16 @@ export function MissionWorkspace() {
           sessionId={session.session_id}
           authorized={session.state === "AUTHORIZED" || session.state === "QUEUED"}
           objective={objective}
+        />
+      ) : null}
+
+      {session ? (
+        <LabBoundedTest
+          sessionId={session.session_id}
+          sessionState={session.state}
+          namedOperations={authorization?.operations_allowed ?? null}
+          objective={objective}
+          onSettled={() => refreshView(session.session_id)}
         />
       ) : null}
 

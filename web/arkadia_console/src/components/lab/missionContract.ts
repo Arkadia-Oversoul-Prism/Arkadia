@@ -156,6 +156,62 @@ export function executeBounded(
   );
 }
 
+/**
+ * One bounded test operation on the existing execute route.
+ *
+ * The client contributes an optional selector only. It does not choose a
+ * command: the server pins the allowlist and refuses anything else. A test
+ * operation is not a write, a merge, or an acceptance, so `requires_write`
+ * stays false. The returned `result_state` is the substrate's report — callers
+ * must not relabel it as independent verification.
+ */
+export function executeBoundedTest(
+  sessionId: string,
+  objective: string,
+  selector: string,
+): Promise<LabRunResult> {
+  return apiRequest<LabRunResult>(sessionAction(sessionId, "execute"), {
+    method: "POST",
+    body: JSON.stringify({
+      objective,
+      operations: [
+        {
+          kind: "test",
+          target: selector.trim(),
+          description: "bounded test operation",
+        },
+      ],
+      acceptance: ["the substrate reports the test operation outcome"],
+      requires_write: false,
+    }),
+  });
+}
+
+/**
+ * Local mirror of the server selector rule, so an obviously illegal selector
+ * is not sent.
+ *
+ * This is a preflight, not a result. The server remains the authority; a
+ * refusal here means the request was not made.
+ */
+export function localTestSelectorRefusal(selector: string): string | null {
+  const cleaned = selector.trim().replaceAll("\\", "/");
+  if (!cleaned) return null;
+  if (cleaned.length > 200) return "selector exceeds 200 characters";
+  if (cleaned.startsWith("-")) {
+    return "a selector names a test and must not start with '-'";
+  }
+  if (cleaned.startsWith("/")) return "selector must be relative to the workspace";
+  const parts = cleaned.split("/");
+  if (parts.some((part) => part === "" || part === "." || part === "..")) {
+    return "selector must be a normalized relative path without '..'";
+  }
+  if (!/^[A-Za-z0-9_./*=:+\-\[\]]+$/.test(cleaned)) {
+    return "selector contains characters outside the test-selector grammar";
+  }
+  return null;
+}
+
 export interface LabEvent {
   event_id: string;
   session_id: string;

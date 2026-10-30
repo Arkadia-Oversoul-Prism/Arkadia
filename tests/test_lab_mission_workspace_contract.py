@@ -110,13 +110,17 @@ def test_run_is_presented_as_a_proposal_not_an_acceptance():
 
 
 def test_workspace_is_read_only_by_construction():
-    """The MVP surface must not be able to request a write."""
+    """The MVP surface must not be able to request a write.
+
+    A bounded ``test`` operation is allowed as its own execute call. It is not
+    a write, and it must not be expressible as one.
+    """
     contract = _read(CONTRACT)
     assert "requires_write: false" in contract, (
         "the mission workspace is read-only; a write request must not be expressible"
     )
-    # Only read operations are constructed.
     assert 'kind: "read"' in contract
+    assert 'kind: "test"' in contract
     assert not re.search(r'kind:\s*"write"', contract)
 
 
@@ -452,6 +456,47 @@ def test_scope_preview_is_truthful_and_locks_persisted_intent():
     assert workspace.count("disabled={Boolean(session) || Boolean(run) || busy}") >= 2
     assert "requires_write: false" in contract
     assert 'kind: "read"' in contract
+
+
+def test_bounded_test_uses_the_execute_route_and_does_not_send_a_command():
+    """A test run is one operation on the existing execute route.
+
+    The client may name a selector. It must not choose the process, open a new
+    endpoint, or hand the operation to the model loop.
+    """
+    contract = _read(CONTRACT)
+    body = _ts_function(contract, "executeBoundedTest")
+    assert 'sessionAction(sessionId, "execute")' in body
+    assert 'kind: "test"' in body
+    assert "requires_write: false" in body
+    assert "argv" not in body
+    assert "run-agent" not in body
+    assert "localTestSelectorRefusal" in contract
+    assert "must not start with '-'" in contract
+
+    panel = _read(CONSOLE / "components" / "lab" / "LabBoundedTest.tsx")
+    workspace = _read(WORKSPACE)
+    assert "executeBoundedTest" in panel
+    assert "dispatchWorker" not in panel
+    assert 'data-testid="mission-test-panel"' in panel
+    assert "not an independent verification" in panel
+    assert "UNAVAILABLE" in panel
+    assert "does not send a command" in panel
+    assert "LIVE" not in panel
+    assert "VERIFIED" not in panel
+    assert "ACCEPTED" not in panel
+    mount = re.search(r"<LabBoundedTest[\s\S]*?/>", workspace)
+    assert mount, "the mission workspace must mount the bounded test panel"
+    assert "busy" not in mount.group(0), "a test request must not take the workspace busy lock"
+    assert "namedOperations={authorization?.operations_allowed ?? null}" in mount.group(0)
+
+
+def _ts_function(source: str, name: str) -> str:
+    marker = f"export function {name}"
+    start = source.find(marker)
+    assert start != -1, name
+    nxt = source.find("\nexport ", start + len(marker))
+    return source[start:] if nxt == -1 else source[start:nxt]
 
 
 def test_resume_restores_server_intent_and_scoped_local_target_hint():
