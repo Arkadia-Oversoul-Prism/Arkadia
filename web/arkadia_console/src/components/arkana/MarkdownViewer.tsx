@@ -29,7 +29,8 @@ function inlineContent(source: string, keyPrefix: string): ReactNode[] {
       const link = token.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
       if (link) {
         const href = link[2].trim();
-        const safe = /^https?:\\/\\//i.test(href) || (href.startsWith("/") && !href.startsWith("//")) || href.startsWith("#");
+        const protocol = href.split(":")[0].toLowerCase();
+        const safe = protocol === "http" || protocol === "https" || (href.startsWith("/") && !href.startsWith("//")) || href.startsWith("#");
         node = safe
           ? createElement("a", { key: keyPrefix + index, href, target: "_blank", rel: "noreferrer" }, link[1])
           : link[1];
