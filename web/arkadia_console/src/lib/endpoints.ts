@@ -64,6 +64,14 @@ export const endpoints = {
   labAutomations: "/api/lab/engineering/automations",
   labGateway: "/api/lab/engineering/gateway",
   labNAtlasCatalog: "/api/lab/engineering/n-atlas/catalog",
+  /**
+   * `GET /api/lab/engineering/repository` — the Lab's read-only repository
+   * observation: branch, source revision, working-tree change inventory, and
+   * the real diff, observed through the bounded read-only git boundary.
+   * Handler verified at `api/lab_routes.py::engineering_repository`. Declared
+   * here as a *read* collection; the route performs no mutation.
+   */
+  labRepository: "/api/lab/engineering/repository",
 
   solspireProjects: "/solspire/projects",
   solspireWorkspace: "/solspire/workspace",
