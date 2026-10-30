@@ -29,6 +29,66 @@ def _approx_tokens(text: str) -> int:
     return max(1, len(text) // CHARS_PER_TOKEN)
 
 
+#: A conversation note records a real exchange between a person and Arkana. It is
+#: private to its owner and must never be reachable from the NULL-owner tier,
+#: which exists for the seeded public corpus (scrolls, documents, notes).
+_CONVERSATION_NOTE_TYPE = "conversation"
+
+
+def _owner_scope_sql(user_id: Optional[str], thread_id: Optional[int] = None) -> tuple[str, tuple]:
+    """SQL predicate + params for the notes a retrieval for ``user_id`` may surface.
+
+    Three things are reachable, and nothing else:
+
+    * the seeded public corpus — NULL-owner notes that are not conversation
+      material (scrolls, documents, notes), which is shared by design;
+    * notes owned by the caller;
+    * conversation notes in a thread the caller may address, which is what
+      preserves session continuity for a caller who has no owner yet.
+
+    A conversation note records a real exchange between a person and Arkana, so
+    it is deliberately excluded from the shared tier in both branches: an
+    ownerless turn is reachable through its own thread, never by everyone.
+
+    ``session_id`` is client-supplied, so addressing a thread is not by itself
+    authority over it. An ownerless caller's continuity therefore comes from an
+    ownerless thread, never from a thread that names another owner.
+    """
+    uid = (user_id or "").strip() or None
+    disjuncts = ["(user_id IS NULL AND note_type <> ?)"]
+    params: list = [_CONVERSATION_NOTE_TYPE]
+    if uid:
+        # An owner's notes are all reachable; no thread clause is needed.
+        disjuncts.append("user_id = ?")
+        params.append(uid)
+    elif thread_id is not None:
+        # An ownerless caller has no owner to match, so continuity comes from an
+        # ownerless thread. `session_id` is client-supplied, so the thread's own
+        # owner is checked too — a guessed id must not address someone's thread.
+        disjuncts.append(
+            "(thread_id = ? AND user_id IS NULL AND thread_id IN "
+            "(SELECT id FROM threads WHERE user_id IS NULL))"
+        )
+        params.append(thread_id)
+    return f"({' OR '.join(disjuncts)})", tuple(params)
+
+
+def retrievable_note_ids(user_id: Optional[str],
+                         thread_id: Optional[int] = None) -> set[int]:
+    """Note ids a retrieval for ``user_id`` may surface. See `_owner_scope_sql`."""
+    clause, params = _owner_scope_sql(user_id, thread_id)
+    rows = execute(f"SELECT id FROM notes WHERE {clause}", params)
+    return {row["id"] for row in rows}
+
+
+def _project_owner_clause(user_id: Optional[str]) -> tuple[str, tuple]:
+    """Projects carry the same owner semantics as the note public corpus."""
+    uid = (user_id or "").strip() or None
+    if uid:
+        return "(user_id = ? OR user_id IS NULL)", (uid,)
+    return "user_id IS NULL", ()
+
+
 def assemble_context(
     query: str,
     project_id: Optional[int] = None,
@@ -87,17 +147,11 @@ def assemble_context(
         if thread_note_ids:
             all_chunks_local = [c for c in all_chunks_local if c["note_id"] in thread_note_ids]
 
-    # Private boundary: when user_id is bound, only surface notes owned by that
-    # user (or legacy NULL-owner public/shared notes).
-    if user_id:
-        owned_ids = {
-            row["id"]
-            for row in execute(
-                "SELECT id FROM notes WHERE user_id = ? OR user_id IS NULL",
-                (user_id,),
-            )
-        }
-        all_chunks_local = [c for c in all_chunks_local if c["note_id"] in owned_ids]
+    # Private boundary: retrieval is scoped to the caller's owner. This filter
+    # applies to BOTH branches — an anonymous caller is scoped to the public
+    # corpus plus its own session thread, not left unscoped.
+    owned_ids = retrievable_note_ids(user_id, thread_id)
+    all_chunks_local = [c for c in all_chunks_local if c["note_id"] in owned_ids]
 
     scored: list[dict] = []
     if query_vec and all_chunks_local:
@@ -157,8 +211,13 @@ def assemble_context(
         graph_nodes: list[dict] = []
         relevant_ids = {n["id"] for n in relevant_notes}
         for nid in seen_note_ids[:4]:
-            expansion = traverse(nid, max_depth=graph_depth)
+            expansion = traverse(nid, max_depth=graph_depth, user_id=user_id)
             for node in expansion["nodes"]:
+                # Defense in depth: the traversal helper admits the NULL-owner
+                # tier, which can still hold legacy conversation notes. Re-apply
+                # the retrieval boundary so a graph hop cannot re-expose one.
+                if node["id"] not in owned_ids:
+                    continue
                 if node["id"] not in relevant_ids:
                     node_tokens = _approx_tokens(node.get("title", ""))
                     if budget_used + node_tokens <= token_budget * 0.85:
@@ -168,9 +227,11 @@ def assemble_context(
 
     # ── Step 5: Project context ─────────────────────────────────────────────
     if project_id and budget_used < token_budget * 0.9:
+        proj_clause, proj_params = _project_owner_clause(user_id)
+        note_clause, note_params = _owner_scope_sql(user_id)
         project = execute(
-            "SELECT id, uuid, name, description, tags FROM projects WHERE id = ?",
-            (project_id,),
+            f"SELECT id, uuid, name, description, tags FROM projects WHERE id = ? AND {proj_clause}",
+            (project_id, *proj_params),
         )
         if project:
             p = dict(project[0])
@@ -178,8 +239,9 @@ def assemble_context(
             if budget_used + desc_tokens <= token_budget * 0.92:
                 recent_proj_notes = execute(
                     "SELECT id, uuid, title, note_type, created_at FROM notes "
-                    "WHERE project_id = ? ORDER BY updated_at DESC LIMIT 5",
-                    (project_id,),
+                    f"WHERE project_id = ? AND {note_clause} "
+                    "ORDER BY updated_at DESC LIMIT 5",
+                    (project_id, *note_params),
                 )
                 p["recent_notes"] = recent_proj_notes
                 context["project_context"] = p
@@ -187,8 +249,14 @@ def assemble_context(
 
     # ── Step 6: Recent timeline ─────────────────────────────────────────────
     if include_timeline and budget_used < token_budget:
+        # Reuse the canonical owner clause rather than restating the boundary:
+        # it is fail-closed (``1 = 0``) for an anonymous caller, so this channel
+        # can never surface another owner's activity.
+        from knowledge.timeline import _timeline_owner_clause
         tl_conditions: list[str] = []
         tl_params: list = []
+        owner_sql, owner_params = _timeline_owner_clause(user_id)
+        tl_conditions.append(owner_sql); tl_params.extend(owner_params)
         if project_id:
             tl_conditions.append("project_id = ?"); tl_params.append(project_id)
         if thread_id is not None:

@@ -1,11 +1,17 @@
+/**
+ * Arkana — conversation-first intelligence interface (A1 shell + A1.1 rail).
+ *
+ * Preserves the existing non-streaming resonance contract (`askArkana`).
+ * Streaming is A2.
+ */
 import { useEffect, useRef, useState } from "react";
-import type { FormEvent, KeyboardEvent } from "react";
 import { askArkana, type ArkanaMessage } from "../lib/arkana";
 import type { ArkanaProvenance } from "../components/arkana/arkanaProvenanceContract";
 import { ArkanaProvenancePanel } from "../components/arkana/ArkanaProvenancePanel";
 import { ApiError } from "../lib/apiClient";
 import { ArkanaThreadHistory } from "../components/arkana/ArkanaThreadHistory";
 import { ReadAloud } from "../components/ReadAloud";
+import { ArkanaShell } from "../components/arkana/shell/ArkanaShell";
 
 interface Turn extends ArkanaMessage {
   id: number;
@@ -13,11 +19,24 @@ interface Turn extends ArkanaMessage {
   provenance?: ArkanaProvenance;
 }
 
-const prompts = [
-  { label: "Think something through", text: "Help me think through an idea…", symbol: "◌" },
-  { label: "Understand a topic", text: "Explain a topic clearly…", symbol: "⌕" },
-  { label: "Shape a piece of writing", text: "Help me shape a piece of writing…", symbol: "↗" },
-];
+const SUGGESTIONS = [
+  {
+    label: "Research",
+    prompt: "Investigate the current Arkadia substrate boundaries and summarise what is already production-verified.",
+  },
+  {
+    label: "Reason",
+    prompt: "Explain the difference between authorization, execution, and verification in the Arkadia architecture.",
+  },
+  {
+    label: "Create",
+    prompt: "Draft a concise product brief for Arkana as a conversation-first intelligence interface.",
+  },
+  {
+    label: "Plan",
+    prompt: "Propose the smallest next vertical slice after the Arkana conversational core.",
+  },
+] as const;
 
 export function ArkanaPage() {
   const [turns, setTurns] = useState<Turn[]>([]);
@@ -39,7 +58,7 @@ export function ArkanaPage() {
     event?.preventDefault();
     const message = draft.trim();
     if (!message || sending) return;
-    setDraft("");
+    if (!messageOverride) setDraft("");
     setError(null);
     setSending(true);
     const history: ArkanaMessage[] = turns.map(({ role, content }) => ({ role, content }));
@@ -49,7 +68,12 @@ export function ArkanaPage() {
       const result = await askArkana(message, history);
       setTurns((prev) => [
         ...prev,
-        { id: nextId.current++, role: "assistant", content: result.reply, resonance: result.resonance, provenance: result.provenance },
+        {
+          role: "assistant",
+          content: result.reply,
+          resonance: result.resonance,
+          provenance: result.provenance,
+        },
       ]);
     } catch (caught) {
       const detail = caught instanceof ApiError ? caught.message : "Arkana could not respond.";
@@ -59,148 +83,148 @@ export function ArkanaPage() {
       requestAnimationFrame(() => inputRef.current?.focus());
     } finally {
       setSending(false);
+      inputRef.current?.focus();
     }
   }
 
-  function onComposerKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
-    if (event.key === "Enter" && !event.shiftKey) {
-      event.preventDefault();
-      void send();
-    }
-  }
+  const empty = turns.length === 0 && !sending;
 
-  return (
-    <main className="arkana-shell" data-testid="arkana-page">
-      <aside className={`arkana-rail ${historyOpen ? "arkana-rail-open" : ""}`} aria-label="Conversation navigation">
-        <a className="arkana-brand" href="/arkana" aria-label="Arkana home">
-          <span className="arkana-brand-mark" aria-hidden="true">a</span>
-          <span>arkana</span>
-        </a>
+  const composer = (
+    <div className="arkana-composer-box">
+      <label className="sr-only" htmlFor="arkana-composer-input">
+        Message Arkana
+      </label>
+      <textarea
+        id="arkana-composer-input"
+        ref={inputRef}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            void send();
+          }
+        }}
+        rows={2}
+        placeholder="Ask anything, create something, or get something done…"
+        data-testid="arkana-input"
+        className="arkana-composer-input"
+        disabled={sending}
+      />
+      <div className="arkana-composer-toolbar">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="arkana-mode-chip" title="Automatic model selection (Gemini via Oracle spine)">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald/80" aria-hidden />
+            Auto
+          </span>
+          <span className="hidden font-mono text-[10px] uppercase tracking-widest text-white/30 sm:inline">
+            Shift+Enter for newline
+          </span>
+        </div>
         <button
           type="button"
-          onClick={() => { setTurns([]); setError(null); setHistoryOpen(false); }}
-          className="arkana-new-button"
-          data-testid="arkana-new-conversation"
+          onClick={() => void send()}
+          disabled={sending || !draft.trim()}
+          data-testid="arkana-send"
+          className="arkana-send"
         >
-          <span aria-hidden="true">＋</span> New conversation
+          {sending ? "Sending…" : "Send"}
         </button>
-        <div className="arkana-rail-divider" />
-        <div className="arkana-history-heading">
-          <span>Recent conversations</span>
-          <button className="arkana-history-lock" type="button" title="Open conversation history" aria-label="Open conversation history" onClick={() => setHistoryOpen(true)}>⌕</button>
+      </div>
+      {error ? (
+        <div className="rounded-lg border border-gold/30 bg-gold/5 px-3 py-2" data-testid="arkana-error">
+          <p className="font-mono text-[10px] uppercase tracking-widest text-gold">Request failed</p>
+          <p className="mt-1 text-sm text-white/65">{error}</p>
+          <button
+            type="button"
+            className="mt-2 font-mono text-[10px] uppercase tracking-widest text-gold/90 underline-offset-2 hover:underline"
+            onClick={() => setError(null)}
+          >
+            Dismiss
+          </button>
         </div>
-        <div className="arkana-history-content">
-          <ArkanaThreadHistory />
-        </div>
-        <div className="arkana-rail-footer">
-          <span className="arkana-status-dot" />
-          <span>Connected to Arkadia</span>
-        </div>
-      </aside>
+      ) : null}
+    </div>
+  );
 
-      {historyOpen && <button className="arkana-mobile-scrim" aria-label="Close conversation navigation" onClick={() => setHistoryOpen(false)} />}
-
-      <section className="arkana-main">
-        <header className="arkana-topbar">
-          <button className="arkana-mobile-menu" type="button" aria-label="Open conversation navigation" onClick={() => setHistoryOpen(true)}>☰</button>
-          <div className="arkana-topbar-title">
-            <span className="arkana-topbar-product">Arkana</span>
-            <span className="arkana-topbar-context">Intelligence, in conversation</span>
+  return (
+    <ArkanaShell
+      brand="Arkana"
+      statusLabel={sending ? "Synthesising" : "Online"}
+      sidebar={<ArkanaThreadHistory compact />}
+      topTrailing={
+        <span className="hidden font-mono text-[10px] uppercase tracking-widest text-white/35 sm:inline">
+          Intelligence interface
+        </span>
+      }
+      composer={composer}
+    >
+      {empty ? (
+        <div className="arkana-empty" data-testid="arkana-empty">
+          <div className="arkana-mark" aria-hidden>
+            <span className="font-display text-lg tracking-[0.12em] text-emerald/90">A</span>
           </div>
-          <div className="arkana-topbar-actions">
-            <span className="arkana-model-caption">Model</span>
-            <div className="arkana-popover-wrap">
-              <button type="button" className="arkana-model-button" aria-expanded={modeOpen} onClick={() => setModeOpen((open) => !open)}>
-                <span className="arkana-model-spark">✳</span> {mode} <span className="arkana-chevron">⌄</span>
+          <h2 className="mt-5 font-display text-2xl tracking-[0.12em] text-white/90 sm:text-3xl">
+            What are we thinking?
+          </h2>
+          <p className="mt-2 max-w-md text-sm text-white/50">
+            Intelligence, creation, and synthesis in one place — powered by the Arkadia substrate.
+          </p>
+          <div className="mt-8 grid w-full max-w-xl grid-cols-1 gap-2 sm:grid-cols-2">
+            {SUGGESTIONS.map((item) => (
+              <button
+                key={item.label}
+                type="button"
+                className="arkana-suggestion"
+                data-testid={`arkana-suggestion-${item.label.toLowerCase()}`}
+                disabled={sending}
+                onClick={() => void send(item.prompt)}
+              >
+                <span className="font-mono text-[10px] uppercase tracking-widest text-emerald/75">{item.label}</span>
+                <span className="mt-1 block text-xs leading-relaxed text-white/55">{item.prompt}</span>
               </button>
-              {modeOpen && (
-                <div className="arkana-mode-popover" role="status">
-                  <strong>Automatic selection</strong>
-                  <p>Requests currently use Arkadia’s Gemini conversation path. Model routing is not yet available.</p>
-                  <button type="button" onClick={() => { setMode("Auto"); setModeOpen(false); }}>Understood</button>
-                </div>
-              )}
-            </div>
+            ))}
           </div>
-        </header>
-
-        <div className={`arkana-content ${turns.length ? "arkana-content-active" : "arkana-content-empty"}`}>
-          {turns.length === 0 ? (
-            <section className="arkana-welcome" aria-labelledby="arkana-welcome-title">
-              <div className="arkana-orbit" aria-hidden="true"><span /><i /><b /></div>
-              <p className="arkana-welcome-kicker">A clearer space to think</p>
-              <h1 id="arkana-welcome-title">Where shall we begin?</h1>
-              <p className="arkana-welcome-copy">Bring a question, an idea, or something you’re working through.</p>
-              <div className="arkana-suggestions" aria-label="Start with an idea">
-                {prompts.map((prompt) => (
-                  <button key={prompt.label} type="button" onClick={() => { setDraft(prompt.text); inputRef.current?.focus(); }}>
-                    <span className="arkana-suggestion-symbol" aria-hidden="true">{prompt.symbol}</span>
-                    <span>{prompt.label}</span>
-                  </button>
-                ))}
-              </div>
-            </section>
-          ) : (
-            <section className="arkana-conversation" aria-label="Conversation">
-              <ol className="arkana-turn-list" aria-live="polite" aria-relevant="additions">
-                {turns.map((turn, index) => (
-                  <li key={turn.id} className={`arkana-turn arkana-turn-${turn.role}`} data-testid={`arkana-turn-${turn.role}`}>
-                    {turn.role === "assistant" && <span className="arkana-assistant-mark" aria-hidden="true">a</span>}
-                    <div className="arkana-turn-body">
-                      <p className="arkana-turn-label">{turn.role === "user" ? "You" : "Arkana"}</p>
-                      <p className="arkana-turn-text">{turn.content}</p>
-                      {turn.role === "assistant" && (
-                        <div className="arkana-turn-tools">
-                          <ReadAloud text={turn.content} label="Listen" testId={`arkana-listen-${index}`} />
-                          {turn.resonance !== undefined && <span className="arkana-response-note">Response complete</span>}
-                        </div>
-                      )}
-                      {turn.provenance && <ArkanaProvenancePanel provenance={turn.provenance} />}
-                    </div>
-                  </li>
-                ))}
-                {sending && (
-                  <li className="arkana-turn arkana-turn-assistant" role="status" aria-label="Arkana is preparing a response">
-                    <span className="arkana-assistant-mark" aria-hidden="true">a</span>
-                    <div className="arkana-turn-body"><p className="arkana-turn-label">Arkana</p><p className="arkana-thinking"><span /><span /><span /></p></div>
-                  </li>
-                )}
-              </ol>
-              <div ref={endRef} />
-            </section>
-          )}
-
-          {error && (
-            <div className="arkana-error" role="alert">
-              <span className="arkana-error-icon" aria-hidden="true">!</span>
-              <div><strong>Your message wasn’t sent</strong><p>{error} Your draft is still here; you can try again.</p></div>
-            </div>
-          )}
-
-          <form className="arkana-composer-wrap" onSubmit={(event) => void send(event)}>
-            <div className="arkana-composer">
-              <textarea
-                ref={inputRef}
-                value={draft}
-                onChange={(event) => setDraft(event.target.value)}
-                onKeyDown={onComposerKeyDown}
-                rows={1}
-                placeholder="Message Arkana"
-                aria-label="Message Arkana"
-                data-testid="arkana-input"
-                className="arkana-composer-input"
-              />
-              <div className="arkana-composer-footer">
-                <span className="arkana-composer-hint">Enter to send <span>·</span> Shift + Enter for a new line</span>
-                <button type="submit" className="arkana-send-button" disabled={sending || !draft.trim()} data-testid="arkana-send" aria-label="Send message">
-                  <span>Send</span><span aria-hidden="true">↑</span>
-                </button>
-              </div>
-            </div>
-            <p className="arkana-disclaimer">Arkana can make mistakes. Check important information.</p>
-          </form>
         </div>
-      </section>
-    </main>
+      ) : (
+        <div className="arkana-messages">
+          <div className="arkana-messages-inner">
+            <ul className="flex flex-col gap-4">
+              {turns.map((turn, i) => (
+                <li key={i} className={`arkana-bubble ${turn.role === "user" ? "arkana-bubble-user" : "arkana-bubble-assistant"}`}>
+                  <p className="font-mono text-[10px] uppercase tracking-widest text-white/35">
+                    {turn.role === "user" ? "you" : "arkana"}
+                    {turn.resonance !== undefined ? ` · resonance ${turn.resonance}` : ""}
+                  </p>
+                  <p
+                    className={`mt-2 whitespace-pre-wrap text-sm leading-relaxed ${
+                      turn.role === "assistant" ? "text-emerald/90" : "text-white/85"
+                    }`}
+                  >
+                    {turn.content}
+                  </p>
+                  {turn.role === "assistant" ? (
+                    <div className="mt-3 flex flex-wrap items-center gap-3">
+                      <ReadAloud text={turn.content} label="Listen" testId={`arkana-listen-${i}`} />
+                    </div>
+                  ) : null}
+                  {turn.provenance ? (
+                    <div className="mt-3">
+                      <ArkanaProvenancePanel provenance={turn.provenance} />
+                    </div>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+            {sending ? (
+              <p className="mt-4 animate-pulse font-mono text-xs uppercase tracking-widest text-white/40" data-testid="arkana-synthesising">
+                Synthesising…
+              </p>
+            ) : null}
+            <div ref={bottomRef} />
+          </div>
+        </div>
+      )}
+    </ArkanaShell>
   );
 }

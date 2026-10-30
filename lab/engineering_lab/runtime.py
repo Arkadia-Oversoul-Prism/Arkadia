@@ -824,6 +824,16 @@ class EngineeringLabRuntime:
         }
 
 
+def workspace_root() -> str:
+    """The workspace bounded execution (and repository inspection) runs against.
+
+    A single public accessor over the runtime's default so inspection and
+    execution cannot drift onto two different roots: the reading an operator
+    reviews must be the reading of the tree a run actually touched.
+    """
+    return EngineeringLabRuntime._default_workspace_root()
+
+
 _GLOBAL_RUNTIME: EngineeringLabRuntime | None = None
 
 

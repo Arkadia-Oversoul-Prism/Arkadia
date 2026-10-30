@@ -1,0 +1,278 @@
+/**
+ * Arkana design tokens and layout primitives.
+ *
+ * Extends the shared Arkadia palette (ink, panel, line, gold, emerald, azure,
+ * violet) without inventing a parallel colour system. Motion is restrained and
+ * respects prefers-reduced-motion via the global rules in index.css.
+ */
+
+.arkana-shell {
+  --arkana-composer-max: 48rem;
+  --arkana-sidebar-w: 17.5rem;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  height: 100%;
+}
+
+@media (min-width: 768px) {
+  .arkana-shell {
+    flex-direction: row;
+    min-height: calc(100vh - 0px);
+  }
+}
+
+.arkana-sidebar {
+  display: none;
+  width: var(--arkana-sidebar-w);
+  flex-shrink: 0;
+  flex-direction: column;
+  border-right: 1px solid theme("colors.line");
+  background: color-mix(in srgb, theme("colors.panel") 80%, transparent);
+}
+
+@media (min-width: 768px) {
+  .arkana-sidebar {
+    display: flex;
+  }
+}
+
+.arkana-sidebar-header {
+  padding: 1rem 1rem 0.75rem;
+  border-bottom: 1px solid theme("colors.line");
+}
+
+.arkana-sidebar-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.75rem;
+}
+
+.arkana-main {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  position: relative;
+}
+
+.arkana-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid theme("colors.line");
+  background: color-mix(in srgb, theme("colors.panel") 55%, transparent);
+}
+
+.arkana-stage {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.arkana-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.25rem 1rem 1.5rem;
+}
+
+@media (min-width: 768px) {
+  .arkana-messages {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+}
+
+.arkana-messages-inner {
+  margin: 0 auto;
+  width: 100%;
+  max-width: var(--arkana-composer-max);
+}
+
+.arkana-empty {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 2rem 1.25rem 6rem;
+}
+
+.arkana-mark {
+  display: flex;
+  height: 3.25rem;
+  width: 3.25rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: 1px solid color-mix(in srgb, theme("colors.emerald") 35%, transparent);
+  background: radial-gradient(
+    circle at 35% 30%,
+    color-mix(in srgb, theme("colors.emerald") 18%, transparent),
+    transparent 70%
+  );
+  box-shadow: 0 0 40px color-mix(in srgb, theme("colors.emerald") 12%, transparent);
+}
+
+.arkana-composer-dock {
+  border-top: 1px solid theme("colors.line");
+  background: color-mix(in srgb, theme("colors.ink") 88%, theme("colors.panel"));
+  padding: 0.75rem 1rem 1rem;
+}
+
+@media (min-width: 768px) {
+  .arkana-composer-dock {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+    padding-bottom: 1.25rem;
+  }
+}
+
+.arkana-composer-inner {
+  margin: 0 auto;
+  width: 100%;
+  max-width: var(--arkana-composer-max);
+}
+
+.arkana-composer-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  border-radius: 1rem;
+  border: 1px solid theme("colors.line");
+  background: color-mix(in srgb, theme("colors.panel") 85%, transparent);
+  padding: 0.65rem 0.75rem;
+  transition: border-color 150ms ease;
+}
+
+.arkana-composer-box:focus-within {
+  border-color: color-mix(in srgb, theme("colors.emerald") 45%, theme("colors.line"));
+}
+
+.arkana-composer-input {
+  width: 100%;
+  resize: none;
+  border: 0;
+  background: transparent;
+  color: theme("colors.white" / 90%);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  outline: none;
+  min-height: 3rem;
+  max-height: 10rem;
+}
+
+.arkana-composer-input::placeholder {
+  color: theme("colors.white" / 35%);
+}
+
+.arkana-composer-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.arkana-mode-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 9999px;
+  border: 1px solid theme("colors.line");
+  padding: 0.2rem 0.55rem;
+  font-family: theme("fontFamily.mono");
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: theme("colors.white" / 45%);
+}
+
+.arkana-send {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.65rem;
+  border: 1px solid color-mix(in srgb, theme("colors.emerald") 50%, transparent);
+  background: color-mix(in srgb, theme("colors.emerald") 10%, transparent);
+  padding: 0.45rem 0.95rem;
+  font-family: theme("fontFamily.mono");
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: theme("colors.emerald");
+  transition: opacity 120ms ease, background 120ms ease;
+}
+
+.arkana-send:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.arkana-send:not(:disabled):hover {
+  background: color-mix(in srgb, theme("colors.emerald") 16%, transparent);
+}
+
+.arkana-bubble {
+  border-radius: 1rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid theme("colors.line");
+}
+
+.arkana-bubble-user {
+  background: color-mix(in srgb, theme("colors.panel") 90%, transparent);
+  border-color: color-mix(in srgb, theme("colors.line") 100%, transparent);
+}
+
+.arkana-bubble-assistant {
+  background: color-mix(in srgb, theme("colors.emerald") 4%, theme("colors.panel"));
+  border-color: color-mix(in srgb, theme("colors.emerald") 18%, theme("colors.line"));
+}
+
+.arkana-mobile-drawer {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+}
+
+@media (min-width: 768px) {
+  .arkana-mobile-drawer {
+    display: none;
+  }
+}
+
+.arkana-mobile-drawer-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.arkana-mobile-drawer-panel {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  width: min(20rem, 88vw);
+  flex-direction: column;
+  background: theme("colors.panel");
+  border-right: 1px solid theme("colors.line");
+  box-shadow: 8px 0 40px rgba(0, 0, 0, 0.35);
+}
+
+.arkana-suggestion {
+  border-radius: 0.85rem;
+  border: 1px solid theme("colors.line");
+  background: color-mix(in srgb, theme("colors.panel") 70%, transparent);
+  padding: 0.7rem 0.85rem;
+  text-align: left;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+
+.arkana-suggestion:hover {
+  border-color: color-mix(in srgb, theme("colors.emerald") 35%, theme("colors.line"));
+  background: color-mix(in srgb, theme("colors.emerald") 6%, theme("colors.panel"));
+}
