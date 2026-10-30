@@ -28,7 +28,7 @@
  *     serve them. There is no SSE/WebSocket transport and no decorative LIVE
  *     indicator — only "request in flight" and substrate-reported state.
  */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Panel } from "../ui";
 import { ApiError } from "../../lib/apiClient";
 import { useAuth } from "../../contexts/AuthContext";
@@ -178,6 +178,12 @@ export function MissionWorkspace() {
     }
     setSession(view.session);
     setBackendEvents(view.events ?? []);
+    const evidence = view.evidence ?? [];
+    const artifacts = view.artifacts ?? [];
+    setSessionEvidence(evidence);
+    setSessionArtifacts(artifacts);
+    setEvidenceState(evidence.length > 0 || artifacts.length > 0 ? "LIVE" : "EMPTY");
+    setEvidenceError(null);
     return view;
   }, []);
 
@@ -325,6 +331,13 @@ export function MissionWorkspace() {
     setError(null);
   }, [uid]);
 
+  const onRefreshEvidence = useCallback(() => {
+    if (!session?.session_id) return;
+    void refreshView(session.session_id).catch(() => {
+      /* refreshView records the failure state and message */
+    });
+  }, [session?.session_id, refreshView]);
+
   const targetList = useMemo(
     () =>
       targets
@@ -366,7 +379,7 @@ export function MissionWorkspace() {
     } finally {
       setActiveAction(null);
     }
-  }, [agentId, objective, note, uid, refreshView]);
+  }, [agentId, objective, note, uid, refreshView, targetList]);
 
   const onExecuteUnauthorized = useCallback(async () => {
     if (!session) return;
@@ -444,6 +457,15 @@ export function MissionWorkspace() {
   const canAttempt = Boolean(session) && !sessionAuthorized && !mutating;
   const canAuthorize = Boolean(session) && !sessionAuthorized && !mutating;
   const canExecute = Boolean(session) && sessionAuthorized && !run && !mutating;
+  const nextDecision = !agentId
+    ? "Deploy the mission agent."
+    : !session
+      ? "Confirm the scope, then create the mission."
+      : !sessionAuthorized
+        ? "Review the scope and record a separate human authorization."
+        : !run
+          ? "Execute the bounded run, then review its returned evidence."
+          : "Review the run and its evidence; acceptance remains a human decision.";
 
   return (
     <div className="space-y-4" data-testid="mission-workspace">
@@ -555,8 +577,7 @@ export function MissionWorkspace() {
           <input
             value={objective}
             onChange={(e) => setObjective(e.target.value)}
-            disabled={Boolean(session) || Boolean(run) || busy}
-            disabled={Boolean(run) || mutating}
+            disabled={Boolean(session) || Boolean(run) || mutating}
             data-testid="mission-objective"
             className="mt-1 w-full rounded border border-line bg-ink px-2 py-1.5 text-sm text-white disabled:opacity-50"
           />
@@ -681,6 +702,14 @@ export function MissionWorkspace() {
         ) : null}
       </Panel>
 
+      {session ? (
+        <LabWorkerDispatch
+          sessionId={session.session_id}
+          authorized={sessionAuthorized}
+          objective={objective}
+        />
+      ) : null}
+
       {steps.length > 0 ? (
         <Panel>
           <p className="mb-3 font-mono text-[11px] uppercase tracking-widest text-white/40">Operator timeline</p>
@@ -783,7 +812,7 @@ export function MissionWorkspace() {
               <button
                 type="button"
                 onClick={onRefreshEvidence}
-                disabled={busy}
+                disabled={mutating || evidenceState === "LOADING"}
                 className="rounded border border-white/20 px-2 py-1 font-mono text-[10px] uppercase tracking-widest text-white/55 hover:border-white/40 disabled:opacity-30"
               >
                 Refresh evidence
