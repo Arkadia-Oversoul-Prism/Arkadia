@@ -43,9 +43,6 @@ export function ArkanaPage() {
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [historyOpen, setHistoryOpen] = useState(false);
-  const [modeOpen, setModeOpen] = useState(false);
-  const [mode, setMode] = useState("Auto");
   const nextId = useRef(0);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
@@ -54,11 +51,10 @@ export function ArkanaPage() {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [turns, sending]);
 
-  async function send(event?: FormEvent) {
-    event?.preventDefault();
-    const message = draft.trim();
+  async function send(messageOverride?: string) {
+    const message = (messageOverride ?? draft).trim();
     if (!message || sending) return;
-    if (!messageOverride) setDraft("");
+    setDraft("");
     setError(null);
     setSending(true);
     const history: ArkanaMessage[] = turns.map(({ role, content }) => ({ role, content }));
@@ -66,15 +62,14 @@ export function ArkanaPage() {
     setTurns((prev) => [...prev, userTurn]);
     try {
       const result = await askArkana(message, history);
-      setTurns((prev) => [
-        ...prev,
-        {
-          role: "assistant",
+      const assistantTurn: Turn = {
+        id: nextId.current++,
+        role: "assistant",
           content: result.reply,
           resonance: result.resonance,
-          provenance: result.provenance,
-        },
-      ]);
+        provenance: result.provenance,
+      };
+      setTurns((prev) => [...prev, assistantTurn]);
     } catch (caught) {
       const detail = caught instanceof ApiError ? caught.message : "Arkana could not respond.";
       setError(detail);
@@ -221,7 +216,7 @@ export function ArkanaPage() {
                 Synthesising…
               </p>
             ) : null}
-            <div ref={bottomRef} />
+            <div ref={endRef} />
           </div>
         </div>
       )}
