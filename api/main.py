@@ -1151,6 +1151,17 @@ except Exception as _as_err:
     logger.warning(f"[ARKANA-SIGNAL] Router mount skipped: {_as_err}")
 
 
+# ── Arkana A2 streaming resonance (SSE) ──────────────────────────────────────
+# Additive path. Does not replace POST /api/commune/resonance.
+# Client falls back to the JSON contract on 404/501.
+try:
+    from api.arkana_stream_routes import router as _arkana_stream_router
+    app.include_router(_arkana_stream_router)
+    logger.info("[ARKANA-STREAM] A2 SSE resonance stream mounted")
+except Exception as _ast_err:
+    logger.warning(f"[ARKANA-STREAM] Router mount skipped: {_ast_err}")
+
+
 @app.post("/api/commune/resonance")
 async def commune_resonance(request: Request):
     try:
