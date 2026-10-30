@@ -164,7 +164,13 @@ def archive_oracle_turn(user_input: str, response: str,
                         session_id: str = "",
                         user_id: str = "",
                         project_id: int | None = None) -> None:
-    """Fire-and-forget: archive an Oracle/Arkana turn into the Knowledge OS."""
+    """Fire-and-forget: archive an Oracle/Arkana turn into the Knowledge OS.
+
+    An ownerless turn is archived into its own thread and is reachable only
+    through that thread — never through the shared NULL-owner corpus, which the
+    retrieval boundary reserves for seeded public material. Anonymous session
+    continuity is therefore preserved without making the turn world-readable.
+    """
     if not user_input and not response:
         return
     try:
