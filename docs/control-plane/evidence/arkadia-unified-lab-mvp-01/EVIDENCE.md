@@ -755,7 +755,11 @@ No API, backend, provider configuration, credentials, identity, authorization, a
 
 ### Verification freshness
 
-The implementation and source-contract test are committed on PR #599. **Fresh checks for head `451d153c` are pending; no test pass is claimed for this move yet.** The added source-contract test is included in the existing Prism Console Contract domain.
+The implementation and source-contract test are committed on PR #599. On final evidence head `6cfe3fc46121e2536ed6c430cc6548ab8f5f7987`:
+- Prism Console Contract run [41033298199](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41033298199): **965 passed in 28.85s**; CI-wiring guard **30 passed in 3.42s**. This includes the new gateway-state regression contract.
+- N-ATLAS Developer Lab run [41033298340](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41033298340): frontend/typecheck, backend, canonical Render image build and self-host image jobs completed successfully.
+- SG-02-FE.2-V run [41033298113](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41033298113) was still **in progress at CP10-B broader backend regression** at the latest observation. Its API and browser-route steps had not yet run on this head.
+The new source-contract test is included in the existing Prism Console Contract domain.
 
 The immediately preceding head `ebe91d4` had these current-run observations (run [41031158339](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41031158339), job `123980959682`):
 - CP10-A Lab test output: **2 failed, 9 passed** in 0.58s. Both failures are in `tests/test_engineering_lab_api.py` and concern the read-only/authenticated router inventory.
@@ -767,7 +771,7 @@ The immediately preceding head `ebe91d4` had these current-run observations (run
 
 ### Remaining gaps
 
-- Fresh CI on the new PR head, including the added gateway-state contract.
+- SG-02 CP10-B, CP10 API and browser-route steps on the current head; the broad suite's known failures must not be treated as a pass.
 - Authenticated browser acceptance and desktop/mobile visual inspection.
 - Real model-backed dispatch: remains `UNAVAILABLE` until an approved inference provider is configured; this move does not add credentials or configuration.
 - Real bounded container test execution against a configured digest-pinned image remains unverified.
