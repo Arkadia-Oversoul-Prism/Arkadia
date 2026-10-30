@@ -316,9 +316,13 @@ def test_resume_does_not_treat_a_stored_id_as_authority():
     workspace = _read(WORKSPACE)
     effect = _resume_effect_body(workspace)
     assert effect is not None, "the mount effect must exist"
-    assert "getSessionView" in effect, "the retained id must be confirmed by a real read"
-    assert "forgetMissionSession" in effect, (
-        "an unconfirmable id must be discarded, not left to offer a mission that is not there"
+    assert "getSessionView(retained.session_id)" in effect, "the retained id must be confirmed by a real read"
+    assert re.search(
+        r"if \(!view\.session\) \{\s*forgetMissionSession\(uid\);",
+        effect,
+    ), "a missing server session must discard its stale local resume hint"
+    assert "forgetMissionSession(uid);" in effect, (
+        "a failed server read must also discard the stale local resume hint"
     )
     # The offer is held separately from the live session.
     assert "resumable" in workspace
@@ -409,14 +413,21 @@ def _resume_handler_body(source: str) -> str | None:
 
 
 def _resume_effect_body(source: str) -> str | None:
-    """The body of the mount effect that confirms a retained session."""
-    match = re.search(r"useEffect\(\(\) => \{", source)
-    if match is None:
-        return None
-    brace = source.find("{", match.end() - 1)
-    if brace == -1:
-        return None
-    return _function_body(source, brace)
+    """Find the mount effect that confirms a retained session.
+
+    MissionWorkspace also has an execute-polling effect. Select by the
+    resume-specific reads rather than assuming the resume effect is first.
+    """
+    for match in re.finditer(r"useEffect\(\(\) => \{", source):
+        brace = source.find("{", match.end() - 1)
+        if brace == -1:
+            continue
+        body = _function_body(source, brace)
+        if body is None:
+            continue
+        if "recallMissionSession(uid)" in body and "getSessionView(retained.session_id)" in body:
+            return body
+    return None
 
 
 def _resume_reconstructs_authorization(source: str) -> bool:
