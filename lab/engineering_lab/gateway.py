@@ -21,7 +21,7 @@ import json
 import os
 import urllib.error
 import urllib.request
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from .contracts import utc_now
@@ -72,7 +72,14 @@ _PROVIDER_ENV: dict[str, tuple[str, ...]] = {
 
 @dataclass(frozen=True)
 class ModelDescriptor:
-    """A selectable model + its honest configuration status."""
+    """A selectable model + its honest configuration status.
+
+    ``status`` answers *"is this provider configured and reachable?"*.
+    ``dispatchable`` answers the different question *"could a run actually
+    call it right now?"* — which additionally needs a bound adapter. Keeping
+    them apart is P0.5's truthfulness rule: a connected provider is not a
+    functioning worker, so ``AVAILABLE`` alone never implies dispatch.
+    """
 
     provider: str
     model: str
@@ -81,6 +88,10 @@ class ModelDescriptor:
     status: str  # AVAILABLE | UNCONFIGURED | UNAVAILABLE
     detail: str = ""
     cost_note: str = "cost not asserted; provider tiers are not assumed free"
+    #: A concrete inference adapter is registered for this provider (GATE L1).
+    adapter_bound: bool = False
+    #: configured + reachable + adapter bound — a dispatch could be attempted.
+    dispatchable: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -91,6 +102,8 @@ class ModelDescriptor:
             "status": self.status,
             "detail": self.detail,
             "cost_note": self.cost_note,
+            "adapter_bound": self.adapter_bound,
+            "dispatchable": self.dispatchable,
         }
 
 
@@ -176,6 +189,27 @@ class ModelGateway:
         self._adapters: dict[str, ModelAdapter] = {}
 
     def describe(self, provider: str) -> ModelDescriptor:
+        """Describe *provider*, including whether a run could dispatch to it.
+
+        Configuration truth (``status``) and dispatch truth
+        (``adapter_bound`` / ``dispatchable``) are reported together but are
+        never conflated: a provider can be reachable and still be
+        non-dispatchable because no adapter is bound.
+        """
+        if provider not in CONFIG_CLASSES:
+            raise ValueError(f"unknown provider '{provider}'")
+        descriptor = self._describe_configuration(provider)
+        bound = provider in self._adapters
+        return replace(
+            descriptor,
+            adapter_bound=bound,
+            dispatchable=bool(
+                bound and descriptor.configured and descriptor.status == "AVAILABLE"
+            ),
+        )
+
+    def _describe_configuration(self, provider: str) -> ModelDescriptor:
+        """Configuration/reachability only; adapter binding is applied above."""
         if provider not in CONFIG_CLASSES:
             raise ValueError(f"unknown provider '{provider}'")
         model = self._models.get(provider, "unknown")
@@ -438,6 +472,11 @@ def get_gateway() -> ModelGateway:
         protocol = os.environ.get("N_ATLAS_PROTOCOL", "openai_compatible").strip().lower()
         adapter = NAtlasGradioAdapter() if protocol == "gradio" else NAtlasAdapter()
         _GLOBAL_GATEWAY.register_adapter("n_atlas", adapter)
+        # Provider independence, P0.5: adapters are bound *from configuration*,
+        # not hard-wired. A configured local endpoint that no adapter can call
+        # would otherwise be reported AVAILABLE while every dispatch fails.
+        if os.environ.get("OLLAMA_BASE_URL") or os.environ.get("OLLAMA_HOST"):
+            _GLOBAL_GATEWAY.register_adapter("ollama", OllamaAdapter())
     return _GLOBAL_GATEWAY
 
 

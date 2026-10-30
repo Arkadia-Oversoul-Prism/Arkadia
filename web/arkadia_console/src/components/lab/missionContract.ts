@@ -29,7 +29,7 @@ import { endpoints, labSession } from "../../lib/endpoints";
  * id is percent-encoded so an id containing `/`, `?` or `#` cannot address a
  * different route.
  */
-function sessionAction(sessionId: string, action: "authorize" | "execute"): string {
+function sessionAction(sessionId: string, action: "authorize" | "execute" | "run-agent"): string {
   return `${endpoints.labSessions}/${encodeURIComponent(sessionId)}/${action}`;
 }
 
@@ -164,6 +164,99 @@ export interface LabEvent {
   sequence: number;
   payload?: Record<string, unknown>;
   timestamp_utc: string;
+}
+
+/**
+ * P0.5 — dispatching a model-backed worker.
+ *
+ * `POST /sessions/{id}/run-agent` runs the native agent loop inside an already
+ * authorized session. Two facts the shape keeps visible:
+ *
+ *  * `loop_state` / `loop_reason` say what actually happened. With no
+ *    configured inference provider the loop stops `BLOCKED` with a reason —
+ *    this surface must render that, not a simulated worker.
+ *  * `effective_tools` is the tool envelope the server granted for *this*
+ *    run. It is the observable form of the authorization, not an assumption.
+ */
+export interface LabDispatchTurn {
+  turn_index: number;
+  text?: string;
+  tool_name?: string | null;
+  tool_arguments?: Record<string, unknown>;
+  observation?: Record<string, unknown> | null;
+  decision?: string;
+  timestamp_utc?: string;
+}
+
+export interface LabDispatchResult {
+  run_id: string;
+  session_id: string;
+  state: string;
+  result_state: string;
+  summary?: string;
+  loop_state?: string;
+  loop_reason?: string;
+  effective_tools?: string[];
+  provider?: string;
+  model?: string;
+  evidence_refs?: string[];
+  human_decision_required?: boolean;
+  merge?: boolean;
+  deploy?: boolean;
+  self_authorized?: boolean;
+  turns?: LabDispatchTurn[];
+}
+
+/**
+ * Dispatch one bounded agent loop. Read-only by construction: the route
+ * intersects capability, tool envelope and the recorded human authorization,
+ * and the loop's tool registry contains no mutating tool.
+ */
+export function dispatchWorker(
+  sessionId: string,
+  objective: string,
+  provider: string,
+  maxTurns: number,
+): Promise<LabDispatchResult> {
+  return apiRequest<LabDispatchResult>(sessionAction(sessionId, "run-agent"), {
+    method: "POST",
+    body: JSON.stringify({
+      objective,
+      provider,
+      max_turns: Math.max(1, Math.min(8, Math.trunc(maxTurns))),
+    }),
+  });
+}
+
+/** One provider row from `GET /engineering/gateway`. */
+export interface LabProviderStatus {
+  provider: string;
+  model: string;
+  config_class: string;
+  configured: boolean;
+  status: string;
+  detail?: string;
+  /** A concrete inference adapter is bound — describing ≠ calling. */
+  adapter_bound?: boolean;
+  /** configured + reachable + bound: a dispatch could actually be attempted. */
+  dispatchable?: boolean;
+}
+
+export interface LabGatewayView {
+  local_providers?: string[];
+  remote_providers?: string[];
+  agent_providers?: string[];
+  catalog?: LabProviderStatus[];
+}
+
+/**
+ * Provider availability, read from the gateway rather than assumed. The
+ * surface renders `status` and `dispatchable` as separate facts: a provider
+ * can be configured and reachable yet not dispatchable because no adapter is
+ * bound — reporting only `AVAILABLE` would imply a worker that cannot run.
+ */
+export function getGatewayView(): Promise<LabGatewayView> {
+  return apiRequest<LabGatewayView>(endpoints.labGateway);
 }
 
 /**
