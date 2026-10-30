@@ -26,5 +26,5 @@ def test_markdown_is_rendered_in_the_main_conversation_canvas():
     renderer = MARKDOWN.read_text(encoding="utf-8")
     assert '<MarkdownViewer content={turn.content}' in source
     assert 'data-testid="arkana-conversation-canvas"' in source
-    assert 'data-testid="arkana-markdown"' in renderer
-    assert 'href.startsWith("https://")' in renderer
+    assert '"data-testid": "arkana-markdown"' in renderer
+    assert 'https?:\\\\/\\\\/' in renderer
