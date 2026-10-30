@@ -69,9 +69,15 @@ export interface ArkanaProvenance {
 /** Normalise a raw reply's provenance channels into the display shape. */
 export function buildProvenance(input: ArkanaProvenanceInput): ArkanaProvenance {
   return {
-    ragRefs: Array.isArray(input.rag_refs) ? input.rag_refs.filter(Boolean) : [],
-    sources: Array.isArray(input.sources) ? input.sources.filter(Boolean) : [],
-    memory: input.memory && typeof input.memory === "object" ? (input.memory as ArkanaMemoryRef) : null,
+    ragRefs: Array.isArray(input.rag_refs)
+      ? input.rag_refs.filter((item): item is ArkanaRagRef => !!item && typeof item === "object" && !Array.isArray(item))
+      : [],
+    sources: Array.isArray(input.sources)
+      ? input.sources.filter((item): item is ArkanaSourceRef => !!item && typeof item === "object" && !Array.isArray(item))
+      : [],
+    memory: input.memory && typeof input.memory === "object" && !Array.isArray(input.memory)
+      ? (input.memory as ArkanaMemoryRef)
+      : null,
   };
 }
 
