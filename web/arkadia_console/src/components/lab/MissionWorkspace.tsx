@@ -143,7 +143,6 @@ export function MissionWorkspace() {
 
   const [agentId, setAgentId] = useState<string | null>(null);
   const [session, setSession] = useState<LabSession | null>(null);
-  const [authorization, setAuthorization] = useState<LabAuthorization | null>(null);
   const [run, setRun] = useState<LabRunResult | null>(null);
   const [steps, setSteps] = useState<StepRecord[]>([]);
   const [backendEvents, setBackendEvents] = useState<LabEvent[]>([]);
@@ -338,7 +337,6 @@ export function MissionWorkspace() {
     if (uid) forgetMissionSession(uid);
     setAgentId(null);
     setSession(null);
-    setAuthorization(null);
     setRun(null);
     setResumeScopeKnown(null);
     setSteps([]);
@@ -422,7 +420,6 @@ export function MissionWorkspace() {
     setError(null);
     try {
       const result = await authorizeSession(session.session_id, ["read", "test"], 60);
-      setAuthorization(result.authorization);
       setSession(result.session);
       await refreshView(result.session.session_id);
       note(
