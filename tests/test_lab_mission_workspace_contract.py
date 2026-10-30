@@ -24,6 +24,7 @@ CONSOLE = REPO / "web" / "arkadia_console" / "src"
 CONTRACT = CONSOLE / "components" / "lab" / "missionContract.ts"
 WORKSPACE = CONSOLE / "components" / "lab" / "MissionWorkspace.tsx"
 PAGE = CONSOLE / "pages" / "EngineeringLabPage.tsx"
+DISPATCH = CONSOLE / "components" / "lab" / "LabWorkerDispatch.tsx"
 LAB_ROUTES = REPO / "api" / "lab_routes.py"
 
 
@@ -603,3 +604,23 @@ def test_session_creation_persists_current_scope_hint():
         "session creation must track target-list and refresh callback dependencies"
     )
 
+
+
+def test_worker_dispatch_distinguishes_gateway_catalog_states():
+    """An empty provider catalog is EMPTY, not an endless loading indicator."""
+    dispatch = _read(DISPATCH)
+
+    assert 'type GatewayPanelState = "LOADING" | "LIVE" | "EMPTY" | "UNAVAILABLE" | "FAILED";' in dispatch
+    assert 'setGatewayState(providers.length > 0 ? "LIVE" : "EMPTY");' in dispatch
+    assert 'setGatewayState("UNAVAILABLE");' in dispatch
+    assert 'setGatewayState(classifyGatewayFailure(err));' in dispatch
+    assert 'gatewayState === "LOADING"' in dispatch
+    assert 'gatewayState === "EMPTY"' in dispatch
+    assert 'gatewayState === "UNAVAILABLE"' in dispatch
+    assert 'gatewayState === "FAILED"' in dispatch
+    assert 'data-state="LIVE"' in dispatch
+    assert "The gateway returned an empty provider catalog." in dispatch
+    assert "The gateway response did not include a provider catalog." in dispatch
+    assert 'catalog.length === 0 ? (' not in dispatch, (
+        "an empty catalog must not be rendered as a still-loading gateway read"
+    )
