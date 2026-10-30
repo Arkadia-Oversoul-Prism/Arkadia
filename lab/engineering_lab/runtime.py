@@ -44,6 +44,11 @@ from .models import (
 )
 from .sandbox import Sandbox, SandboxPolicy
 from .store import get_store
+from .bounded_test_execution import (
+    TEST_OPERATION,
+    configured_timeout_seconds,
+    resolve_test_command,
+)
 
 #: The canonical C09 loop stages, surfaced by the operational view (EL-10).
 CANONICAL_LOOP: tuple[str, ...] = (
@@ -62,13 +67,18 @@ CANONICAL_LOOP: tuple[str, ...] = (
 #: Concrete sandbox operation kinds a bounded task may request.
 READ_OPERATIONS: frozenset[str] = frozenset({"read", "list", "run", "git_status"})
 WRITE_OPERATIONS: frozenset[str] = frozenset({"write"})
+#: P0.4 — containerized test execution. Its own set (not READ, not WRITE)
+#: because it is neither: it runs code, but only inside the digest-pinned,
+#: network-disabled container boundary and only when the linked human
+#: authorization names ``test``. It never widens the L1 terminal grammar.
+TEST_OPERATIONS: frozenset[str] = frozenset({TEST_OPERATION})
 
 
 @dataclass(frozen=True)
 class BoundedOperation:
     """One inspectable operation inside a bounded task."""
 
-    kind: str  # read | list | run | write | git_status
+    kind: str  # read | list | run | write | git_status | test
     target: str = ""
     argv: tuple[str, ...] = ()
     content: str = ""
@@ -336,13 +346,33 @@ class EngineeringLabRuntime:
                 f"session must be AUTHORIZED or QUEUED to execute "
                 f"(currently {session['state']}); SESSION != AUTHORIZATION"
             )
+        authorization_ops = self._authorization_operations(session, subject_ref)
         for op in task.operations:
             if op.kind in WRITE_OPERATIONS and not task.requires_write:
                 raise BoundaryViolation(
                     "write operation present but task.requires_write is False"
                 )
-            if op.kind not in READ_OPERATIONS | WRITE_OPERATIONS:
+            if op.kind not in READ_OPERATIONS | WRITE_OPERATIONS | TEST_OPERATIONS:
                 raise BoundaryViolation(f"unknown operation kind '{op.kind}'")
+            if op.kind in TEST_OPERATIONS:
+                # P0.4 — refuse before a run record exists, so a refusal is a
+                # refusal rather than a failed attempt in the evidence trail.
+                # (1) container-only: there is no host fallback by design.
+                if sandbox_policy is None or not sandbox_policy.containerized:
+                    raise BoundaryViolation(
+                        "test execution requires the containerized project "
+                        "boundary; host execution is refused"
+                    )
+                # (2) bound approval: the linked human authorization must name
+                # this operation. No authorization record -> fail closed.
+                if authorization_ops is None or TEST_OPERATION not in authorization_ops:
+                    raise BoundaryViolation(
+                        "the linked human authorization does not permit 'test'; "
+                        "record an authorization that names it"
+                    )
+                # (3) the command is server-pinned and the selector validated
+                # now, before anything is planned or executed.
+                resolve_test_command(op.target)
 
         agent = self._find_agent(subject_ref, session["agent_id"])
         run_id = f"RUN-{uuid.uuid4().hex[:12]}"
@@ -661,6 +691,24 @@ class EngineeringLabRuntime:
                 return agent
         raise KeyError(f"agent '{agent_id}' not found for subject")
 
+    def _authorization_operations(
+        self, session: dict[str, Any], subject_ref: str
+    ) -> set[str] | None:
+        """The operations the linked human authorization permits.
+
+        ``None`` means there is no usable authorization record — callers must
+        treat that as the empty set for a consequential operation, never as
+        "unrestricted".
+        """
+        authorization_ref = session.get("authorization_ref")
+        if not authorization_ref:
+            return None
+        authorization = self._store.get_authorization(authorization_ref, subject_ref)
+        if not authorization:
+            return None
+        operations = authorization.get("operations_allowed") or ()
+        return set(operations) or None
+
     def _run_operation(self, sandbox: Sandbox, op: BoundedOperation) -> dict[str, Any]:
         if op.kind == "read":
             text = sandbox.read(op.target)
@@ -678,6 +726,24 @@ class EngineeringLabRuntime:
         if op.kind == "write":
             result = sandbox.write(op.target, op.content)
             return {"kind": "write", **result, "ok": True}
+        if op.kind == TEST_OPERATION:
+            assert_operation_allowed(op.kind)
+            command = resolve_test_command(op.target)
+            result = sandbox.run_test(
+                command=command, timeout=configured_timeout_seconds()
+            )
+            if result.get("returncode") not in (None, 0) and not result.get("error"):
+                # A test suite that ran and failed is evidence of a failing
+                # test, not an unattempted task: carry the exit code so the
+                # evidence state can say BLOCKED rather than NOT_ATTEMPTED.
+                result = {
+                    **result,
+                    "error": (
+                        f"test command exited with return code "
+                        f"{result.get('returncode')}"
+                    ),
+                }
+            return {**result, "target": op.target}
         raise BoundaryViolation(f"unknown operation kind '{op.kind}'")
 
     def _capture_artifact(

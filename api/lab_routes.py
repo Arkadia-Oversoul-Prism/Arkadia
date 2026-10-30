@@ -257,8 +257,11 @@ async def execute_bounded(
             _require_session_scoped_project_authorization(runtime, session, session_id, user["uid"])
             if body.requires_write or body.sandbox_root:
                 raise HTTPException(status_code=409, detail="Project canvas v0.1 is read-only; its sandbox root is server-managed")
-            if any(operation.kind not in {"read", "list"} for operation in task.operations):
-                raise HTTPException(status_code=409, detail="Project canvas v0.1 direct operations are read/list only; use the authorized Weaver loop for read-only Git observation")
+            if any(
+                operation.kind not in {"read", "list", "test"}
+                for operation in task.operations
+            ):
+                raise HTTPException(status_code=409, detail="Project canvas v0.1 direct operations are read/list/test only; 'test' runs the allowlisted suite inside the container boundary and 'run' stays with the authorized Weaver loop for read-only Git observation")
             policy = _project_canvas_policy(session, user["uid"])
         elif body.sandbox_root:
             policy = SandboxPolicy(

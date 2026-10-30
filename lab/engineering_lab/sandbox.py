@@ -29,7 +29,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Sequence
 
-from .contracts import utc_now
+from .bounded_test_execution import assert_command_allowlisted
+from .contracts import BoundaryViolation, utc_now
 
 #: Environment variables that must never reach a sandboxed process.
 _SECRET_ENV_MARKERS = (
@@ -455,6 +456,98 @@ class Sandbox:
             {"returncode": proc.returncode, "truncated": result["truncated"]},
         )
         return result
+
+    # -- P0.4: bounded containerized test execution ---------------------------
+
+    def run_test(
+        self, *, command: Sequence[str], timeout: float | None = None
+    ) -> dict[str, Any]:
+        """Run an allowlisted test command inside the container boundary.
+
+        Deliberately **not** routed through :meth:`run`: the L1 terminal grammar
+        is a host-side rule, and this capability must not widen it. Nothing
+        executes on the host here —
+
+          * the argv is re-checked against the pinned test allowlist, so the
+            boundary holds even if a caller skipped the runtime's own
+            resolution;
+          * a non-containerized policy is refused outright (no fallback to a
+            host process);
+          * an image that is not digest-pinned is refused;
+          * the delegation target is the Solspire container boundary, which
+            pins the image by digest and runs with no network, a read-only root
+            filesystem, all capabilities dropped, ``no-new-privileges``,
+            pid/memory/cpu limits, a non-root uid and bounded output.
+        """
+        argv = list(command)
+        label = argv[0] if argv else ""
+        try:
+            assert_command_allowlisted(argv)
+        except BoundaryViolation as exc:
+            self._record("test", label, False, {"reason": "not_allowlisted"})
+            raise SandboxCommandDenied(str(exc)) from exc
+        if not self.policy.containerized:
+            self._record("test", label, False, {"reason": "container_boundary_required"})
+            raise SandboxCommandDenied(
+                "test execution requires the containerized project boundary; "
+                "host execution is refused"
+            )
+        image = (self.policy.container_image or "").strip()
+        if not image:
+            self._record("test", label, False, {"reason": "container_image_unconfigured"})
+            raise SandboxCommandDenied(
+                "test execution requires SOLSPIRE_AGENT_IMAGE pinned by immutable digest"
+            )
+        digest = image.rsplit("@sha256:", 1)[-1]
+        if "@sha256:" not in image or len(digest) != 64 or not all(
+            c in "0123456789abcdef" for c in digest.lower()
+        ):
+            self._record("test", label, False, {"reason": "image_not_digest_pinned"})
+            raise SandboxCommandDenied(
+                "test execution requires SOLSPIRE_AGENT_IMAGE pinned by immutable digest"
+            )
+        timeout_seconds = max(1, min(900, int(timeout or self.policy.default_timeout)))
+        from solspire.project_execution_service import execute_container_command
+
+        try:
+            result = execute_container_command(
+                workspace=str(self.root),
+                command=argv,
+                image=image,
+                runtime=self.policy.container_runtime,
+                timeout_seconds=timeout_seconds,
+                cwd=".",
+            )
+        except Exception as exc:
+            self._record(
+                "test", label, False,
+                {"reason": "container_boundary_failed", "detail": str(exc)},
+            )
+            raise SandboxCommandDenied(f"isolated test execution refused: {exc}") from exc
+        # The boundary captures at a fixed ceiling; report that a saturated
+        # stream may have been cut rather than claiming clean output.
+        cap = 200_000
+        truncated = len(result.get("stdout") or "") >= cap or len(
+            result.get("stderr") or ""
+        ) >= cap
+        self._record(
+            "test", label, bool(result.get("ok")),
+            {
+                "returncode": result.get("returncode"),
+                "containerized": True,
+                "timeout_seconds": timeout_seconds,
+                "network": result.get("network", "disabled"),
+                "truncated": truncated,
+            },
+        )
+        return {
+            **result,
+            "kind": "test",
+            "argv": argv,
+            "timeout_seconds": timeout_seconds,
+            "truncated": truncated,
+            "boundary": "solspire.container",
+        }
 
     # -- git ------------------------------------------------------------------
 
