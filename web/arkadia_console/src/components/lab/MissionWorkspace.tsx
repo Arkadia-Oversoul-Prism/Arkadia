@@ -178,12 +178,26 @@ export function MissionWorkspace() {
     }
     setSession(view.session);
     setBackendEvents(view.events ?? []);
-    const evidence = view.evidence ?? [];
-    const artifacts = view.artifacts ?? [];
+    const hasEvidenceCollection = Array.isArray(view.evidence);
+    const hasArtifactCollection = Array.isArray(view.artifacts);
+    if (!hasEvidenceCollection && !hasArtifactCollection) {
+      setSessionEvidence([]);
+      setSessionArtifacts([]);
+      setEvidenceState("UNAVAILABLE");
+      setEvidenceError("The session view did not return both evidence and artifact collections.");
+      return view;
+    }
+    const evidence = Array.isArray(view.evidence) ? view.evidence : [];
+    const artifacts = Array.isArray(view.artifacts) ? view.artifacts : [];
     setSessionEvidence(evidence);
     setSessionArtifacts(artifacts);
+    const incompleteCollections = !hasEvidenceCollection || !hasArtifactCollection;
     setEvidenceState(evidence.length > 0 || artifacts.length > 0 ? "LIVE" : "EMPTY");
-    setEvidenceError(null);
+    setEvidenceError(
+      incompleteCollections
+        ? "The session view omitted one or more evidence collections; only returned records are shown."
+        : null,
+    );
     return view;
   }, []);
 
@@ -248,7 +262,12 @@ export function MissionWorkspace() {
     let cancelled = false;
     getSessionView(retained.session_id)
       .then((view) => {
-        if (cancelled || !view.session) return;
+        if (cancelled) return;
+        if (!view.session) {
+          forgetMissionSession(uid);
+          setResumable(null);
+          return;
+        }
         setResumable({ ...retained, session_id: view.session.session_id, objective: view.session.objective });
       })
       .catch(() => {
@@ -379,7 +398,7 @@ export function MissionWorkspace() {
     } finally {
       setActiveAction(null);
     }
-  }, [agentId, objective, note, uid, refreshView, targetList]);
+  }, [agentId, objective, note, uid, targetList, refreshView]);
 
   const onExecuteUnauthorized = useCallback(async () => {
     if (!session) return;
@@ -450,22 +469,28 @@ export function MissionWorkspace() {
     }
   }, [session, objective, targetList, note, refreshView]);
 
-  const mutating = activeAction !== null;
+  const busy = activeAction !== null;
+  const mutating = busy;
   const executeInFlight = activeAction === "execute";
-  const sessionAuthorized = Boolean(session?.authorization_ref) || Boolean(authorization);
-  const canCreateSession = Boolean(agentId) && !session && !mutating;
-  const canAttempt = Boolean(session) && !sessionAuthorized && !mutating;
-  const canAuthorize = Boolean(session) && !sessionAuthorized && !mutating;
-  const canExecute = Boolean(session) && sessionAuthorized && !run && !mutating;
+  const sessionAuthorized = Boolean(session?.authorization_ref);
+  const executableState = session?.state === "AUTHORIZED" || session?.state === "QUEUED";
+  const canCreateSession = Boolean(agentId) && objective.trim().length > 0 && targetList.length > 0 && !session && !busy;
+  const canAttempt = Boolean(session) && targetList.length > 0 && !sessionAuthorized && !busy;
+  const canAuthorize = Boolean(session) && targetList.length > 0 && !sessionAuthorized && !busy;
+  const canExecute = Boolean(session) && sessionAuthorized && executableState && targetList.length > 0 && !run && !busy;
   const nextDecision = !agentId
     ? "Deploy the mission agent."
     : !session
       ? "Confirm the scope, then create the mission."
-      : !sessionAuthorized
-        ? "Review the scope and record a separate human authorization."
-        : !run
-          ? "Execute the bounded run, then review its returned evidence."
-          : "Review the run and its evidence; acceptance remains a human decision.";
+      : session.state === "READY_FOR_REVIEW"
+        ? "This mission is at READY_FOR_REVIEW and cannot execute again. Review its evidence and record a separate human decision."
+        : !sessionAuthorized
+          ? "Review the scope and record a separate human authorization."
+          : !executableState
+            ? `The substrate reports ${session.state}; execution is not available in this state.`
+            : !run
+              ? "Execute the bounded run, then review its returned evidence."
+              : "Review the run and its evidence; acceptance remains a human decision.";
 
   return (
     <div className="space-y-4" data-testid="mission-workspace">
@@ -565,7 +590,7 @@ export function MissionWorkspace() {
             <input
               value={targets}
               onChange={(e) => setTargets(e.target.value)}
-              disabled={Boolean(run) || mutating}
+              disabled={Boolean(session) || Boolean(run) || busy}
               data-testid="mission-targets"
               className="mt-1 w-full rounded border border-line bg-ink px-2 py-1.5 font-mono text-xs text-white disabled:opacity-50"
             />
@@ -577,7 +602,7 @@ export function MissionWorkspace() {
           <input
             value={objective}
             onChange={(e) => setObjective(e.target.value)}
-            disabled={Boolean(session) || Boolean(run) || mutating}
+            disabled={Boolean(session) || Boolean(run) || busy}
             data-testid="mission-objective"
             className="mt-1 w-full rounded border border-line bg-ink px-2 py-1.5 text-sm text-white disabled:opacity-50"
           />
@@ -733,9 +758,12 @@ export function MissionWorkspace() {
 
       {backendEvents.length > 0 ? (
         <Panel>
-          <p className="mb-3 font-mono text-[11px] uppercase tracking-widest text-white/40">
-            Substrate events · {backendEvents.length}
-          </p>
+          <div data-testid="mission-event-stream">
+            <p className="mb-1 font-mono text-[11px] uppercase tracking-widest text-white/40">
+              Substrate events · {backendEvents.length}
+            </p>
+            <p className="mb-3 text-xs text-white/35">Events recorded by the substrate, not narrated by this surface.</p>
+          </div>
           <ol className="space-y-1" data-testid="mission-backend-events">
             {backendEvents.map((ev) => (
               <li key={ev.event_id} className="font-mono text-[11px] text-white/55">
