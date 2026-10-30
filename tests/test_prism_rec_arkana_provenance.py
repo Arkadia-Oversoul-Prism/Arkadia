@@ -163,11 +163,14 @@ def test_new_modules_issue_no_mutating_request():
     assert mutating_calls(_read(CONTRACT)) == []
     assert mutating_calls(_read(PANEL)) == []
     lib = _read(LIB)
-    # The JSON fallback and SSE stream are both conversational POSTs. No other
-    # write surface is introduced by the Arkana page or provenance modules.
+    # The JSON fallback and SSE stream are both conversational POSTs.
     assert mutating_calls(lib) == ["POST", "POST"]
-    assert re.search(r"apiRequest<ArkanaReply>\\(endpoints\\.arkanaResonance,", lib)
-    assert re.search(r"const path = endpoints\\.arkanaResonanceStream;", lib)
+    assert "apiRequest<ArkanaReply>(endpoints.arkanaResonance" in lib
+    assert "const path = endpoints.arkanaResonanceStream" in lib
+    page = _read(PAGE)
+    # Knowledge search uses POST for a read-only query, not a mutation.
+    assert mutating_calls(page) == ["POST"]
+    assert "endpoints.knowledgeSearch" in page
 
 
 def test_negative_control_detector_flags_a_mutating_module():
