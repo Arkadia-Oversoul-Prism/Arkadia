@@ -7,6 +7,7 @@
 | Date | 2026-10-30 |
 | Branch | `feat/aeas-01-p05-agent-dispatch` |
 | Starting revision | `b0945011` (= PR #591 head `feat/dea-01-mission-state-guard-01`) |
+| Branch head | `d9b1e8b3` — `81ecb081` (dispatch) + `d9b1e8b3` (merge repair), on `a2b0ea26` = `main` merged in |
 | Authorization | Issue #590, comment `6512665071` (separate reviewable branch; no merge, no deployment, no production change) |
 | Predecessors | P0.3 repository observation (PR #592, merged `776766b9`); P0.4 bounded test execution (PR #593, open) |
 
@@ -122,21 +123,46 @@ The human authorization is recorded with `originated_by="human"`, `merge=false`,
 `human_decision_required=true`, `merge=false`, `deploy=false`, `self_authorized=false` and the
 session stops at `READY_FOR_REVIEW`.
 
-## 7. Verification (measured, 2026-10-30, this branch)
+## 7. Verification (measured, 2026-10-30, branch head `d9b1e8b3`)
 
 | Command | Result |
 | --- | --- |
 | `.venv/bin/python -m pytest tests/test_engineering_lab_dispatch_truth.py -q` | **12 passed** |
 | `… tests/test_lab_mission_workspace_contract.py -q` | **21 passed** |
+| `… tests/test_lab_repository_surface_contract.py -q` | **12 passed** |
 | `… tests/test_console_endpoint_registry_contract.py -q` | **20 passed** |
 | `… tests/test_openapi_security_production_contract.py -q` | **1 passed** |
-| `… tests/test_engineering_lab_api.py -q` | **2 failed, 3 passed** — pre-existing (see §8) |
-| `cd web/arkadia_console && corepack pnpm build` | **exit 0** (`tsc --noEmit && vite build`, 112 modules) |
+| `… tests/test_engineering_lab_api.py -q` | **2 failed, 3 passed** — pre-existing (see §9) |
+| `cd web/arkadia_console && corepack pnpm build` | **exit 0** (`tsc --noEmit && vite build`, 112 modules; `pnpm install` restored after the sandbox dropped `node_modules`) |
 | `{ git diff --name-only; git ls-files -o --exclude-standard; } \| python scripts/cp10_mutation_boundary_policy.py --judge` | **Mutation boundary PASS** |
-| **Composition:** P0.4 head `05414274` + this diff (`git apply --3way`, clean) + these suites | **134 passed, 1 skipped, exit 0** — includes P0.4's `test_engineering_lab_test_boundary.py` alongside the `test`-not-a-loop-tool nodes |
+| **Composition:** PR #593 head `05414274` + `git diff 776766b9..HEAD` (`git apply --3way`, clean) + 7 suites | **187 passed, 1 skipped, exit 0** — P0.4's `test_engineering_lab_test_boundary.py` alongside the `test`-not-a-loop-tool nodes, plus both mission-workspace and repository contracts |
 | Served probes (`probes/p05_e2e.py`, `probes/p05_positive_probe.py`) | executed as recorded in §4–§6 |
 
-## 8. Known failures and limitations
+## 8. Merge repair — loss restoration (found while verifying)
+
+The branch carries `a2b0ea26` ("Merge branch 'main' into feat/aeas-01-p05-agent-dispatch").
+That merge resolved `EngineeringLabPage.tsx` to a state **neither parent had**: the
+`<details data-testid="lab-engineering-details">` wrapper disappeared and five surfaces that
+exist in *both* parents rendered nowhere.
+
+| Revision | Lab overview · LabOperationalSurfaces · ExecutionLoop · N-ATLAS panel · LabAuthorityReadings |
+| --- | --- |
+| `b0945011` (PR #591 side) | all five, inside the disclosure |
+| `776766b9` (main, P0.3) | all five, flat |
+| `a2b0ea26` (the merge) | **zero** |
+
+Measured at `a2b0ea26` in a clean worktree: `test_lab_mission_workspace_contract.py` →
+**1 failed, 20 passed** (`ValueError: substring not found` at `page.index("<details", mission_at)`).
+The same file at `b0945011` passes 21/21, so the failure was introduced by the merge, not by
+P0.5's changes.
+
+Repaired in `d9b1e8b3` as **loss restoration, not design**: the file is PR #591's blob plus
+exactly P0.3's two hunks (the `LabRepositoryContext` import and its mount after
+`<MissionWorkspace />`). Verified mechanically — `git diff b0945011 --
+web/arkadia_console/src/pages/EngineeringLabPage.tsx` shows only those **+3 lines** — and by
+the contract tests (`21 passed`) and the build (`exit 0`).
+
+## 9. Known failures and limitations
 
 * `tests/test_engineering_lab_api.py::test_lab_router_is_read_only_and_authenticated` and
   `::test_lab_mutation_endpoints_are_exactly_the_lab_state_set` fail with **2 failed, 3 passed**.
@@ -151,8 +177,10 @@ session stops at `READY_FOR_REVIEW`.
   this environment — UI behaviour is NOT CLAIMED beyond the source-level contract tests.
 * PR #591 (`mergeable=False` against `main`) is the base of this branch; its own conflict
   resolution is a separate, human-owned decision.
+* `node_modules` does not survive a sandbox restore; the build above required a fresh
+  `corepack pnpm install` (4.8s) before it could run.
 
-## 9. Next authorized action
+## 10. Next authorized action
 
 1. Review/merge PR #593 (P0.4) independently.
 2. Review this branch's dispatch slice; retarget the PR base to `main` once #591 lands.
