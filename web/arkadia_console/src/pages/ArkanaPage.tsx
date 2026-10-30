@@ -1,8 +1,8 @@
 /**
- * Arkana — conversation-first intelligence interface (A1 shell).
+ * Arkana — conversation-first intelligence interface (A1 shell + A1.1 rail).
  *
  * Preserves the existing non-streaming resonance contract (`askArkana`).
- * Streaming, multi-provider routing, and agent activity are deferred.
+ * Streaming is A2.
  */
 import { useEffect, useRef, useState } from "react";
 import { askArkana, type ArkanaMessage } from "../lib/arkana";
@@ -69,7 +69,6 @@ export function ArkanaPage() {
         },
       ]);
     } catch (caught) {
-      // A real failure is shown as a real failure — never a fabricated reply.
       const detail = caught instanceof ApiError ? caught.message : "Arkana could not respond.";
       setError(detail);
       setTurns((prev) => prev.slice(0, -1));
@@ -143,7 +142,7 @@ export function ArkanaPage() {
     <ArkanaShell
       brand="Arkana"
       statusLabel={sending ? "Synthesising" : "Online"}
-      sidebar={<ArkanaThreadHistory />}
+      sidebar={<ArkanaThreadHistory compact />}
       topTrailing={
         <span className="hidden font-mono text-[10px] uppercase tracking-widest text-white/35 sm:inline">
           Intelligence interface
@@ -200,7 +199,11 @@ export function ArkanaPage() {
                       <ReadAloud text={turn.content} label="Listen" testId={`arkana-listen-${i}`} />
                     </div>
                   ) : null}
-                  {turn.provenance ? <div className="mt-3"><ArkanaProvenancePanel provenance={turn.provenance} /></div> : null}
+                  {turn.provenance ? (
+                    <div className="mt-3">
+                      <ArkanaProvenancePanel provenance={turn.provenance} />
+                    </div>
+                  ) : null}
                 </li>
               ))}
             </ul>
