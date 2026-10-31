@@ -624,3 +624,26 @@ def test_worker_dispatch_distinguishes_gateway_catalog_states():
     assert 'catalog.length === 0 ? (' not in dispatch, (
         "an empty catalog must not be rendered as a still-loading gateway read"
     )
+
+
+def test_worker_dispatch_reconciles_canonical_session_view_after_settlement():
+    """A dispatch result must be reconciled with the canonical session read.
+
+    The dispatch panel owns its immediate response, but Mission Control owns
+    session state, run summary, events, evidence and artifacts. After the
+    worker request settles, the parent must re-read that canonical view rather
+    than leave the rest of the workspace showing the pre-dispatch snapshot.
+    """
+    dispatch = _read(DISPATCH)
+    workspace = _read(WORKSPACE)
+
+    assert "onSettled: () => Promise<void>" in dispatch
+    assert "await onSettled();" in dispatch
+    assert "onSettled={() => refreshView(session.session_id)}" in workspace
+
+    refresh_start = workspace.index("const refreshView = useCallback")
+    refresh_end = workspace.index("}, [applySessionView]);", refresh_start)
+    refresh = workspace[refresh_start:refresh_end]
+    assert "const view = await getSessionView(sessionId);" in refresh
+    assert "if (Array.isArray(view.runs))" in refresh
+    assert "setRun(last);" in refresh
