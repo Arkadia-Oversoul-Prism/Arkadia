@@ -788,7 +788,7 @@ Inspect the fresh PR #599 check set and verify the new state contract. Then prio
 **Canonical directive:** [Issue #590](https://github.com/Arkadia-Oversoul-Prism/Arkadia/issues/590)  
 **Baseline:** `main` @ `89105d6d76cd01d68ec8770a6a08a3669d498060`  
 **Implementation branch:** `fix/dea-01-dispatch-session-reconciliation`  
-**PR:** [#601 — fix(lab): reconcile mission state after worker dispatch](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/601) (open draft; no merge). PR-creation head: `5143f8f029b6f81ef990266e1a215ed9dbb4578f`.
+**PR:** [#601 — fix(lab): reconcile mission state after worker dispatch](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/601) (open draft; no merge). Initial PR head: `5143f8f029b6f81ef990266e1a215ed9dbb4578f`; guard-correction code/test head: `7142b0622a663b6d67a712cd5b4f9cd53a64f11a`.
 
 ### Proven defect
 
@@ -801,7 +801,7 @@ This was established by source inspection of `LabWorkerDispatch.tsx` and `Missio
 - Added a required `onSettled` callback to the existing `LabWorkerDispatch` panel.
 - Invoke the callback after both successful and failed dispatch requests, preserving the dispatch result/error and allowing the parent to report any canonical-refresh failure in its own evidence state.
 - Pass the existing `refreshView(session.session_id)` callback from MissionWorkspace.
-- Reconcile the latest run only when the canonical session-view response actually includes a `runs` array; an explicitly empty array clears the stale run, while an omitted collection does not fabricate a replacement.
+- Reconcile the latest run only when the canonical response contains a confirmed session and a `runs` array; an explicitly empty array clears stale run state, while a missing session or omitted collection does not fabricate a replacement.
 - Added a source-contract regression test pinning the callback, parent wiring, and canonical run reconciliation.
 
 Changed paths:
@@ -812,18 +812,20 @@ Changed paths:
 Commits:
 - Dispatch callback: `18df8d5bc896d7294d8d93460dd0d2250a8845b9`
 - Parent session/run reconciliation: `9ad1c9b56c3a0fba2434145c139a25dbee8d7e0a`
+- Confirmed-session guard: `8dfc21b37467b585dbcb4542a03865f201332295`
 - Regression contract: `332f25a9053c5c70c19592156861ddbfc226694b`
+- Guard regression assertion: `7142b0622a663b6d67a712cd5b4f9cd53a64f11a`
 
 No backend route, API contract, authorization/approval subsystem, identity, provenance, WorkEvent, workspace boundary, persistence store, provider configuration, credentials, production configuration, deployment, or Notion content was changed.
 
 ### Verification status
 
 - Post-change source comparison: the three changed paths contain only the bounded callback/reconciliation change and its regression contract.
-- At PR-creation head `5143f8f029b6f81ef990266e1a215ed9dbb4578f`, Canonical Render Runtime Probe run `41183535690` and N-ATLAS provider forensics run `41183535687` were **queued**. The evidence follow-up below advances the PR head, so fresh final-head results remain **PENDING**.
+- At PR-creation head `5143f8f029b6f81ef990266e1a215ed9dbb4578f`, Canonical Render Runtime Probe run `41183535690` and N-ATLAS provider forensics run `41183535687` were **in progress/success**, respectively. The source guard correction and evidence follow-up advance the PR head; fresh final-head results remain **PENDING**.
 - Authenticated browser acceptance, responsive desktop/mobile behavior, preview and production verification: **UNKNOWN / NOT PERFORMED**.
 - Provider-backed dispatch and bounded container execution remain subject to the existing environment dependencies; this move does not claim either is LIVE.
 
 ### Next action
 
-PR #601 is open. Its full diff was inspected: four files, confined to dispatch reconciliation, its regression contract and the existing evidence record. Inspect the fresh final-head console contract, frontend build, and relevant Lab/integration checks when available. If CI exposes a defect, correct it within this same PR and re-run only the affected checks. Human review/merge and production authority remain final.
+PR #601 is open. The initial four-file diff was inspected; a final defensive guard was added so a malformed session-view response cannot update run state without a confirmed session. Re-inspect the final diff and fresh final-head console contract, frontend build, and relevant Lab/integration checks when available. If CI exposes a defect, correct it within this same PR and re-run only the affected checks. Human review/merge and production authority remain final.
 
