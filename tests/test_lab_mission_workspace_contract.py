@@ -645,5 +645,5 @@ def test_worker_dispatch_reconciles_canonical_session_view_after_settlement():
     refresh_end = workspace.index("}, [applySessionView]);", refresh_start)
     refresh = workspace[refresh_start:refresh_end]
     assert "const view = await getSessionView(sessionId);" in refresh
-    assert "if (Array.isArray(view.runs))" in refresh
+    assert "if (view.session && Array.isArray(view.runs))" in refresh
     assert "setRun(last);" in refresh
