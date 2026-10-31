@@ -52,11 +52,11 @@ function RagRow({ ref }: { ref: ArkanaRagRef }) {
 
 function SourceRow({ ref }: { ref: ArkanaSourceRef }) {
   return (
-    <div className="flex flex-wrap items-baseline gap-2" title={ref.excerpt || sourceTitle(ref)}>
+    <div className="flex flex-wrap items-baseline gap-2" title={typeof ref.excerpt === "string" ? ref.excerpt : sourceTitle(ref)}>
       <span className="text-emerald/50">◆</span>
       <span className="font-mono text-[10px] text-white/55">{sourceTitle(ref)}</span>
       <span className="font-mono text-[9px] text-white/25">
-        {ref.type ?? "note"}
+        {typeof ref.type === "string" ? ref.type : "note"}
         {ref.via === "graph" ? " · linked" : ""}
       </span>
     </div>
@@ -97,7 +97,7 @@ export function ArkanaProvenancePanel({ provenance }: { provenance: ArkanaProven
 
       {memory && (
         <p className="font-mono text-[9px] text-white/25" data-testid="arkana-provenance-memory">
-          memory: {memory.notes_retrieved ?? 0} note(s) retrieved · {memory.source ?? "knowledge_os"}
+          memory: {typeof memory.notes_retrieved === "number" && Number.isFinite(memory.notes_retrieved) ? memory.notes_retrieved : 0} note(s) retrieved · {typeof memory.source === "string" ? memory.source : "knowledge_os"}
           {memory.thread_id != null ? ` · thread ${memory.thread_id}` : ""}
         </p>
       )}

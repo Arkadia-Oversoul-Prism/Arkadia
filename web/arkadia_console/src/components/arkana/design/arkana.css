@@ -276,3 +276,116 @@
   border-color: color-mix(in srgb, theme("colors.emerald") 35%, theme("colors.line"));
   background: color-mix(in srgb, theme("colors.emerald") 6%, theme("colors.panel"));
 }
+
+
+/* Operating-mode selection: cards activate a mode and never submit a prompt. */
+.arkana-mode-switcher { display: flex; flex-wrap: wrap; gap: 0.45rem; align-items: center; }
+.arkana-mode-option {
+  border: 1px solid theme("colors.line");
+  border-radius: 9999px;
+  padding: 0.35rem 0.7rem;
+  color: theme("colors.white" / 55%);
+  font-family: theme("fontFamily.mono");
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  transition: border-color 120ms ease, background 120ms ease, color 120ms ease;
+}
+.arkana-mode-option:hover,
+.arkana-mode-option.is-active {
+  border-color: color-mix(in srgb, theme("colors.emerald") 55%, theme("colors.line"));
+  background: color-mix(in srgb, theme("colors.emerald") 10%, transparent);
+  color: theme("colors.emerald");
+}
+.arkana-mode-option:disabled { cursor: not-allowed; opacity: 0.45; }
+.arkana-markdown {
+  max-width: 76ch;
+  overflow-wrap: anywhere;
+  color: theme("colors.white" / 85%);
+  font-size: 0.875rem;
+  line-height: 1.55;
+}
+.arkana-markdown > :first-child { margin-top: 0; }
+.arkana-markdown > :last-child { margin-bottom: 0; }
+.arkana-markdown p { margin: 0 0 0.65em; }
+.arkana-markdown h1,
+.arkana-markdown h2,
+.arkana-markdown h3,
+.arkana-markdown h4,
+.arkana-markdown h5,
+.arkana-markdown h6 {
+  margin: 0.9em 0 0.35em;
+  color: theme("colors.gold");
+  font-family: theme("fontFamily.display");
+  font-weight: 600;
+  line-height: 1.25;
+}
+.arkana-markdown h1 { font-size: 1.35rem; }
+.arkana-markdown h2 { font-size: 1.2rem; }
+.arkana-markdown h3 { font-size: 1.05rem; }
+.arkana-markdown h4,
+.arkana-markdown h5,
+.arkana-markdown h6 { font-size: 0.9rem; }
+.arkana-markdown ul,
+.arkana-markdown ol { margin: 0.45em 0 0.75em; padding-left: 1.4rem; }
+.arkana-markdown ul { list-style: disc; }
+.arkana-markdown ol { list-style: decimal; }
+.arkana-markdown li { margin: 0.18em 0; padding-left: 0.1rem; }
+.arkana-markdown blockquote {
+  margin: 0.7em 0;
+  border-left: 2px solid color-mix(in srgb, theme("colors.emerald") 50%, transparent);
+  background: color-mix(in srgb, theme("colors.emerald") 5%, transparent);
+  padding: 0.5rem 0.75rem;
+  color: theme("colors.white" / 70%);
+}
+.arkana-markdown code {
+  border-radius: 0.25rem;
+  background: color-mix(in srgb, theme("colors.emerald") 9%, transparent);
+  padding: 0.08rem 0.28rem;
+  color: theme("colors.emerald");
+  font-family: theme("fontFamily.mono");
+  font-size: 0.9em;
+}
+.arkana-markdown pre {
+  overflow-x: auto;
+  margin: 0.65em 0;
+  border: 1px solid theme("colors.line");
+  border-radius: 0.5rem;
+  background: theme("colors.ink");
+  padding: 0.75rem;
+}
+.arkana-markdown pre code { background: transparent; padding: 0; }
+.arkana-markdown table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+.arkana-markdown th,
+.arkana-markdown td {
+  border: 1px solid theme("colors.line");
+  padding: 0.35rem 0.55rem;
+  text-align: left;
+  vertical-align: top;
+}
+.arkana-markdown th {
+  color: theme("colors.emerald");
+  font-family: theme("fontFamily.mono");
+  font-size: 0.68rem;
+  text-transform: uppercase;
+}
+.arkana-markdown a {
+  color: theme("colors.emerald");
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+.arkana-markdown hr { margin: 0.9em 0; border: 0; border-top: 1px solid theme("colors.line"); }
+.arkana-markdown input[type="checkbox"] { margin-right: 0.4rem; accent-color: theme("colors.emerald"); }
+.arkana-markdown-dense { font-size: 0.82rem; line-height: 1.48; }
+.arkana-markdown-dense h1 { font-size: 1.05rem; }
+.arkana-markdown-dense h2 { font-size: 0.95rem; }
+.arkana-markdown-dense h3 { font-size: 0.85rem; }
+.arkana-markdown-dense p { margin-bottom: 0.42em; }
+.arkana-markdown-compact { font-size: 0.8rem; }
+.arkana-research-evidence { margin-top: 0.9rem; border-top: 1px solid theme("colors.line"); padding-top: 0.75rem; }
