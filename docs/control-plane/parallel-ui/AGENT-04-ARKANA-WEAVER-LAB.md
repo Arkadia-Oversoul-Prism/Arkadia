@@ -58,3 +58,20 @@ The forward-looking task recorded above — a traceable run-to-evidence review v
 The repository holds **zero open PRs** in every lane, so the idle declaration above is the
 current truth. This block adds no pointer declaration, so that idle disposition remains the
 last-wins declaration for this lane.
+
+## Status — 2026-10-31 (LANE 4; supersedes the idle declaration above)
+
+**Active branch:** `fix/dea-01-dispatch-session-reconciliation`
+**Active PR:** #601 (draft) — head `35f90958814643c4bdfdd5a0fa9610f5f70c4b75`, base `main`
+**Base:** `6ccb021fd0af1d34e3fb37aaca44f642c76cbac0` (measured live this pulse; supersedes
+every earlier base recorded above).
+
+Lane 4 is no longer idle: it holds one bounded draft PR again, so the idle declaration above
+is superseded by this pointer, which is the declaration the guard reads (last-wins).
+
+The slice reconciles the Lab dispatch/session surface — `LabWorkerDispatch.tsx`,
+`MissionWorkspace.tsx` and `tests/test_lab_mission_workspace_contract.py`, with evidence in
+`docs/control-plane/evidence/arkadia-unified-lab-mvp-01/EVIDENCE.md`. All four paths are
+inside lane 4's exclusive ownership (`SHARED-CONTRACTS.md` §1). The PR stays **draft**: the
+guard records its live state, it does not assert the slice is ready for review or merge.
+Merge, production deployment and acceptance remain human-only.
