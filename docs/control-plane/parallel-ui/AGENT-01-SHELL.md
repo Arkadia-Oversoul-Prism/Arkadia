@@ -138,3 +138,21 @@ copy and is recorded, not edited (§1). Evidence:
 Reconciliation was exhausted before this PR was opened: the repository held **zero open
 PRs** across all four lanes, so N1–N8 are satisfied and no lane's PR was duplicated or
 continued.
+
+## Status — 2026-10-31 (LANE 1, idle; supersedes the #588 pointer above)
+
+**Active thread:** none
+
+Lane 1 holds **no open PR** again. PR #588 merged as `df7899b9` ("Lane 1: repair the
+endpoint-registry served-path oracle in both directions"), and the lane has not opened its
+next bounded slice yet. The pointer block above therefore names a merged thread and is
+superseded by this declaration, which is the one the guard reads (last-wins).
+
+This is the truthful idle form, not silence: `scripts/lane_state.py` requires an idle lane
+to *state* that it holds no active thread, and cross-checks the claim against the snapshot —
+a lane that declares idle while the snapshot still lists its own open PRs is reported.
+
+Measured at `main` `6ccb021fd0af1d34e3fb37aaca44f642c76cbac0`; snapshot refreshed the same
+pulse. Lane 1 at zero open PRs is a **deficit**, not a resting state: the next action is to
+open lane 1's next bounded draft PR from freshly fetched `main`, inside the lane's owned
+paths (`SHARED-CONTRACTS.md` §1).

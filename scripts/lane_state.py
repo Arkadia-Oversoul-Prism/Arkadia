@@ -157,10 +157,15 @@ def declared_idle(text: str) -> bool:
     supersedes an earlier idle declaration and vice versa.
     """
     prs = list(_PR_RE.finditer(text))
-    idle = _IDLE_RE.search(text)
-    if idle is None:
+    idles = list(_IDLE_RE.finditer(text))
+    if not idles:
         return False
-    return not prs or idle.start() > prs[-1].start()
+    # Last-wins on *both* sides. Using the first idle declaration here made the
+    # comparison asymmetric with :func:`declared_pr`: a doc carrying an idle
+    # line followed by a later pointer was read as its earliest idle position,
+    # so ``declared_idle`` returned False even when the idle line was the newest
+    # declaration, and the lane was judged by a stale pointer it had superseded.
+    return not prs or idles[-1].start() > prs[-1].start()
 
 
 def _pr_index(state: dict) -> dict[int, dict]:
