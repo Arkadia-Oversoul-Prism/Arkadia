@@ -362,6 +362,102 @@ def test_lane_one_shell_doc_does_not_name_a_merged_pr():
         f"AGENT-01-SHELL.md declares merged PR #{declared}"
     )
 
+# ------------------------------------------- declared_idle last-wins oracle
+
+
+def test_declared_idle_is_last_wins_not_first_wins():
+    """A lane whose *newest* declaration is idle must be read as idle.
+
+    The defect: ``declared_idle`` compared the **first** idle declaration
+    against the last pointer, while ``declared_pr`` used last-wins. The two
+    sides of one comparison therefore disagreed about which declaration is
+    authoritative, and its own docstring already specified last-wins.
+
+    Reproduces with pointers at ``[0, 73]`` and idle lines at ``[26, 126]``: the
+    pre-repair oracle compares the **first** idle line at 26 against the last
+    pointer at 73 and returns ``False``, ignoring the trailing idle line at 126
+    that is the actual newest declaration. Post-repair it compares the last idle
+    line at 126 against the pointer at 73 and returns ``True``.
+
+    The discriminating shape needs declarations on **both sides** of the idle
+    line and a pointer *between* two idle lines. An idle line outside the
+    pointer range does not reproduce it, and neither does a single idle line.
+    """
+    text = (
+        "**Active PR:** #111\n"
+        + "filler\n" * 5
+        + "**Active thread:** none\n"
+        + "filler\n" * 4
+        + "**Active PR:** #222\n"
+        + "filler\n" * 4
+        + "**Active thread:** none\n"
+    )
+    prs = list(guard._PR_RE.finditer(text))
+    idles = list(guard._IDLE_RE.finditer(text))
+    assert len(prs) == 2 and len(idles) == 2, (
+        "the fixture must plant both shapes: two pointers and two idle lines, so "
+        "that first-wins and last-wins disagree"
+    )
+    assert idles[0].start() > prs[0].start(), (
+        "the first idle line must supersede the *earlier* pointer -- otherwise "
+        "the fixture does not exercise last-wins at all"
+    )
+    assert idles[0].start() < prs[-1].start() < idles[-1].start(), (
+        "the defect shape needs a pointer *between* the two idle lines: the "
+        "first-wins oracle reads that pointer as newest, the last-wins oracle "
+        "reads the trailing idle line as newest"
+    )
+    assert guard.declared_idle(text), (
+        "the newest declaration is the trailing idle line, so the lane is idle; "
+        "a first-wins oracle reports False here"
+    )
+
+
+def test_declared_idle_negative_control_first_wins_oracle_would_fail():
+    """Negative control: the pre-repair oracle must fail this fixture.
+
+    Re-implements the pre-repair comparison verbatim (first idle match vs last
+    pointer) and asserts it disagrees with the repaired oracle. Without this,
+    the test above could pass against an oracle that ignores position entirely.
+    """
+    text = (
+        "**Active PR:** #111\n"
+        + "filler\n" * 5
+        + "**Active thread:** none\n"
+        + "filler\n" * 4
+        + "**Active PR:** #222\n"
+        + "filler\n" * 4
+        + "**Active thread:** none\n"
+    )
+    first_idle = guard._IDLE_RE.search(text)
+    prs = list(guard._PR_RE.finditer(text))
+    pre_repair = not prs or first_idle.start() > prs[-1].start()
+    assert pre_repair is False, (
+        "the pre-repair oracle must report the lane as NOT idle for this shape; "
+        "if it already agreed, the fixture does not exercise the defect"
+    )
+    assert guard.declared_idle(text) is True, (
+        "the repaired oracle must report idle for the same shape"
+    )
+
+
+def test_declared_idle_still_defers_to_a_newer_pointer():
+    """Positive control: an idle line superseded by a later pointer is not idle.
+
+    Last-wins must not degrade into "any idle declaration anywhere wins" --
+    that would let a lane hide live work behind a stale idle sentence, which is
+    the hole ``_declared_pointer_findings`` exists to close.
+    """
+    text = (
+        "**Active thread:** none\n"
+        + "filler\n" * 5
+        + "**Active PR:** #333\n"
+    )
+    assert guard.declared_idle(text) is False, (
+        "a pointer appended after the idle declaration supersedes it; the lane "
+        "is live and must be judged by that pointer"
+    )
+
 
 def test_every_deferral_is_owned_by_an_open_pr():
     state = live_state()

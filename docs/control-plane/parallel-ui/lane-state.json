@@ -1,25 +1,16 @@
 {
  "schema": "arkadia.lane-state/1.2",
- "observed_at": "2026-10-29T10:58:24Z",
- "base_main": "b5bc34cb178d0ec8a804ce6f5761e4bd5e0c7989",
+ "observed_at": "2026-10-31T19:59:34Z",
+ "base_main": "6ccb021fd0af1d34e3fb37aaca44f642c76cbac0",
  "source": "GitHub REST reads API (Arkadia-Oversoul-Prism/Arkadia), read-only, derived by scripts/lane_state_refresh.py",
  "note": "Machine-readable mirror of the four Prism UI lane threads, DERIVED from live PR state rather than hand-transcribed. Lane assignment is by exclusive path ownership (SHARED-CONTRACTS.md section 1); a PR touching more than one lane's owned paths appears in each. scripts/lane_state.py judges the docs against this file; --verify-live additionally requires every claimed-open PR to be authoritatively open. Refresh with scripts/lane_state_refresh.py --write.",
  "lanes": {
   "1": {
    "doc": "AGENT-01-SHELL.md",
    "title": "Shell / navigation / design system / integration seam",
-   "active_pr": 588,
-   "active_branch": "feat/prism-l1-endpoint-registry-oracle-symmetry-01",
-   "open_prs": [
-    {
-     "number": 588,
-     "branch": "feat/prism-l1-endpoint-registry-oracle-symmetry-01",
-     "head_sha": "eb80bcca1c71051056025c35849336da1d813fd8",
-     "draft": false,
-     "updated_at": "2026-10-29T10:30:39Z",
-     "title": "Lane 1: repair the endpoint-registry served-path oracle in both directions"
-    }
-   ],
+   "active_pr": null,
+   "active_branch": null,
+   "open_prs": [],
    "merged_prs": [
     {
      "number": 423,
@@ -40,10 +31,13 @@
     {
      "number": 429,
      "merge_commit_sha": "65403304b6dcaa4f4e818cabbb7722892b3b152b"
+    },
+    {
+     "number": 588,
+     "merge_commit_sha": "df7899b9cdb7b732f6812a019d349e6faded05a3"
     }
    ],
-   "doc_guard": "deferred",
-   "deferred_to_pr": 588
+   "doc_guard": "idle"
   },
   "2": {
    "doc": "AGENT-02-NOVANET-OPPORTUNITY.md",
@@ -88,9 +82,18 @@
   "4": {
    "doc": "AGENT-04-ARKANA-WEAVER-LAB.md",
    "title": "Arkana + Weaver + Engineering Lab",
-   "active_pr": null,
-   "active_branch": null,
-   "open_prs": [],
+   "active_pr": 601,
+   "active_branch": "fix/dea-01-dispatch-session-reconciliation",
+   "open_prs": [
+    {
+     "number": 601,
+     "branch": "fix/dea-01-dispatch-session-reconciliation",
+     "head_sha": "35f90958814643c4bdfdd5a0fa9610f5f70c4b75",
+     "draft": true,
+     "updated_at": "2026-10-31T08:17:59Z",
+     "title": "fix(lab): reconcile mission state after worker dispatch"
+    }
+   ],
    "merged_prs": [
     {
      "number": 422,
@@ -101,7 +104,7 @@
      "merge_commit_sha": "f390526ab14e122fef358ef9b9e1cd438509463c"
     }
    ],
-   "doc_guard": "idle"
+   "doc_guard": "current"
   }
  },
  "unassigned_open_prs": [],
