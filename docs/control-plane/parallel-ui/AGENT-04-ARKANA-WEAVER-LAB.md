@@ -75,3 +75,22 @@ The slice reconciles the Lab dispatch/session surface — `LabWorkerDispatch.tsx
 inside lane 4's exclusive ownership (`SHARED-CONTRACTS.md` §1). The PR stays **draft**: the
 guard records its live state, it does not assert the slice is ready for review or merge.
 Merge, production deployment and acceptance remain human-only.
+
+## Status — 2026-10-31 (LANE 4, idle; supersedes the #601 pointer above)
+
+**Active thread:** none
+
+PR #601 merged as `6776ee103525c9d097d73e3a47493748ff3efc2c`, so the pointer block above
+names a merged thread and is superseded by this declaration, which is the declaration the
+guard reads (last-wins). Lane 4 holds **no open PR** again.
+
+The merge was performed by the **human sovereign** (`Arkadia-Oversoul-Prism`), not by this
+workstream: the governing documents — `docs/control-plane/overnight/PRISM-UI-RECONCILIATION.md`
+§"Agents may inspect, implement, test, document, commit to their assigned branch, and update
+their PR. They may not merge any PR, deploy production, or declare product acceptance." and
+`AGENTS.md` — reserve merge, production-deployment and acceptance authority to the human.
+This block records the merge; it does not claim it.
+
+Lane 4 at zero open PRs is a **deficit**, not a resting state: the next action is to open
+lane 4's next bounded draft PR from freshly fetched `main`, inside the lane's owned paths
+(`SHARED-CONTRACTS.md` §1).
