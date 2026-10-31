@@ -781,3 +781,58 @@ The immediately preceding head `ebe91d4` had these current-run observations (run
 ### Next action
 
 Inspect the fresh PR #599 check set and verify the new state contract. Then prioritize authenticated workspace acceptance when an approved disposable Firebase identity/configuration is available. Human review/merge and production authority remain final; no merge or deployment occurred.
+
+## 12. DEA-01 worker dispatch reconciliation — 2026-10-31 08:07 UTC
+
+**Move ID:** `DEA-01-DISPATCH-SESSION-RECONCILIATION-01`  
+**Canonical directive:** [Issue #590](https://github.com/Arkadia-Oversoul-Prism/Arkadia/issues/590)  
+**Baseline:** `main` @ `89105d6d76cd01d68ec8770a6a08a3669d498060`  
+**Implementation branch:** `fix/dea-01-dispatch-session-reconciliation`  
+**PR:** [#601 — fix(lab): reconcile mission state after worker dispatch](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/601) (open draft; no merge). Initial PR head: `5143f8f029b6f81ef990266e1a215ed9dbb4578f`; guard-correction code/test head: `7142b0622a663b6d67a712cd5b4f9cd53a64f11a`.
+
+### Proven defect
+
+The worker dispatch panel stored the `run-agent` response locally, but did not request a refresh of the parent Mission Control session view after dispatch settled. The parent's canonical `refreshView` also did not reconcile the returned `runs` collection. As a result, the dispatch panel could show a new run while Mission Control's session state, latest-run summary, substrate events and recorded evidence/artifacts remained on the pre-dispatch snapshot.
+
+This was established by source inspection of `LabWorkerDispatch.tsx` and `MissionWorkspace.tsx` on the baseline above; no runtime reproduction is claimed.
+
+### Bounded implementation
+
+- Added a required `onSettled` callback to the existing `LabWorkerDispatch` panel.
+- Invoke the callback after both successful and failed dispatch requests, preserving the dispatch result/error and allowing the parent to report any canonical-refresh failure in its own evidence state.
+- Pass the existing `refreshView(session.session_id)` callback from MissionWorkspace.
+- Reconcile the latest run only when the canonical response contains a confirmed session and a `runs` array; an explicitly empty array clears stale run state, while a missing session or omitted collection does not fabricate a replacement.
+- Added a source-contract regression test pinning the callback, parent wiring, and canonical run reconciliation.
+
+Changed paths:
+- `web/arkadia_console/src/components/lab/LabWorkerDispatch.tsx`
+- `web/arkadia_console/src/components/lab/MissionWorkspace.tsx`
+- `tests/test_lab_mission_workspace_contract.py`
+
+Commits:
+- Dispatch callback: `18df8d5bc896d7294d8d93460dd0d2250a8845b9`
+- Parent session/run reconciliation: `9ad1c9b56c3a0fba2434145c139a25dbee8d7e0a`
+- Confirmed-session guard: `8dfc21b37467b585dbcb4542a03865f201332295`
+- Regression contract: `332f25a9053c5c70c19592156861ddbfc226694b`
+- Guard regression assertion: `7142b0622a663b6d67a712cd5b4f9cd53a64f11a`
+
+No backend route, API contract, authorization/approval subsystem, identity, provenance, WorkEvent, workspace boundary, persistence store, provider configuration, credentials, production configuration, deployment, or Notion content was changed.
+
+### Verification status
+
+- Post-change source comparison: the three changed paths contain only the bounded callback/reconciliation change and its regression contract.
+- Verification snapshot on PR head `1a8b9a8517df474fd4a3ab2c31cbe6083d94855e` (2026-10-31 08:13–08:17 UTC):
+  - Prism Console Contract run [41183608309](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41183608309): **966 passed in 25.03s**.
+  - Console CI-wiring guard in the same job: **30 passed in 3.49s**.
+  - N-ATLAS Developer Lab run [41183608377](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41183608377): frontend typecheck/build, backend, canonical Render image build, and self-host image build all **success**.
+  - Canonical Render Runtime Probe [41183608266](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41183608266), security-secret-scan [41183608442](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41183608442), N-ATLAS provider forensics [41183608247](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41183608247), Boot Syntax Boundary [41183608270](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41183608270), Operator Console Posture Currency [41183608295](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41183608295), N-ATLAS external beta validation [41183608252](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41183608252), and economic-seam-engine [41183608205](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41183608205): **success**.
+  - SG-02-FE.2-V run [41183608227](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41183608227) remained **in progress** at CP10-B broader backend regression; CP10 API/browser steps had not started at the last inspection.
+- The Render runtime probe was a read-only PR route probe. Its deployment identity reported `not_applicable_for_pull_request_probe`; this is not production or browser acceptance.
+- This evidence-only follow-up advances the PR head without changing source/test files. Fresh checks on the resulting head remain **PENDING**.
+- Authenticated browser acceptance, responsive desktop/mobile behavior, preview and production verification: **UNKNOWN / NOT PERFORMED**.
+- Provider-backed dispatch and bounded container execution remain subject to the existing environment dependencies; this move does not claim either is LIVE.
+
+### Next action
+
+PR #601 is open. The final four-file diff was inspected after the confirmed-session guard correction. The targeted console contract and frontend build are green on the recorded code/test state; CP10-B remains in progress and must be inspected when it completes. Fresh checks on this evidence-only successor head remain pending. If CP10-B exposes a regression, compare the same tests on the base revision before classifying it and correct only a proven PR regression. Human review/merge and production authority remain final.
+
