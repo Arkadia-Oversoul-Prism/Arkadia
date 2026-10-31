@@ -781,3 +781,49 @@ The immediately preceding head `ebe91d4` had these current-run observations (run
 ### Next action
 
 Inspect the fresh PR #599 check set and verify the new state contract. Then prioritize authenticated workspace acceptance when an approved disposable Firebase identity/configuration is available. Human review/merge and production authority remain final; no merge or deployment occurred.
+
+## 12. DEA-01 worker dispatch reconciliation — 2026-10-31 08:07 UTC
+
+**Move ID:** `DEA-01-DISPATCH-SESSION-RECONCILIATION-01`  
+**Canonical directive:** [Issue #590](https://github.com/Arkadia-Oversoul-Prism/Arkadia/issues/590)  
+**Baseline:** `main` @ `89105d6d76cd01d68ec8770a6a08a3669d498060`  
+**Implementation branch:** `fix/dea-01-dispatch-session-reconciliation`  
+**PR:** pending creation after final diff inspection.
+
+### Proven defect
+
+The worker dispatch panel stored the `run-agent` response locally, but did not request a refresh of the parent Mission Control session view after dispatch settled. The parent's canonical `refreshView` also did not reconcile the returned `runs` collection. As a result, the dispatch panel could show a new run while Mission Control's session state, latest-run summary, substrate events and recorded evidence/artifacts remained on the pre-dispatch snapshot.
+
+This was established by source inspection of `LabWorkerDispatch.tsx` and `MissionWorkspace.tsx` on the baseline above; no runtime reproduction is claimed.
+
+### Bounded implementation
+
+- Added a required `onSettled` callback to the existing `LabWorkerDispatch` panel.
+- Invoke the callback after both successful and failed dispatch requests, preserving the dispatch result/error and allowing the parent to report any canonical-refresh failure in its own evidence state.
+- Pass the existing `refreshView(session.session_id)` callback from MissionWorkspace.
+- Reconcile the latest run only when the canonical session-view response actually includes a `runs` array; an explicitly empty array clears the stale run, while an omitted collection does not fabricate a replacement.
+- Added a source-contract regression test pinning the callback, parent wiring, and canonical run reconciliation.
+
+Changed paths:
+- `web/arkadia_console/src/components/lab/LabWorkerDispatch.tsx`
+- `web/arkadia_console/src/components/lab/MissionWorkspace.tsx`
+- `tests/test_lab_mission_workspace_contract.py`
+
+Commits:
+- Dispatch callback: `18df8d5bc896d7294d8d93460dd0d2250a8845b9`
+- Parent session/run reconciliation: `9ad1c9b56c3a0fba2434145c139a25dbee8d7e0a`
+- Regression contract: `332f25a9053c5c70c19592156861ddbfc226694b`
+
+No backend route, API contract, authorization/approval subsystem, identity, provenance, WorkEvent, workspace boundary, persistence store, provider configuration, credentials, production configuration, deployment, or Notion content was changed.
+
+### Verification status
+
+- Post-change source comparison: the three changed paths contain only the bounded callback/reconciliation change and its regression contract.
+- Targeted CI/test result: **PENDING**; the new branch head has not yet produced a recorded CI result.
+- Authenticated browser acceptance, responsive desktop/mobile behavior, preview and production verification: **UNKNOWN / NOT PERFORMED**.
+- Provider-backed dispatch and bounded container execution remain subject to the existing environment dependencies; this move does not claim either is LIVE.
+
+### Next action
+
+Open one focused PR, inspect the full PR diff, then evaluate the fresh console contract, frontend build, and relevant Lab/integration checks. If CI exposes a defect, correct it within this same PR and re-run only the affected checks. Human review/merge and production authority remain final.
+
