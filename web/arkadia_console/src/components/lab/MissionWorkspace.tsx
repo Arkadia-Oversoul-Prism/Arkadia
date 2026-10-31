@@ -207,6 +207,11 @@ export function MissionWorkspace() {
     try {
       const view = await getSessionView(sessionId);
       applySessionView(view);
+      if (Array.isArray(view.runs)) {
+        const runs = view.runs;
+        const last = runs.length > 0 ? (runs[runs.length - 1] as unknown as LabRunResult) : null;
+        setRun(last);
+      }
     } catch (e) {
       setEvidenceState(classifyEvidenceFailure(e));
       setEvidenceError(describeError(e));
@@ -729,6 +734,7 @@ export function MissionWorkspace() {
           sessionId={session.session_id}
           authorized={sessionAuthorized}
           objective={objective}
+          onSettled={() => refreshView(session.session_id)}
         />
       ) : null}
 
