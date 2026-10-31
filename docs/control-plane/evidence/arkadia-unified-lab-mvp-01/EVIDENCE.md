@@ -821,11 +821,18 @@ No backend route, API contract, authorization/approval subsystem, identity, prov
 ### Verification status
 
 - Post-change source comparison: the three changed paths contain only the bounded callback/reconciliation change and its regression contract.
-- At PR-creation head `5143f8f029b6f81ef990266e1a215ed9dbb4578f`, Canonical Render Runtime Probe run `41183535690` and N-ATLAS provider forensics run `41183535687` were **in progress/success**, respectively. The source guard correction and evidence follow-up advance the PR head; fresh final-head results remain **PENDING**.
+- Verification snapshot on PR head `1a8b9a8517df474fd4a3ab2c31cbe6083d94855e` (2026-10-31 08:13–08:17 UTC):
+  - Prism Console Contract run [41183608309](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41183608309): **966 passed in 25.03s**.
+  - Console CI-wiring guard in the same job: **30 passed in 3.49s**.
+  - N-ATLAS Developer Lab run [41183608377](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41183608377): frontend typecheck/build, backend, canonical Render image build, and self-host image build all **success**.
+  - Canonical Render Runtime Probe [41183608266](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41183608266), security-secret-scan [41183608442](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41183608442), N-ATLAS provider forensics [41183608247](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41183608247), Boot Syntax Boundary [41183608270](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41183608270), Operator Console Posture Currency [41183608295](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41183608295), N-ATLAS external beta validation [41183608252](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41183608252), and economic-seam-engine [41183608205](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41183608205): **success**.
+  - SG-02-FE.2-V run [41183608227](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41183608227) remained **in progress** at CP10-B broader backend regression; CP10 API/browser steps had not started at the last inspection.
+- The Render runtime probe was a read-only PR route probe. Its deployment identity reported `not_applicable_for_pull_request_probe`; this is not production or browser acceptance.
+- This evidence-only follow-up advances the PR head without changing source/test files. Fresh checks on the resulting head remain **PENDING**.
 - Authenticated browser acceptance, responsive desktop/mobile behavior, preview and production verification: **UNKNOWN / NOT PERFORMED**.
 - Provider-backed dispatch and bounded container execution remain subject to the existing environment dependencies; this move does not claim either is LIVE.
 
 ### Next action
 
-PR #601 is open. The initial four-file diff was inspected; a final defensive guard was added so a malformed session-view response cannot update run state without a confirmed session. Re-inspect the final diff and fresh final-head console contract, frontend build, and relevant Lab/integration checks when available. If CI exposes a defect, correct it within this same PR and re-run only the affected checks. Human review/merge and production authority remain final.
+PR #601 is open. The final four-file diff was inspected after the confirmed-session guard correction. The targeted console contract and frontend build are green on the recorded code/test state; CP10-B remains in progress and must be inspected when it completes. Fresh checks on this evidence-only successor head remain pending. If CP10-B exposes a regression, compare the same tests on the base revision before classifying it and correct only a proven PR regression. Human review/merge and production authority remain final.
 
