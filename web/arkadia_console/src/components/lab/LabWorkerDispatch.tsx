@@ -35,6 +35,8 @@ interface LabWorkerDispatchProps {
   /** The session must be AUTHORIZED (or QUEUED) before the loop will run. */
   authorized: boolean;
   objective: string;
+  /** Re-read the canonical session view after dispatch settles. */
+  onSettled: () => Promise<void>;
 }
 
 function describeError(error: unknown): string {
@@ -56,7 +58,7 @@ function classifyGatewayFailure(error: unknown): "UNAVAILABLE" | "FAILED" {
   return "FAILED";
 }
 
-export function LabWorkerDispatch({ sessionId, authorized, objective }: LabWorkerDispatchProps) {
+export function LabWorkerDispatch({ sessionId, authorized, objective, onSettled }: LabWorkerDispatchProps) {
   const [gateway, setGateway] = useState<LabGatewayView | null>(null);
   const [gatewayState, setGatewayState] = useState<GatewayPanelState>("LOADING");
   const [gatewayError, setGatewayError] = useState<string | null>(null);
@@ -107,8 +109,14 @@ export function LabWorkerDispatch({ sessionId, authorized, objective }: LabWorke
       setError(describeError(err));
       setResult(null);
     } finally {
-      setDispatching(false);
       void loadGateway();
+      try {
+        await onSettled();
+      } catch {
+        // The parent records canonical-refresh failures in its evidence state.
+      } finally {
+        setDispatching(false);
+      }
     }
   }
 
