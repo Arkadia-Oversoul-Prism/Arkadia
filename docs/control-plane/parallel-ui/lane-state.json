@@ -1,6 +1,6 @@
 {
  "schema": "arkadia.lane-state/1.2",
- "observed_at": "2026-10-31T23:21:43Z",
+ "observed_at": "2026-10-31T23:25:40Z",
  "base_main": "6776ee103525c9d097d73e3a47493748ff3efc2c",
  "source": "GitHub REST reads API (Arkadia-Oversoul-Prism/Arkadia), read-only, derived by scripts/lane_state_refresh.py",
  "note": "Machine-readable mirror of the four Prism UI lane threads, DERIVED from live PR state rather than hand-transcribed. Lane assignment is by exclusive path ownership (SHARED-CONTRACTS.md section 1); a PR touching more than one lane's owned paths appears in each. scripts/lane_state.py judges the docs against this file; --verify-live additionally requires every claimed-open PR to be authoritatively open. Refresh with scripts/lane_state_refresh.py --write.",
@@ -102,7 +102,16 @@
    "doc_guard": "idle"
   }
  },
- "unassigned_open_prs": [],
+ "unassigned_open_prs": [
+  {
+   "number": 603,
+   "branch": "gate-hygiene/lane-currency-post-601-refresh-01",
+   "head_sha": "b7328f2328515274fcaa313b0f3984fdaeeed87b",
+   "draft": true,
+   "updated_at": "2026-10-31T23:23:20Z",
+   "title": "fix(lane-currency): re-measure the lane snapshot after the human-merged #601"
+  }
+ ],
  "closed_unmerged": [
   {
    "number": 499,
