@@ -788,7 +788,7 @@ Inspect the fresh PR #599 check set and verify the new state contract. Then prio
 **Canonical directive:** [Issue #590](https://github.com/Arkadia-Oversoul-Prism/Arkadia/issues/590)  
 **Baseline:** `main` @ `89105d6d76cd01d68ec8770a6a08a3669d498060`  
 **Implementation branch:** `fix/dea-01-dispatch-session-reconciliation`  
-**PR:** pending creation after final diff inspection.
+**PR:** [#601 — fix(lab): reconcile mission state after worker dispatch](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/601) (open draft; no merge). PR-creation head: `5143f8f029b6f81ef990266e1a215ed9dbb4578f`.
 
 ### Proven defect
 
@@ -819,11 +819,11 @@ No backend route, API contract, authorization/approval subsystem, identity, prov
 ### Verification status
 
 - Post-change source comparison: the three changed paths contain only the bounded callback/reconciliation change and its regression contract.
-- Targeted CI/test result: **PENDING**; the new branch head has not yet produced a recorded CI result.
+- At PR-creation head `5143f8f029b6f81ef990266e1a215ed9dbb4578f`, Canonical Render Runtime Probe run `41183535690` and N-ATLAS provider forensics run `41183535687` were **queued**. The evidence follow-up below advances the PR head, so fresh final-head results remain **PENDING**.
 - Authenticated browser acceptance, responsive desktop/mobile behavior, preview and production verification: **UNKNOWN / NOT PERFORMED**.
 - Provider-backed dispatch and bounded container execution remain subject to the existing environment dependencies; this move does not claim either is LIVE.
 
 ### Next action
 
-Open one focused PR, inspect the full PR diff, then evaluate the fresh console contract, frontend build, and relevant Lab/integration checks. If CI exposes a defect, correct it within this same PR and re-run only the affected checks. Human review/merge and production authority remain final.
+PR #601 is open. Its full diff was inspected: four files, confined to dispatch reconciliation, its regression contract and the existing evidence record. Inspect the fresh final-head console contract, frontend build, and relevant Lab/integration checks when available. If CI exposes a defect, correct it within this same PR and re-run only the affected checks. Human review/merge and production authority remain final.
 
