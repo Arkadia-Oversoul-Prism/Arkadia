@@ -11,7 +11,7 @@ on:
         description: "Controlled HTTPS staging origin for the test APK"
         required: false
         type: string
-        default: "https://arkadia-poc.invalid"
+        default: "https://arkadia-staging-01.onrender.com"
 
 permissions:
   contents: read
@@ -43,7 +43,7 @@ jobs:
 
       - name: Build debug APK
         run: |
-          ORIGIN="${{ inputs.arkadia_origin || 'https://arkadia-poc.invalid' }}"
+          ORIGIN="${{ inputs.arkadia_origin || 'https://arkadia-staging-01.onrender.com' }}"
           case "$ORIGIN" in
             https://*) ;;
             *) echo "Only HTTPS origins are allowed"; exit 1 ;;
