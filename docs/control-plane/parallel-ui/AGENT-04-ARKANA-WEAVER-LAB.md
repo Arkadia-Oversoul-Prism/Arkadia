@@ -94,3 +94,25 @@ This block records the merge; it does not claim it.
 Lane 4 at zero open PRs is a **deficit**, not a resting state: the next action is to open
 lane 4's next bounded draft PR from freshly fetched `main`, inside the lane's owned paths
 (`SHARED-CONTRACTS.md` §1).
+
+## Status — 2026-11-01 (LANE 4; supersedes the idle declaration above)
+
+**Active branch:** `feat/prism-w4-model-gateway-dispatchability`
+**Active PR:** #605 (draft) — repair commit `9d83ab3c264ad2264e953134f88cacc9f877bc2e` (the lane-currency commit that records this pointer is the branch tip), base `main`
+**Base:** `d14c2598b5b5e9016703b6a834fd44b8def1e5a1` (measured live this pulse; supersedes
+every earlier base recorded above).
+
+Lane 4 is no longer idle: it holds one bounded draft PR again, so the idle declaration above
+is superseded by this pointer, which is the declaration the guard reads (last-wins).
+
+The slice repairs the Lab model-gateway read projection. `ModelDescriptor.status` ("is this
+configured and reachable?") and `dispatchable` ("could a run actually call it right now?",
+which additionally needs a bound adapter) are different questions, and the handler already
+emits both — but the console projection read only `status`, so a reachable provider with no
+adapter bound was presented as a usable worker. That is P0.5's truthfulness rule:
+`AVAILABLE != a functioning worker`. The changed paths — `labGateway.ts`,
+`LabModelGateway.tsx`, `tests/test_prism_w4_model_gateway.py` and
+`tests/test_lab_model_gateway_contract.py` — are inside lane 4's exclusive ownership
+(`SHARED-CONTRACTS.md` §1). The PR stays **draft**: the guard records its live state, it does
+not assert the slice is ready for review or merge. Merge, production deployment and
+acceptance remain human-only.
