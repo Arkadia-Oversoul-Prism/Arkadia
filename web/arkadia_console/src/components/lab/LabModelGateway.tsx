@@ -15,7 +15,7 @@ import { Panel, Facts, ContractState } from "../ui";
 import { useHydration } from "../../lib/useHydration";
 import { apiRequest } from "../../lib/apiClient";
 import { endpoints } from "../../lib/endpoints";
-import { buildGatewayLedger, gatewayVerdict, type GatewayProvider, type GatewayView } from "./labGateway";
+import { buildGatewayLedger, gatewayBooleanFact, gatewayVerdict, type GatewayProvider, type GatewayView } from "./labGateway";
 
 const GROUP_LABEL: Record<string, string> = {
   local_providers: "local",
@@ -25,7 +25,6 @@ const GROUP_LABEL: Record<string, string> = {
 
 function ProviderRow({ entry }: { entry: GatewayProvider }) {
   const usable = entry.status === "AVAILABLE";
-  const dispatchable = entry.dispatchable === true;
   return (
     <li
       className="rounded border border-line bg-ink/40 p-3"
@@ -38,10 +37,10 @@ function ProviderRow({ entry }: { entry: GatewayProvider }) {
       <Facts
         rows={[
           { label: "model", value: entry.model ?? "—" },
-          { label: "configured", value: entry.configured ? "yes" : "no" },
-          // Reachability and dispatchability are separate facts: a provider can be
-          // AVAILABLE with no adapter bound, and a dispatch would then fail.
-          { label: "dispatchable", value: dispatchable ? "yes" : "no" },
+          { label: "configured", value: gatewayBooleanFact(entry.configured) },
+          // Optional booleans preserve missing data as unknown rather than no.
+          { label: "adapter bound", value: gatewayBooleanFact(entry.adapter_bound) },
+          { label: "dispatchable", value: gatewayBooleanFact(entry.dispatchable) },
           { label: "detail", value: entry.detail || "—" },
         ]}
       />

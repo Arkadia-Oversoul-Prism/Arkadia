@@ -66,6 +66,13 @@ export const CONFIG_CLASSES: readonly string[] = ["LOCAL", "REMOTE", "AGENT_RUNT
 /** The one status that means the gateway itself reports a usable provider. */
 export const AVAILABLE_STATUS = "AVAILABLE";
 
+/** Render an optional boolean without collapsing missing data into a negative fact. */
+export function gatewayBooleanFact(value: unknown): "yes" | "no" | "unknown" {
+  if (value === true) return "yes";
+  if (value === false) return "no";
+  return "unknown";
+}
+
 export interface GroupReading {
   group: ProviderGroup;
   /** The names the handler listed under this group. */

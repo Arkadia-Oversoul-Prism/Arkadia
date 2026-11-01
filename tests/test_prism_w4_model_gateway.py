@@ -573,3 +573,23 @@ def test_the_real_handler_reports_no_dispatchable_provider_here():
     assert len(ledger["available_but_not_dispatchable"]) == (
         ledger["counts"]["available"] - ledger["counts"]["dispatchable"]
     )
+
+
+
+def test_gateway_boolean_fact_preserves_unknown():
+    """Execute the real projection helper for true, false, absent and malformed values."""
+    node = _node()
+    program = (
+        f"const m = await import({json.dumps(PROJECTION.as_uri())});\\n"
+        "process.stdout.write(JSON.stringify([\\n"
+        "  m.gatewayBooleanFact(true),\\n"
+        "  m.gatewayBooleanFact(false),\\n"
+        "  m.gatewayBooleanFact(undefined),\\n"
+        "  m.gatewayBooleanFact(null),\\n"
+        "  m.gatewayBooleanFact('false'),\\n"
+        "]));\\n"
+    )
+    completed = subprocess.run([node, "--input-type=module", "-e", program], capture_output=True, text=True, timeout=60)
+    if completed.returncode != 0:
+        pytest.fail(f"gateway boolean projection execution failed: {completed.stderr.strip()[:800]}")
+    assert json.loads(completed.stdout) == ["yes", "no", "unknown", "unknown", "unknown"]
