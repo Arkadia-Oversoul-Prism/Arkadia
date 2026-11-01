@@ -887,3 +887,17 @@ Fresh checks for this move are **PENDING** on the new PR head. No test/build/bro
 ### Next action
 
 Inspect fresh PR #605 checks on this commit, then continue the bounded mission path using the existing test and worker surfaces. Human review/merge and production authority remain final.
+
+
+### 13.1. DEA-01 gateway verification update — head `97d0d776374e33dfc025604bc8b2c4410028453f`
+
+Fresh GitHub Actions observations on the new PR head:
+
+- Prism Console Contract [run 41289210580](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41289210580): **980 passed in 43.25s**; CI-wiring guard **30 passed in 4.65s**. This includes the executed Node regression for `gatewayBooleanFact` and the provider-row contract.
+- N-ATLAS Developer Lab [run 41289210584](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41289210584): frontend, backend, canonical Render image, and self-host image jobs **success**.
+- N-ATLAS external beta validation [run 41289210585](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41289210585): native Arkadia golden-path job **success**; `test_native_natlas_route_live_external_gradio` **1 passed**. Evidence artifact ID `13076113900` was uploaded. This later observation supersedes the preceding merge-ref's transient provider error for this head; it does not prove the provider is continuously available.
+- Canonical Render Runtime Probe [run 41289210583](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41289210583): **success**, read-only PR probe only.
+- Security-secret-scan [41289210625](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41289210625), Boot Syntax Boundary [41289210587](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41289210587), Lane Doc Currency [41289210598](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41289210598), Operator Console Posture Currency [41289210563](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41289210563), N-ATLAS provider forensics [41289210540](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41289210540), and economic-seam-engine [41289210605](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41289210605): **success**.
+- SG-02-FE.2-V [run 41289210628](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41289210628): CP10-A and SolSpire isolated integration steps succeeded; **CP10-B broader backend regression was still running** at this observation. CP10 API/browser steps had not yet been reached on this head.
+
+The new gateway regression is therefore **TESTED** by the passing console-contract run, and the frontend/backend/image build jobs passed. Full CP10 acceptance remains pending. The authenticated Engineering Lab browser lens and desktop/mobile visual acceptance are not claimed; no preview, production verification, merge, or deployment occurred.
