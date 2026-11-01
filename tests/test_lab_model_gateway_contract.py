@@ -212,3 +212,53 @@ def test_negative_control_the_side_effect_detector_sees_one():
     polluted = ast.parse("def describe_gateway():\n    get_gateway().register_adapter('ollama', None)\n    return {}\n")
     fn = next(n for n in ast.walk(polluted) if isinstance(n, ast.FunctionDef))
     assert "register_adapter" in ast.unparse(fn)
+
+
+# ---------------------------------------------------------------------------
+# Availability is not dispatchability (handler P0.5)
+
+
+def test_panel_shows_dispatchability_as_a_separate_fact():
+    """The surface must render `dispatchable`, not only `status`.
+
+    `status` answers "is this configured and reachable?"; `dispatchable` answers
+    "could a run actually call it right now?", which additionally needs a bound
+    adapter. A row that showed only the former would present a reachable provider
+    as a functioning worker.
+    """
+    src = _read(GATEWAY_TSX)
+    assert "dispatchable" in src, "the panel must show dispatchability"
+    assert re.search(r'label:\s*"dispatchable"', src), "dispatchability must be a labelled fact"
+    assert re.search(r'label:\s*"configured"', src), "configured must remain a separate fact"
+
+
+def test_panel_surfaces_available_but_not_dispatchable():
+    """Reachable-without-an-adapter must be reported, not folded into availability."""
+    src = _read(GATEWAY_TSX)
+    assert "available_but_not_dispatchable" in src
+    assert "lab-gateway-available-not-dispatchable" in src
+
+
+def test_projection_reads_dispatchability_from_the_handler_field():
+    """`dispatchable` must be read from the handler, never inferred from `status`.
+
+    Inferring it would erase the state the handler can emit — `status: AVAILABLE`
+    with `dispatchable: false` — which is exactly the provider that would fail a
+    dispatch.
+    """
+    src = _read(GATEWAY_TS)
+    assert re.search(r"entry\.dispatchable === true", src), "dispatchability must be read from the field"
+    assert "dispatchable_provider_present" in src
+    assert re.search(r"usable_provider_present:\s*available\.length > 0", src), (
+        "availability must keep its own meaning"
+    )
+
+
+# Optional gateway facts remain truthful
+
+def test_provider_boolean_facts_preserve_unknown():
+    """Missing optional gateway booleans must not be rendered as an observed 'no'."""
+    source = _read(GATEWAY_TSX)
+    for field in ("configured", "adapter_bound", "dispatchable"):
+        assert f"gatewayBooleanFact(entry.{field})" in source, f"{field} must preserve unknown"
+    assert 'label: "adapter bound"' in source, "the bound-adapter fact must be visible"

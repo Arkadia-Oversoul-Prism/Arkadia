@@ -94,3 +94,53 @@ This block records the merge; it does not claim it.
 Lane 4 at zero open PRs is a **deficit**, not a resting state: the next action is to open
 lane 4's next bounded draft PR from freshly fetched `main`, inside the lane's owned paths
 (`SHARED-CONTRACTS.md` §1).
+
+## Status — 2026-11-01 (LANE 4; supersedes the idle declaration above)
+
+**Active branch:** `feat/prism-w4-model-gateway-dispatchability`
+**Active PR:** #605 (draft) — repair commit `9d83ab3c264ad2264e953134f88cacc9f877bc2e` (the lane-currency commit that records this pointer is the branch tip), base `main`
+**Base:** `d14c2598b5b5e9016703b6a834fd44b8def1e5a1` (measured live this pulse; supersedes
+every earlier base recorded above).
+
+Lane 4 is no longer idle: it holds one bounded draft PR again, so the idle declaration above
+is superseded by this pointer, which is the declaration the guard reads (last-wins).
+
+The slice repairs the Lab model-gateway read projection. `ModelDescriptor.status` ("is this
+configured and reachable?") and `dispatchable` ("could a run actually call it right now?",
+which additionally needs a bound adapter) are different questions, and the handler already
+emits both — but the console projection read only `status`, so a reachable provider with no
+adapter bound was presented as a usable worker. That is P0.5's truthfulness rule:
+`AVAILABLE != a functioning worker`. The changed paths — `labGateway.ts`,
+`LabModelGateway.tsx`, `tests/test_prism_w4_model_gateway.py` and
+`tests/test_lab_model_gateway_contract.py` — are inside lane 4's exclusive ownership
+(`SHARED-CONTRACTS.md` §1). The PR stays **draft**: the guard records its live state, it does
+not assert the slice is ready for review or merge. Merge, production deployment and
+acceptance remain human-only.
+
+## Status — 2026-11-01 (LANE 4; snapshot re-derivation; supersedes the head above)
+
+**Active branch:** `feat/prism-w4-model-gateway-dispatchability`
+**Active PR:** #605 (draft) — head `e4738a505da763c574eca74ff9a4618ea9f5bc5f` **at derivation time**,
+base `main`
+**Base:** `d14c2598b5b5e9016703b6a834fd44b8def1e5a1` (re-measured live this pulse).
+
+The head above is scoped to the derivation instant deliberately. Recording a lane PR's tip and
+then reading it as the *current* tip is unsatisfiable: the lane-currency commit that records the
+head becomes the head, so the field is structurally one commit behind. The tip at `observed_at`
+is the claim; the tip now is a different fact. `scripts/lane_state.py` reads `head_sha` nowhere
+(0 refs), so neither value is judged — see the recorded oracle gap in `AGENTS.md`.
+
+The lane-currency block above recorded head `9d83ab3c264ad2264e953134f88cacc9f877bc2e`. The same
+open thread then advanced three commits to `e4738a505da763c574eca74ff9a4618ea9f5bc5f` (the
+gateway projection fix, its test adjustment, and the DEA-01 evidence record), and the snapshot
+was re-derived against that head rather than left describing the earlier one.
+
+`lane-state.json` now reads lane 4 `doc_guard: "deferred"` with `deferred_to_pr: 605` — the
+correct classification while this doc is mid-repair on its own open PR, and the one the derivation
+produces — where it previously read `"current"`. It also records open draft PR #606 under
+`unassigned_open_prs` (it matches no lane's exclusive paths) rather than omitting it.
+
+Verified this pulse at `e4738a50`: `scripts/lane_state.py --check` exit 0 and
+`--check --verify-live` exit 0 (doc-guard lanes `['1','2','3']`, deferred `['4']`);
+`tests/test_lane_instruction_doc_currency.py` **49 passed**; `tests/architecture` **11 passed**.
+Merge, production deployment and acceptance remain human-only.

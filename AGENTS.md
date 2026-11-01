@@ -1776,3 +1776,34 @@ Keep `feat/prism-ui-reconciliation-overnight-01` as this reconciliation workstre
   guard is runtime-proven, not source-asserted. Full suite once: 8 failed / 3680 passed / 1 error, and
   the 9 failing/error nodes are **identical** to the same files on `main` `b5bc34cb` — zero regression,
   attributed by node identity.
+
+## A snapshot field the guard never reads is a recorded fact, not a judged one (lane-doc-currency)
+- `docs/control-plane/parallel-ui/lane-state.json` carries a `head_sha` per open lane PR, and
+  `scripts/lane_state.py` never reads it: `grep -c head_sha scripts/lane_state.py` -> **0**. The guard
+  compares the doc's `Active branch:` / `Active PR:` pointers against the snapshot **by position**, so a
+  snapshot naming a **superseded but still full-length** head stays green. Measured negative control this
+  pass: overwriting lane 4's `head_sha` with the real-but-stale `9d83ab3c` left `--check` at **exit 0**.
+  A field that is derived and printed but never judged cannot detect the drift it exists to describe.
+- **The field is structurally unjudgeable as a tip comparison, so the repair is not "compare it".** The
+  lane-currency commit that records the tip *becomes* the tip: after pushing `12a44395`, live head is
+  `12a44395` while the snapshot that commit carries names its parent `e4738a50`. Recording a head and
+  then asserting it equals the current head is unsatisfiable for every such commit. A correct oracle must
+  **scope** the claim (name the derivation instant, or compare against the head at `observed_at`) rather
+  than compare it to the current tip. Do not "fix" this by adding a tip-equality assertion — it reddens
+  every lane-currency commit, including the correct ones.
+- **Re-derive, do not hand-edit, and update snapshot + doc in the same change.** `lane_state_refresh.py
+  --write --base-main <sha>` is the derivation; hand-editing produces a snapshot that disagrees with the
+  next refresh. Because a lane's `doc_guard` (`current` -> `deferred`) is a function of *whether its own
+  doc is mid-repair on an open PR*, changing a lane's status without the snapshot in the same commit is
+  the exact drift `tests/test_lane_instruction_doc_currency.py` exists to catch.
+- **`unassigned_open_prs` is written and printed but never judged** (no reader in `lane_state.py` or its
+  tests). A PR matching no lane's exclusive paths belongs there rather than being omitted — the derivation
+  puts it there, so a committed `[]` that disagrees with the derivation is a real staleness even though no
+  guard reddens. Note `doc_guard: "deferred"` is legitimate **only** while an open PR repairs that same
+  doc; it is not a general-purpose escape from the currency check.
+- Measured at `main` `d14c2598` / branch head `12a44395`: `--check` exit 0 and `--check --verify-live`
+  exit 0 (`doc-guard lanes ['1','2','3']; deferred ['4']`), `tests/test_lane_instruction_doc_currency.py`
+  **49 passed**, `tests/test_lane_currency_ci_wiring.py` **12 passed**, architecture **11 passed**, and all
+  **17/17** check-runs on `12a44395` `completed/success` including `lane-doc-currency` itself. Docs-only
+  change: the 10-node failing/error set
+  (`69a6f8ab3d80f0317ec294c06f2d0a87cab8d2d1a6dd98eb3481862cec71990e`) is unchanged `main` debt.

@@ -836,3 +836,68 @@ No backend route, API contract, authorization/approval subsystem, identity, prov
 
 PR #601 is open. The final four-file diff was inspected after the confirmed-session guard correction. The targeted console contract and frontend build are green on the recorded code/test state; CP10-B remains in progress and must be inspected when it completes. Fresh checks on this evidence-only successor head remain pending. If CP10-B exposes a regression, compare the same tests on the base revision before classifying it and correct only a proven PR regression. Human review/merge and production authority remain final.
 
+
+
+## 13. DEA-01 gateway optional-state truthfulness — 2026-11-01
+
+**Move ID:** `DEA-01-GATEWAY-OPTIONAL-STATE-01`  
+**Canonical directive:** [Issue #590](https://github.com/Arkadia-Oversoul-Prism/Arkadia/issues/590)  
+**Integration PR:** [#605 — model gateway dispatchability](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/605)  
+**Baseline:** `main` @ `d14c2598b5b5e9016703b6a834fd44b8def1e5a1`  
+**Implementation base:** PR #605 head `560805e9f82c1c5498118a9a342d1f469d78f796`
+
+### Proven defect
+
+The gateway projection types `configured`, `adapter_bound`, and `dispatchable` as optional booleans. The provider row rendered `configured` with a truthy check and `dispatchable` with a true/else ternary. A missing field therefore appeared as an observed `no`, collapsing UNKNOWN into FALSE. The handler currently emits the adapter/dispatchability booleans, but the console's own optional contract must remain truthful for partial/older responses too.
+
+The row also omitted the handler's `adapter_bound` fact, leaving an operator unable to distinguish a reachable provider with no bound adapter from other non-dispatchable conditions.
+
+### Bounded implementation
+
+- Added pure `gatewayBooleanFact(value)` to preserve `true → yes`, `false → no`, and missing/null/malformed values → `unknown`.
+- Applied it to configured, adapter-bound, and dispatchable facts.
+- Rendered adapter binding separately instead of deriving it from availability or dispatchability.
+- Added a source contract ensuring all three optional fields use the helper.
+- Added an executed Node regression against the real `labGateway.ts` helper for true, false, undefined, null, and malformed values.
+
+Changed paths:
+- `web/arkadia_console/src/components/lab/labGateway.ts`
+- `web/arkadia_console/src/components/lab/LabModelGateway.tsx`
+- `tests/test_lab_model_gateway_contract.py`
+- `tests/test_prism_w4_model_gateway.py`
+- This existing evidence record.
+
+### Verification and limitations
+
+Pre-change PR merge-ref checks (merge commit `124dbdeef7c5878b1ab9b4906395d7c3142a46c2`, PR #605 head `560805e9f82c1c5498118a9a342d1f469d78f796`):
+- Prism Console Contract run [41288259256](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41288259256): success.
+- N-ATLAS Developer Lab run [41288259197](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41288259197): frontend, backend and image-build jobs succeeded.
+- SG-02-FE.2-V run [41288259262](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41288259262): workflow success; CP10 API and unauthenticated browser-route verification completed. The authenticated Engineering Lab lens was explicitly **DEFERRED**, because Firebase web configuration values were blank. This is not authenticated browser acceptance or responsive visual acceptance.
+- N-ATLAS external beta validation run [41288259354](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41288259354): one native golden-path job failed because the external Gradio provider emitted an `error` event with null/empty data; the route returned 503. This is an observed provider/runtime failure, not evidence that the gateway UI tests failed.
+
+Fresh checks for this move are **PENDING** on the new PR head. No test/build/browser result for this new commit is claimed until those checks complete.
+
+### Remaining gaps
+
+- Authenticated browser acceptance and desktop/mobile visual acceptance remain unverified.
+- Real model-backed dispatch remains dependent on an inference provider that returns a usable response; the latest external N-ATLaS golden-path call returned 503.
+- No preview or production verification is claimed; no merge or production deployment occurred.
+- No identity, authorization, approval, K15/K3, provenance, WorkEvent, workspace, API, backend, credential, or production-configuration boundary was changed.
+
+### Next action
+
+Inspect fresh PR #605 checks on this commit, then continue the bounded mission path using the existing test and worker surfaces. Human review/merge and production authority remain final.
+
+
+### 13.1. DEA-01 gateway verification update — head `97d0d776374e33dfc025604bc8b2c4410028453f`
+
+Fresh GitHub Actions observations on the new PR head:
+
+- Prism Console Contract [run 41289210580](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41289210580): **980 passed in 43.25s**; CI-wiring guard **30 passed in 4.65s**. This includes the executed Node regression for `gatewayBooleanFact` and the provider-row contract.
+- N-ATLAS Developer Lab [run 41289210584](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41289210584): frontend, backend, canonical Render image, and self-host image jobs **success**.
+- N-ATLAS external beta validation [run 41289210585](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41289210585): native Arkadia golden-path job **success**; `test_native_natlas_route_live_external_gradio` **1 passed**. Evidence artifact ID `13076113900` was uploaded. This later observation supersedes the preceding merge-ref's transient provider error for this head; it does not prove the provider is continuously available.
+- Canonical Render Runtime Probe [run 41289210583](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41289210583): **success**, read-only PR probe only.
+- Security-secret-scan [41289210625](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41289210625), Boot Syntax Boundary [41289210587](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41289210587), Lane Doc Currency [41289210598](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41289210598), Operator Console Posture Currency [41289210563](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41289210563), N-ATLAS provider forensics [41289210540](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41289210540), and economic-seam-engine [41289210605](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41289210605): **success**.
+- SG-02-FE.2-V [run 41289210628](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41289210628): CP10-A and SolSpire isolated integration steps succeeded; **CP10-B broader backend regression was still running** at this observation. CP10 API/browser steps had not yet been reached on this head.
+
+The new gateway regression is therefore **TESTED** by the passing console-contract run, and the frontend/backend/image build jobs passed. Full CP10 acceptance remains pending. The authenticated Engineering Lab browser lens and desktop/mobile visual acceptance are not claimed; no preview, production verification, merge, or deployment occurred.

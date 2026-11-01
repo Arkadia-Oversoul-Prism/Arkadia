@@ -15,7 +15,7 @@ import { Panel, Facts, ContractState } from "../ui";
 import { useHydration } from "../../lib/useHydration";
 import { apiRequest } from "../../lib/apiClient";
 import { endpoints } from "../../lib/endpoints";
-import { buildGatewayLedger, gatewayVerdict, type GatewayProvider, type GatewayView } from "./labGateway";
+import { buildGatewayLedger, gatewayBooleanFact, gatewayVerdict, type GatewayProvider, type GatewayView } from "./labGateway";
 
 const GROUP_LABEL: Record<string, string> = {
   local_providers: "local",
@@ -37,7 +37,10 @@ function ProviderRow({ entry }: { entry: GatewayProvider }) {
       <Facts
         rows={[
           { label: "model", value: entry.model ?? "—" },
-          { label: "configured", value: entry.configured ? "yes" : "no" },
+          { label: "configured", value: gatewayBooleanFact(entry.configured) },
+          // Optional booleans preserve missing data as unknown rather than no.
+          { label: "adapter bound", value: gatewayBooleanFact(entry.adapter_bound) },
+          { label: "dispatchable", value: gatewayBooleanFact(entry.dispatchable) },
           { label: "detail", value: entry.detail || "—" },
         ]}
       />
@@ -76,7 +79,7 @@ function GatewayBody({ view }: { view: GatewayView }) {
     <div data-testid="lab-gateway">
       <p
         className={`mb-3 font-mono text-[11px] uppercase tracking-widest ${
-          ledger.usable_provider_present ? "text-azure/80" : "text-gold"
+          ledger.dispatchable_provider_present ? "text-azure/80" : "text-gold"
         }`}
         data-testid="lab-gateway-verdict"
       >
@@ -88,6 +91,7 @@ function GatewayBody({ view }: { view: GatewayView }) {
           { label: "catalog", value: String(ledger.counts.catalog) },
           { label: "configured", value: String(ledger.counts.configured) },
           { label: "available", value: String(ledger.counts.available) },
+          { label: "dispatchable", value: String(ledger.counts.dispatchable) },
           {
             label: "by class",
             value: `local ${ledger.counts.local} · remote ${ledger.counts.remote} · agent ${ledger.counts.agent_runtime}`,
@@ -148,6 +152,13 @@ function GatewayBody({ view }: { view: GatewayView }) {
         <p className="mt-2 text-xs text-gold" data-testid="lab-gateway-configured-not-available">
           configured but not confirmed reachable:{" "}
           {ledger.configured_but_not_available.map((e) => e.provider).join(" · ")}
+        </p>
+      )}
+
+      {ledger.available_but_not_dispatchable.length > 0 && (
+        <p className="mt-2 text-xs text-gold" data-testid="lab-gateway-available-not-dispatchable">
+          reachable but not dispatchable — no adapter is bound, so a run could not call one:{" "}
+          {ledger.available_but_not_dispatchable.map((e) => e.provider).join(" · ")}
         </p>
       )}
 
