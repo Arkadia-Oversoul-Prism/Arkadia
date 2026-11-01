@@ -32,7 +32,7 @@ Requirements: JDK 17, Android SDK 34, Gradle 8.2.x.
 gradle testDebugUnitTest assembleDebug
 ```
 
-The PR workflow builds an unsigned debug APK and uploads it as a short-lived artifact. It does not sign, publish, deploy, or contact the configured origin.
+The PR workflow builds an debug APK and uploads it as a short-lived artifact. It does not sign, publish, deploy, or contact the configured origin.
 
 ## Verification matrix
 
