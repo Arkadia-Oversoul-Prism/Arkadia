@@ -1380,7 +1380,7 @@ From this addendum onward:
 - **Never deploy to, reconnect, promote, or accept Vercel as production.**
 - Do not follow older pulse wording that instructs an agent to discover/deploy Vercel production.
 - Treat an unexpected new Vercel deployment as a boundary regression: record exact evidence and stop for human review.
-- No production deployment, merge, or acceptance is authorized by the overnight UI workstream.
+- No production deployment or acceptance is authorized by the overnight UI workstream. A routine merge is permitted only through Weaver's bounded GOV-01 delegation after this amendment is human-merged and every M1–M13 criterion is satisfied; this does not authorize deployment or acceptance.
 
 ### Branch and review discipline
 
