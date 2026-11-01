@@ -120,8 +120,15 @@ acceptance remain human-only.
 ## Status — 2026-11-01 (LANE 4; snapshot re-derivation; supersedes the head above)
 
 **Active branch:** `feat/prism-w4-model-gateway-dispatchability`
-**Active PR:** #605 (draft) — head `e4738a505da763c574eca74ff9a4618ea9f5bc5f`, base `main`
+**Active PR:** #605 (draft) — head `e4738a505da763c574eca74ff9a4618ea9f5bc5f` **at derivation time**,
+base `main`
 **Base:** `d14c2598b5b5e9016703b6a834fd44b8def1e5a1` (re-measured live this pulse).
+
+The head above is scoped to the derivation instant deliberately. Recording a lane PR's tip and
+then reading it as the *current* tip is unsatisfiable: the lane-currency commit that records the
+head becomes the head, so the field is structurally one commit behind. The tip at `observed_at`
+is the claim; the tip now is a different fact. `scripts/lane_state.py` reads `head_sha` nowhere
+(0 refs), so neither value is judged — see the recorded oracle gap in `AGENTS.md`.
 
 The lane-currency block above recorded head `9d83ab3c264ad2264e953134f88cacc9f877bc2e`. The same
 open thread then advanced three commits to `e4738a505da763c574eca74ff9a4618ea9f5bc5f` (the
