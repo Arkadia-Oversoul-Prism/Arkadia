@@ -14,6 +14,10 @@ object OriginPolicy {
             expected.scheme.equals("https", ignoreCase = true) &&
                 actual.scheme.equals("https", ignoreCase = true) &&
                 expected.host != null &&
+                expected.rawPath in listOf("", "/") &&
+                expected.rawQuery == null &&
+                expected.rawFragment == null &&
+                expected.userInfo == null &&
                 expected.host.equals(actual.host, ignoreCase = true) &&
                 effectivePort(expected) == effectivePort(actual) &&
                 actual.userInfo == null
