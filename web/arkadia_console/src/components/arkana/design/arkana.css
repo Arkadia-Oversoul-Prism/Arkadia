@@ -389,3 +389,42 @@
 .arkana-markdown-dense p { margin-bottom: 0.42em; }
 .arkana-markdown-compact { font-size: 0.8rem; }
 .arkana-research-evidence { margin-top: 0.9rem; border-top: 1px solid theme("colors.line"); padding-top: 0.75rem; }
+
+
+/* Per-message actions recovered from Oracle canvas (copy / regenerate / stop) */
+.arkana-message-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.arkana-action-btn {
+  border: 1px solid theme("colors.line");
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.55);
+  font-family: theme("fontFamily.mono");
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 0.28rem 0.65rem;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+.arkana-action-btn:hover:not(:disabled) {
+  color: theme("colors.emerald");
+  border-color: color-mix(in srgb, theme("colors.emerald") 45%, theme("colors.line"));
+  background: color-mix(in srgb, theme("colors.emerald") 6%, transparent);
+}
+.arkana-action-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.arkana-action-btn-danger {
+  color: rgba(251, 191, 36, 0.85);
+  border-color: color-mix(in srgb, rgb(251 191 36) 35%, theme("colors.line"));
+}
+.arkana-action-btn-danger:hover:not(:disabled) {
+  color: rgb(251 191 36);
+  border-color: rgb(251 191 36);
+  background: color-mix(in srgb, rgb(251 191 36) 8%, transparent);
+}
