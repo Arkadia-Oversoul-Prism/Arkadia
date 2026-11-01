@@ -99,11 +99,13 @@ export function hasRetrieval(provenance: ArkanaProvenance): boolean {
 }
 
 /** A scroll's display label, never a fabricated one. */
-export function ragLabel(ref: ArkanaRagRef): string {
+export function ragLabel(ref: ArkanaRagRef | null | undefined): string {
+  if (!ref || typeof ref !== "object") return "Untitled scroll";
   return (ref.label && String(ref.label)) || "Untitled scroll";
 }
 
 /** A note's display title, never a fabricated one. */
-export function sourceTitle(ref: ArkanaSourceRef): string {
+export function sourceTitle(ref: ArkanaSourceRef | null | undefined): string {
+  if (!ref || typeof ref !== "object") return "Untitled note";
   return (ref.title && String(ref.title)) || "Untitled note";
 }

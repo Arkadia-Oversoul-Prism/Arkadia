@@ -38,26 +38,27 @@ function Channel({
   );
 }
 
-function RagRow({ ref }: { ref: ArkanaRagRef }) {
+function RagRow({ item }: { item: ArkanaRagRef }) {
   return (
-    <div className="flex flex-wrap items-baseline gap-2" title={ref.label ? String(ref.label) : undefined}>
+    <div className="flex flex-wrap items-baseline gap-2" title={item.label ? String(item.label) : undefined}>
       <span className="text-emerald/50">◆</span>
-      <span className="font-mono text-[10px] text-white/55">{ragLabel(ref)}</span>
-      {ref.category && (
-        <span className="font-mono text-[9px] text-white/25">{String(ref.category)}</span>
+      <span className="font-mono text-[10px] text-white/55">{ragLabel(item)}</span>
+      {item.category && (
+        <span className="font-mono text-[9px] text-white/25">{String(item.category)}</span>
       )}
     </div>
   );
 }
 
-function SourceRow({ ref }: { ref: ArkanaSourceRef }) {
+function SourceRow({ item }: { item: ArkanaSourceRef }) {
+  const excerpt = typeof item.excerpt === "string" ? item.excerpt : undefined;
   return (
-    <div className="flex flex-wrap items-baseline gap-2" title={typeof ref.excerpt === "string" ? ref.excerpt : sourceTitle(ref)}>
+    <div className="flex flex-wrap items-baseline gap-2" title={excerpt ?? sourceTitle(item)}>
       <span className="text-emerald/50">◆</span>
-      <span className="font-mono text-[10px] text-white/55">{sourceTitle(ref)}</span>
+      <span className="font-mono text-[10px] text-white/55">{sourceTitle(item)}</span>
       <span className="font-mono text-[9px] text-white/25">
-        {typeof ref.type === "string" ? ref.type : "note"}
-        {ref.via === "graph" ? " · linked" : ""}
+        {typeof item.type === "string" ? item.type : "note"}
+        {item.via === "graph" ? " · linked" : ""}
       </span>
     </div>
   );
@@ -81,7 +82,7 @@ export function ArkanaProvenancePanel({ provenance }: { provenance: ArkanaProven
             {provenance.ragRefs.length === 0 ? (
               <p className="text-[11px] text-white/35">No corpus scrolls scored into this turn.</p>
             ) : (
-              provenance.ragRefs.map((ref, i) => <RagRow key={`${ref.id ?? "rag"}-${i}`} ref={ref} />)
+              provenance.ragRefs.map((ref, i) => <RagRow key={`${ref.id ?? "rag"}-${i}`} item={ref} />)
             )}
           </Channel>
 
@@ -89,7 +90,7 @@ export function ArkanaProvenancePanel({ provenance }: { provenance: ArkanaProven
             {provenance.sources.length === 0 ? (
               <p className="text-[11px] text-white/35">No Knowledge OS notes were injected into this turn.</p>
             ) : (
-              provenance.sources.map((ref, i) => <SourceRow key={`${ref.id ?? "src"}-${i}`} ref={ref} />)
+              provenance.sources.map((ref, i) => <SourceRow key={`${ref.id ?? "src"}-${i}`} item={ref} />)
             )}
           </Channel>
         </>
