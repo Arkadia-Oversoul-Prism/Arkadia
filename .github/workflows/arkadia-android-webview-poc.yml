@@ -18,7 +18,7 @@ permissions:
 
 jobs:
   build:
-    name: Unit tests and unsigned debug APK
+    name: Unit tests and debug APK
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -41,7 +41,7 @@ jobs:
       - name: Run origin-policy unit tests
         run: gradle testDebugUnitTest --no-daemon --stacktrace
 
-      - name: Build unsigned debug APK
+      - name: Build debug APK
         run: |
           ORIGIN="${{ inputs.arkadia_origin || 'https://arkadia-poc.invalid' }}"
           case "$ORIGIN" in
