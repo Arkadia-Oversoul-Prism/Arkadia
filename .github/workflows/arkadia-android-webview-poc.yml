@@ -1,0 +1,58 @@
+name: Arkadia Android WebView POC
+
+on:
+  pull_request:
+    paths:
+      - "arkadia-webview-poc/**"
+      - ".github/workflows/arkadia-android-webview-poc.yml"
+  workflow_dispatch:
+    inputs:
+      arkadia_origin:
+        description: "Controlled HTTPS staging origin for the test APK"
+        required: false
+        type: string
+        default: "https://arkadia-poc.invalid"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Unit tests and unsigned debug APK
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: arkadia-webview-poc
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.2.1"
+
+      - name: Run origin-policy unit tests
+        run: gradle testDebugUnitTest --no-daemon --stacktrace
+
+      - name: Build unsigned debug APK
+        run: |
+          ORIGIN="${{ inputs.arkadia_origin || 'https://arkadia-poc.invalid' }}"
+          case "$ORIGIN" in
+            https://*) ;;
+            *) echo "Only HTTPS origins are allowed"; exit 1 ;;
+          esac
+          gradle -ParkadiaOrigin="$ORIGIN" assembleDebug --no-daemon --stacktrace
+
+      - name: Upload POC debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: arkadia-webview-poc-debug-${{ github.sha }}
+          path: arkadia-webview-poc/app/build/outputs/apk/debug/*.apk
+          retention-days: 7
