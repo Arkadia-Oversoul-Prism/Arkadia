@@ -27,6 +27,11 @@ class OriginPolicyTest {
         assertFalse(OriginPolicy.isTrusted("https://user@arkadia-staging.example", origin))
     }
 
+    @Test fun rejectsConfiguredOriginWithPathOrQuery() {
+        assertFalse(OriginPolicy.isTrusted("$origin/console", "$origin/console"))
+        assertFalse(OriginPolicy.isTrusted("$origin?x=1", "$origin?x=1"))
+    }
+
     @Test fun rejectsMalformedAndNonWebSchemes() {
         assertFalse(OriginPolicy.isTrusted("javascript:alert(1)", origin))
         assertFalse(OriginPolicy.isTrusted("intent://anything", origin))
