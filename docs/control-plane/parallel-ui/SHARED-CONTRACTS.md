@@ -159,6 +159,6 @@ This delegation does not replace a required human review or approval. If reposit
 
 ### Human-only authority retained
 
-The human sovereign retains exclusive authority over constitutional changes; identity and authority-model boundaries; K15/K3 governance; approval enforcement; scope expansion and exceptions; security/privacy decisions requiring sovereign judgment; production deployment/configuration; and product/production acceptance. A governance amendment, including GOV-01 itself, requires human review and merge. Weaver cannot merge its own governance amendment under the authority it proposes here.
+The human sovereign retains exclusive authority over constitutional changes; identity and authority-model boundaries; K15/K3 governance; approval enforcement; scope expansion and exceptions; security/privacy decisions requiring sovereign judgment; production deployment/configuration; and product/production acceptance. A governance amendment, including GOV-01 itself, must be human-reviewed and human-merged. Weaver cannot merge its own governance amendment under the authority it proposes here.
 
 A successful merge is not deployment verification or acceptance. Render's existing deployment behavior is unchanged; no manual deployment, provider mutation, or production acceptance is authorized here. Preserve lane ownership, one-open-PR-per-lane constraints, review rules, branch protection, and the existing interface-request process.
