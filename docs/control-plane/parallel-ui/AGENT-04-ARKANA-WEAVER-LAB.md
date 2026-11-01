@@ -144,3 +144,24 @@ Verified this pulse at `e4738a50`: `scripts/lane_state.py --check` exit 0 and
 `--check --verify-live` exit 0 (doc-guard lanes `['1','2','3']`, deferred `['4']`);
 `tests/test_lane_instruction_doc_currency.py` **49 passed**; `tests/architecture` **11 passed**.
 Merge, production deployment and acceptance remain human-only.
+
+## Status — 2026-11-01 (LANE 4, idle; supersedes the #605 pointer above)
+
+**Active thread:** none
+
+PR #605 merged as `9de0e0fbfea1fc0f25a57445b0f33ab19bbbd130`, so the pointer block above names a
+merged thread and is superseded by this declaration, which is the declaration the guard reads
+(last-wins). Lane 4 holds **no open PR** again.
+
+This block is a **reconciliation**, not a new slice. Measured at `main` `dd498913`: the
+`lane-doc-currency` gate was **red on `main`** (`run 41317998445`, `push` at `9de0e0fb`) because
+`lane-state.json` still recorded #605 under lane 4 `open_prs` *and* `deferred_to_pr` while the PR
+was merged. The snapshot was re-derived with
+`scripts/lane_state_refresh.py --write --base-main dd49891385eb944dfacdfa69ceaef603c79b665d`,
+which moves #605 into `merged_prs` (`9de0e0fb`), empties lane 4 `open_prs`, and returns
+`doc_guard: "idle"`; the stale `unassigned_open_prs` entry for #606 (merged as `dd498913`) is
+cleared by the same derivation.
+
+Lane 4 at zero open PRs is a **deficit**, not a resting state: the next action is to open lane 4's
+next bounded draft PR from freshly fetched `main`, inside the lane's owned paths
+(`SHARED-CONTRACTS.md` §1). Merge, production deployment and acceptance remain human-only.
