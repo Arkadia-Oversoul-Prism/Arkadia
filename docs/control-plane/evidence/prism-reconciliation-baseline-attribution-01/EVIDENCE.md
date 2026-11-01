@@ -229,3 +229,31 @@ printf '<path>' | python scripts/cp10_mutation_boundary_policy.py --judge
 Human decision on merging #606 first (it repairs the one red node on `main`) and then #605 —
 or both in either order; composition was measured clean in this order. Then refresh the lane
 snapshot from the new `main`; the three residuals in section 5 remain proposed, unexecuted.
+
+## 8. Persistence and boundary state at end of pulse
+
+- Evidence committed as `57a656ad` on `prism-reconciliation-baseline-attribution-01` and pushed
+  (`git ls-remote origin` confirms `57a656ad`). `main` unchanged at `d14c2598`.
+- **Branch choice, recorded rather than assumed.** The pulse directive said to commit to the
+  assigned workstream branch and update *its existing PR*. That branch is
+  `feat/prism-ui-reconciliation-overnight-01`, and its only PR — **#418 — is MERGED**
+  (2026-10-11T09:45:19Z); it is also unmerged into `main` and 168 commits behind. There was no
+  open PR to update, and no PR was created (directive: never create a new PR). The work was
+  therefore pushed to the session branch as an unpushed-record fallback. A human decision is
+  needed on where this evidence should ultimately live.
+- **`gh` / REST read path became unavailable at the end of the pulse.** `gh auth status` reports
+  not logged in; both `$GITHUB_PERSONAL_ACCESS_TOKEN` and `$github_token` return HTTP **401
+  Bad credentials** against `GET /user`. This is **not** a repository-access blocker: `git fetch`
+  and `git push` both succeed over the clone's embedded credential (verified after the failure).
+  All facts in this document were established *before* the API path failed, so none are affected;
+  but a future pulse must not read this 401 as evidence about the repository.
+
+## 9. What is NOT claimed
+
+- No merge, no deployment, no production acceptance. Human merge authority retained.
+- PRs #605 and #606 were **verified**, not merged: diffs inspected, CI read, changed paths
+  confirmed disjoint, CP10 judge exit 0. Their eligibility is a separate decision (M1–M13) and
+  was not exercised.
+- The lane-currency residuals (no `unassigned_open_prs` reader; `head_sha` never compared;
+  lanes 2/3 declaring closed PRs while idle) are **recorded, not repaired** — repairing them
+  changes what the guard judges and is a separate bounded workstream.
