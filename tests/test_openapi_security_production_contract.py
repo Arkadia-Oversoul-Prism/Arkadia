@@ -59,7 +59,15 @@ def test_all_composed_operations_have_adjudicated_security_boundaries():
     assert repository_op, "the Lab repository observation is no longer served"
     assert repository_op.get("x-arkadia-auth-boundary", {}).get("classification") == "firebase_bearer"
     assert repository_op.get("security") == [{"FirebaseBearer": []}]
-    assert len(operations) == 332, f"Expected captured 332-operation inventory; got {len(operations)}"
+    # Inventory 332 -> 333 is the same reviewable act for ARKANA A2: the SSE
+    # resonance stream (`202bc4e1`) was mounted on the composition root in
+    # `a1fe177f`. Named here for the same reason as the entry above, so the
+    # count cannot drift onto an operation nobody adjudicated.
+    stream_op = schema["paths"].get("/api/commune/resonance/stream", {}).get("post", {})
+    assert stream_op, "the A2 SSE resonance stream is no longer served"
+    assert stream_op.get("x-arkadia-auth-boundary", {}).get("classification") == "optional_firebase_bearer"
+    assert stream_op.get("security") == [{"FirebaseBearer": []}, {}]
+    assert len(operations) == 333, f"Expected captured 333-operation inventory; got {len(operations)}"
     assert "FirebaseBearer" in schema["components"]["securitySchemes"]
     assert "SovereignKeyHeader" in schema["components"]["securitySchemes"]
     assert "GitHubWebhookHMAC" in schema["components"]["securitySchemes"]
