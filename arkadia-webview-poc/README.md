@@ -19,7 +19,7 @@ It does not replace either application and does not modify the Console frontend 
 The default build origin is deliberately non-routable (`https://arkadia-poc.invalid`) so CI cannot accidentally exercise production. Supply a controlled staging origin for a test build:
 
 ```bash
-gradle -PARKADIA_ORIGIN=https://arkadia-staging.example testDebugUnitTest assembleDebug
+gradle -ParkadiaOrigin=https://arkadia-staging.example testDebugUnitTest assembleDebug
 ```
 
 The Gradle property is named `arkadiaOrigin` (case-sensitive).
