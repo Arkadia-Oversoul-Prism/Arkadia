@@ -1,7 +1,6 @@
 package com.arkadia.webviewpoc
 
 import android.app.Activity
-import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.graphics.Color
 import android.net.ConnectivityManager
@@ -89,9 +88,12 @@ class MainActivity : Activity() {
             domStorageEnabled = true
             allowFileAccess = false
             allowContentAccess = false
+            allowFileAccessFromFileURLs = false
+            allowUniversalAccessFromFileURLs = false
             setSupportMultipleWindows(false)
             javaScriptCanOpenWindowsAutomatically = false
             mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
+            safeBrowsingEnabled = true
             loadsImagesAutomatically = true
             databaseEnabled = false
         }
@@ -161,7 +163,9 @@ class MainActivity : Activity() {
                 }
             }
             override fun onLost(network: Network) {
-                runOnUiThread { showOffline() }
+                runOnUiThread {
+                    if (!hasNetwork()) showOffline()
+                }
             }
         }
         networkCallback = callback
@@ -189,6 +193,7 @@ class MainActivity : Activity() {
         super.onSaveInstanceState(outState)
     }
 
+    @Deprecated("Deprecated in Android API 33; retained for compatibility with the POC minimum SDK.")
     override fun onBackPressed() {
         if (::webView.isInitialized && webView.canGoBack()) webView.goBack() else super.onBackPressed()
     }
