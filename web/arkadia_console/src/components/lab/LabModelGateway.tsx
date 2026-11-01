@@ -25,6 +25,7 @@ const GROUP_LABEL: Record<string, string> = {
 
 function ProviderRow({ entry }: { entry: GatewayProvider }) {
   const usable = entry.status === "AVAILABLE";
+  const dispatchable = entry.dispatchable === true;
   return (
     <li
       className="rounded border border-line bg-ink/40 p-3"
@@ -38,6 +39,9 @@ function ProviderRow({ entry }: { entry: GatewayProvider }) {
         rows={[
           { label: "model", value: entry.model ?? "—" },
           { label: "configured", value: entry.configured ? "yes" : "no" },
+          // Reachability and dispatchability are separate facts: a provider can be
+          // AVAILABLE with no adapter bound, and a dispatch would then fail.
+          { label: "dispatchable", value: dispatchable ? "yes" : "no" },
           { label: "detail", value: entry.detail || "—" },
         ]}
       />
@@ -76,7 +80,7 @@ function GatewayBody({ view }: { view: GatewayView }) {
     <div data-testid="lab-gateway">
       <p
         className={`mb-3 font-mono text-[11px] uppercase tracking-widest ${
-          ledger.usable_provider_present ? "text-azure/80" : "text-gold"
+          ledger.dispatchable_provider_present ? "text-azure/80" : "text-gold"
         }`}
         data-testid="lab-gateway-verdict"
       >
@@ -88,6 +92,7 @@ function GatewayBody({ view }: { view: GatewayView }) {
           { label: "catalog", value: String(ledger.counts.catalog) },
           { label: "configured", value: String(ledger.counts.configured) },
           { label: "available", value: String(ledger.counts.available) },
+          { label: "dispatchable", value: String(ledger.counts.dispatchable) },
           {
             label: "by class",
             value: `local ${ledger.counts.local} · remote ${ledger.counts.remote} · agent ${ledger.counts.agent_runtime}`,
@@ -148,6 +153,13 @@ function GatewayBody({ view }: { view: GatewayView }) {
         <p className="mt-2 text-xs text-gold" data-testid="lab-gateway-configured-not-available">
           configured but not confirmed reachable:{" "}
           {ledger.configured_but_not_available.map((e) => e.provider).join(" · ")}
+        </p>
+      )}
+
+      {ledger.available_but_not_dispatchable.length > 0 && (
+        <p className="mt-2 text-xs text-gold" data-testid="lab-gateway-available-not-dispatchable">
+          reachable but not dispatchable — no adapter is bound, so a run could not call one:{" "}
+          {ledger.available_but_not_dispatchable.map((e) => e.provider).join(" · ")}
         </p>
       )}
 

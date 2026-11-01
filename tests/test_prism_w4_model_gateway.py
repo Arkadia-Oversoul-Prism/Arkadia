@@ -91,6 +91,28 @@ def test_handler_output_carries_the_keys_the_projection_reads():
         assert required <= set(entry), f"catalog entry missing {required - set(entry)}"
 
 
+def test_handler_output_carries_the_dispatch_truth_the_projection_reads():
+    """`adapter_bound`/`dispatchable` must be the handler's own keys.
+
+    The projection reads dispatchability from the handler rather than inferring it
+    from `status`, so these keys are load-bearing: if the handler renamed one, the
+    surface would silently report every provider as non-dispatchable rather than
+    fail. Measured against the handler, not an interface.
+    """
+    from lab.engineering_lab.gateway import describe_gateway
+
+    view = describe_gateway()
+    assert view["catalog"], "control premise: the handler must describe providers"
+    for entry in view["catalog"]:
+        assert {"adapter_bound", "dispatchable"} <= set(entry), f"catalog entry missing {set(entry)}"
+        assert isinstance(entry["adapter_bound"], bool)
+        assert isinstance(entry["dispatchable"], bool)
+        # The handler's own P0.5 rule: a dispatch needs a bound adapter, so
+        # dispatchable can never be true without one.
+        if entry["dispatchable"]:
+            assert entry["adapter_bound"] is True
+
+
 def test_the_three_groups_partition_the_catalog():
     """The handler's groups must cover its own catalog exactly.
 
@@ -421,3 +443,133 @@ def test_negative_control_an_available_provider_is_not_an_authorization():
     assert result["verdict"]["state"] == "PROVIDER_AVAILABLE"
     assert result["ledger"]["authority_granted"] is False
     assert "not an authorization" in result["verdict"]["note"]
+
+
+# ---------------------------------------------------------------------------
+# Availability is not dispatchability (the handler's P0.5 rule)
+# ---------------------------------------------------------------------------
+
+
+def _descriptor(**overrides) -> dict:
+    entry = {
+        "provider": "ollama",
+        "model": "llama3",
+        "config_class": "LOCAL",
+        "configured": True,
+        "status": "AVAILABLE",
+        "detail": "reachable via /api/tags",
+        "cost_note": "cost not asserted; provider tiers are not assumed free",
+        "adapter_bound": True,
+        "dispatchable": True,
+    }
+    entry.update(overrides)
+    return entry
+
+
+def test_negative_control_an_available_provider_without_a_bound_adapter_is_not_dispatchable():
+    """The detector must separate 'AVAILABLE' from 'dispatchable'.
+
+    This is the handler's own P0.5 truthfulness rule: `status` answers "is this
+    configured and reachable?", while `dispatchable` answers the different question
+    "could a run actually call it right now?" — which additionally needs a bound
+    adapter. A projection that read only `status` would present a reachable
+    provider as a functioning worker, implying a dispatch that would fail.
+    """
+    view = {
+        "local_providers": ["ollama"],
+        "remote_providers": [],
+        "agent_providers": [],
+        "catalog": [_descriptor(adapter_bound=False, dispatchable=False)],
+    }
+    result = run_projection(view)
+    ledger, verdict = result["ledger"], result["verdict"]
+
+    assert ledger["counts"]["available"] == 1
+    assert ledger["counts"]["dispatchable"] == 0
+    assert ledger["dispatchable_provider_present"] is False
+    assert [e["provider"] for e in ledger["available_but_not_dispatchable"]] == ["ollama"]
+    # Availability is still reported; the surface must not hide the reading, it
+    # must refuse to call it dispatchable.
+    assert ledger["usable_provider_present"] is True
+    assert "none is dispatchable" in verdict["note"]
+    assert "not an authorization" in verdict["note"]
+
+
+def test_a_dispatchable_provider_reads_as_dispatchable():
+    """Positive control: the detector must fire in the other direction too.
+
+    Without this, a projection that always reported 'not dispatchable' would pass
+    the negative control above.
+    """
+    view = {
+        "local_providers": ["ollama"],
+        "remote_providers": [],
+        "agent_providers": [],
+        "catalog": [_descriptor()],
+    }
+    ledger = run_projection(view)["ledger"]
+    assert ledger["counts"]["dispatchable"] == 1
+    assert ledger["dispatchable_provider_present"] is True
+    assert ledger["available_but_not_dispatchable"] == []
+
+
+def test_dispatchability_is_read_from_the_handler_never_inferred_from_status():
+    """A provider the handler marks non-dispatchable must not be promoted.
+
+    `status == AVAILABLE` with `dispatchable == False` is the exact state the
+    handler can emit; inferring dispatchability from status would erase it. The
+    inverse is also checked, so the field is read rather than assumed false.
+    """
+    view = {
+        "local_providers": ["ollama", "llama_cpp"],
+        "remote_providers": [],
+        "agent_providers": [],
+        "catalog": [
+            _descriptor(provider="ollama", adapter_bound=False, dispatchable=False),
+            _descriptor(provider="llama_cpp", adapter_bound=True, dispatchable=True),
+        ],
+    }
+    ledger = run_projection(view)["ledger"]
+    assert ledger["counts"]["available"] == 2
+    assert ledger["counts"]["dispatchable"] == 1
+    assert [e["provider"] for e in ledger["available_but_not_dispatchable"]] == ["ollama"]
+
+
+def test_negative_control_the_dispatch_detector_sees_an_inferred_value():
+    """The detector must fire on a projection that inferred dispatchability.
+
+    Feeding a view whose only dispatchable provider is described *without* the
+    handler's `dispatchable` key must not read as dispatchable — that is what
+    inference from `status` would produce.
+    """
+    entry = _descriptor()
+    del entry["dispatchable"]
+    del entry["adapter_bound"]
+    view = {
+        "local_providers": ["ollama"],
+        "remote_providers": [],
+        "agent_providers": [],
+        "catalog": [entry],
+    }
+    ledger = run_projection(view)["ledger"]
+    assert ledger["counts"]["available"] == 1
+    assert ledger["counts"]["dispatchable"] == 0
+    assert ledger["dispatchable_provider_present"] is False
+
+
+def test_the_real_handler_reports_no_dispatchable_provider_here():
+    """Over the live handler output, dispatchability is measured, not assumed.
+
+    In a bare environment every provider is unconfigured, so the strongest honest
+    reading is MODEL_WORK_BLOCKED with zero dispatchable providers. The assertion
+    is relational (dispatchable <= available), so it stays true in an environment
+    that does have a configured provider.
+    """
+    from lab.engineering_lab.gateway import describe_gateway
+
+    ledger = run_projection(describe_gateway())["ledger"]
+    assert ledger["counts"]["dispatchable"] <= ledger["counts"]["available"]
+    assert ledger["dispatchable_provider_present"] == (ledger["counts"]["dispatchable"] > 0)
+    assert len(ledger["available_but_not_dispatchable"]) == (
+        ledger["counts"]["available"] - ledger["counts"]["dispatchable"]
+    )

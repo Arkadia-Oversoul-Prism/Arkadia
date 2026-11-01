@@ -14,9 +14,16 @@
  * implies:
  *
  *   configured        != status AVAILABLE   (a key/env fact vs a probe result)
+ *   status AVAILABLE  != dispatchable       (a bound adapter is a separate fact)
  *   status AVAILABLE  != authorized to run  (the gateway holds no authority)
  *   config_class LOCAL != free              (cost is explicitly not asserted)
  *   AGENT_RUNTIME     != probed             (agent runtimes are never probed)
+ *
+ * The `status`/`dispatchable` split is the handler's own P0.5 truthfulness rule:
+ * `ModelDescriptor.status` answers "is this configured and reachable?", while
+ * `dispatchable` answers the different question "could a run actually call it
+ * right now?" — which additionally needs a bound adapter. Reporting only
+ * `AVAILABLE` would imply a worker that cannot run.
  *
  * Missing and partial data are reported, never smoothed: a catalog provider that
  * belongs to none of the three declared groups would be dropped by a naive
@@ -36,6 +43,10 @@ export interface GatewayProvider {
   status?: string;
   detail?: string;
   cost_note?: string;
+  /** A concrete inference adapter is bound — describing a provider is not calling it. */
+  adapter_bound?: boolean;
+  /** configured + reachable + bound: a dispatch could actually be attempted. */
+  dispatchable?: boolean;
 }
 
 export interface GatewayView {
@@ -80,6 +91,7 @@ export interface GatewayLedger {
     catalog: number;
     configured: number;
     available: number;
+    dispatchable: number;
     local: number;
     remote: number;
     agent_runtime: number;
@@ -90,6 +102,17 @@ export interface GatewayLedger {
    * unconfigured provider as usable.
    */
   usable_provider_present: boolean;
+  /**
+   * `true` only when the gateway reports a provider a run could actually call
+   * (`dispatchable`). This is strictly narrower than `usable_provider_present`:
+   * a provider can be AVAILABLE with no adapter bound.
+   */
+  dispatchable_provider_present: boolean;
+  /**
+   * Providers that report AVAILABLE while no adapter is bound — reachable, but a
+   * dispatch would fail. Reported rather than folded into the availability count.
+   */
+  available_but_not_dispatchable: GatewayProvider[];
   /** Agent runtimes the gateway reported as AVAILABLE — it never probes them. */
   agent_runtime_reported_available: GatewayProvider[];
   /** A configured provider whose probe did not confirm reachability. */
@@ -137,6 +160,9 @@ export function buildGatewayLedger(view: GatewayView): GatewayLedger {
 
   const configured = catalog.filter((entry) => entry.configured === true);
   const available = catalog.filter((entry) => entry.status === AVAILABLE_STATUS);
+  // `dispatchable` is the handler's own field; it is never inferred from
+  // `status`, because availability without a bound adapter is not a dispatch.
+  const dispatchable = catalog.filter((entry) => entry.dispatchable === true);
 
   return {
     groups,
@@ -148,11 +174,14 @@ export function buildGatewayLedger(view: GatewayView): GatewayLedger {
       catalog: catalog.length,
       configured: configured.length,
       available: available.length,
+      dispatchable: dispatchable.length,
       local: catalog.filter((e) => e.config_class === "LOCAL").length,
       remote: catalog.filter((e) => e.config_class === "REMOTE").length,
       agent_runtime: catalog.filter((e) => e.config_class === "AGENT_RUNTIME").length,
     },
     usable_provider_present: available.length > 0,
+    dispatchable_provider_present: dispatchable.length > 0,
+    available_but_not_dispatchable: available.filter((e) => e.dispatchable !== true),
     agent_runtime_reported_available: available.filter((e) => e.config_class === "AGENT_RUNTIME"),
     configured_but_not_available: configured.filter((e) => e.status !== AVAILABLE_STATUS),
     // A cost note that asserts nothing means no class may be presented as free.
@@ -181,7 +210,8 @@ export function gatewayVerdict(ledger: GatewayLedger): { state: string; note: st
   }
   return {
     state: "PROVIDER_AVAILABLE",
-    note:
-      "At least one provider reports AVAILABLE. Availability is a configuration fact: it is not an authorization, and it is not a run.",
+    note: ledger.dispatchable_provider_present
+      ? "At least one provider is dispatchable. Availability is a configuration fact: it is not an authorization, and it is not a run."
+      : "At least one provider reports AVAILABLE, but none is dispatchable — no adapter is bound, so a run could not call one. Availability is a configuration fact: it is not an authorization, and it is not a run.",
   };
 }
