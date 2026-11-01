@@ -116,3 +116,24 @@ adapter bound was presented as a usable worker. That is P0.5's truthfulness rule
 (`SHARED-CONTRACTS.md` §1). The PR stays **draft**: the guard records its live state, it does
 not assert the slice is ready for review or merge. Merge, production deployment and
 acceptance remain human-only.
+
+## Status — 2026-11-01 (LANE 4; snapshot re-derivation; supersedes the head above)
+
+**Active branch:** `feat/prism-w4-model-gateway-dispatchability`
+**Active PR:** #605 (draft) — head `e4738a505da763c574eca74ff9a4618ea9f5bc5f`, base `main`
+**Base:** `d14c2598b5b5e9016703b6a834fd44b8def1e5a1` (re-measured live this pulse).
+
+The lane-currency block above recorded head `9d83ab3c264ad2264e953134f88cacc9f877bc2e`. The same
+open thread then advanced three commits to `e4738a505da763c574eca74ff9a4618ea9f5bc5f` (the
+gateway projection fix, its test adjustment, and the DEA-01 evidence record), and the snapshot
+was re-derived against that head rather than left describing the earlier one.
+
+`lane-state.json` now reads lane 4 `doc_guard: "deferred"` with `deferred_to_pr: 605` — the
+correct classification while this doc is mid-repair on its own open PR, and the one the derivation
+produces — where it previously read `"current"`. It also records open draft PR #606 under
+`unassigned_open_prs` (it matches no lane's exclusive paths) rather than omitting it.
+
+Verified this pulse at `e4738a50`: `scripts/lane_state.py --check` exit 0 and
+`--check --verify-live` exit 0 (doc-guard lanes `['1','2','3']`, deferred `['4']`);
+`tests/test_lane_instruction_doc_currency.py` **49 passed**; `tests/architecture` **11 passed**.
+Merge, production deployment and acceptance remain human-only.
