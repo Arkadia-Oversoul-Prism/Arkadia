@@ -580,14 +580,14 @@ def test_gateway_boolean_fact_preserves_unknown():
     """Execute the real projection helper for true, false, absent and malformed values."""
     node = _node()
     program = (
-        f"const m = await import({json.dumps(PROJECTION.as_uri())});\\n"
-        "process.stdout.write(JSON.stringify([\\n"
-        "  m.gatewayBooleanFact(true),\\n"
-        "  m.gatewayBooleanFact(false),\\n"
-        "  m.gatewayBooleanFact(undefined),\\n"
-        "  m.gatewayBooleanFact(null),\\n"
-        "  m.gatewayBooleanFact('false'),\\n"
-        "]));\\n"
+        f"const m = await import({json.dumps(PROJECTION.as_uri())});\n"
+        "process.stdout.write(JSON.stringify([\n"
+        "  m.gatewayBooleanFact(true),\n"
+        "  m.gatewayBooleanFact(false),\n"
+        "  m.gatewayBooleanFact(undefined),\n"
+        "  m.gatewayBooleanFact(null),\n"
+        "  m.gatewayBooleanFact('false'),\n"
+        "]));\n"
     )
     completed = subprocess.run([node, "--input-type=module", "-e", program], capture_output=True, text=True, timeout=60)
     if completed.returncode != 0:

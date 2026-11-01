@@ -254,13 +254,11 @@ def test_projection_reads_dispatchability_from_the_handler_field():
     )
 
 
-# ---------------------------------------------------------------------------
 # Optional gateway facts remain truthful
-
 
 def test_provider_boolean_facts_preserve_unknown():
     """Missing optional gateway booleans must not be rendered as an observed 'no'."""
     source = _read(GATEWAY_TSX)
     for field in ("configured", "adapter_bound", "dispatchable"):
         assert f"gatewayBooleanFact(entry.{field})" in source, f"{field} must preserve unknown"
-    assert re.search(r'label:\\s*"adapter bound"', source), "the bound-adapter fact must be visible"
+    assert 'label: "adapter bound"' in source, "the bound-adapter fact must be visible"
