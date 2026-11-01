@@ -327,9 +327,13 @@ export function ArkanaPage() {
 
   return (
     <ArkanaShell
-      history={<ArkanaThreadHistory compact />}
-      composer={composer}
+      brand="Arkana"
       statusLabel={sending ? activityLabel : selectedMode ? selectedMode.label + " mode active" : "Choose a mode"}
+      sidebar={<ArkanaThreadHistory />}
+      topTrailing={<span className="hidden font-mono text-[10px] uppercase tracking-widest text-white/35 sm:inline">
+        {activeMode === "research" ? "Knowledge OS research" : "Conversation-first intelligence"}
+      </span>}
+      composer={composer}
     >
       {empty ? (
         <div className="arkana-empty" data-testid="arkana-empty">
@@ -368,11 +372,11 @@ export function ArkanaPage() {
           ) : null}
         </div>
       ) : (
-        <div className="arkana-thread" data-testid="arkana-thread">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-            {modeSwitcher}
-          </div>
-          <div className="arkana-thread-scroll">
+        <div className="arkana-messages" data-testid="arkana-conversation-canvas">
+          <div className="arkana-messages-inner">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+              {modeSwitcher}
+            </div>
             <ul className="flex flex-col gap-4">
               {turns.map((turn) => (
                 <li
@@ -411,28 +415,32 @@ export function ArkanaPage() {
                       </ol>
                     </section>
                   ) : null}
-                  {turn.role === "assistant" && turn.content ? (
-                    <div className="arkana-message-actions mt-3" data-testid={"arkana-actions-" + turn.id}>
-                      <button
-                        type="button"
-                        className="arkana-action-btn"
-                        data-testid={"arkana-copy-" + turn.id}
-                        onClick={() => void copyTurn(turn)}
-                      >
-                        {copiedId === turn.id ? "Copied" : "Copy"}
-                      </button>
-                      <button
-                        type="button"
-                        className="arkana-action-btn"
-                        data-testid={"arkana-regenerate-" + turn.id}
-                        disabled={sending}
-                        onClick={() => void regenerate(turn.id)}
-                      >
-                        Regenerate
-                      </button>
+                  {turn.role === "assistant" && (
+                    <div className="arkana-message-actions mt-3">
                       <ReadAloud text={turn.content} label="Listen" testId={"arkana-listen-" + turn.id} />
+                      {turn.content ? (
+                        <div className="arkana-message-actions" data-testid={"arkana-actions-" + turn.id}>
+                          <button
+                            type="button"
+                            className="arkana-action-btn"
+                            data-testid={"arkana-copy-" + turn.id}
+                            onClick={() => void copyTurn(turn)}
+                          >
+                            {copiedId === turn.id ? "Copied" : "Copy"}
+                          </button>
+                          <button
+                            type="button"
+                            className="arkana-action-btn"
+                            data-testid={"arkana-regenerate-" + turn.id}
+                            disabled={sending}
+                            onClick={() => void regenerate(turn.id)}
+                          >
+                            Regenerate
+                          </button>
+                        </div>
+                      ) : null}
                     </div>
-                  ) : null}
+                  )}
                   {turn.provenance ? (
                     <div className="mt-3">
                       <ArkanaProvenancePanel provenance={turn.provenance} />
