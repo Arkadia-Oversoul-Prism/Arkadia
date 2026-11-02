@@ -23,9 +23,10 @@ function NavLink({
     <button
       onClick={onClick}
       type="button"
+      title={label}
       aria-current={active ? "page" : undefined}
       data-testid={`nav-${label.toLowerCase().replace(/\s+/g, "-")}`}
-      className={`rounded-lg px-3 py-2 text-left font-mono text-[11px] uppercase tracking-[0.16em] transition ${
+      className={`whitespace-nowrap rounded-lg px-2.5 py-2 text-left font-mono text-[10px] uppercase tracking-[0.12em] transition sm:px-3 sm:text-[11px] sm:tracking-[0.16em] ${
         active ? `bg-white/5 ${accent}` : "text-white/45 hover:text-white/80"
       }`}
     >
@@ -158,7 +159,7 @@ export function Shell({
         <nav
           ref={mobileNavRef}
           aria-label="Primary navigation (mobile)"
-          className="flex gap-1 overflow-x-auto border-b border-line bg-panel/40 p-2 md:hidden"
+          className="flex gap-0.5 overflow-x-auto border-b border-line bg-panel/40 p-1.5 md:hidden"
         >
           {NAV_SURFACES.map((s) => (
             <NavLink key={s.id} active={current === s.id} label={s.name} accent={s.accent} onClick={() => onNavigate(s.id)} />
