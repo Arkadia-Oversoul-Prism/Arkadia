@@ -1,16 +1,25 @@
 {
  "schema": "arkadia.lane-state/1.2",
- "observed_at": "2026-11-01T15:09:00Z",
- "base_main": "dd49891385eb944dfacdfa69ceaef603c79b665d",
+ "observed_at": "2026-11-02T00:35:15Z",
+ "base_main": "fb1d03e454853157561a86e2ed2e0c01df6c869d",
  "source": "GitHub REST reads API (Arkadia-Oversoul-Prism/Arkadia), read-only, derived by scripts/lane_state_refresh.py",
  "note": "Machine-readable mirror of the four Prism UI lane threads, DERIVED from live PR state rather than hand-transcribed. Lane assignment is by exclusive path ownership (SHARED-CONTRACTS.md section 1); a PR touching more than one lane's owned paths appears in each. scripts/lane_state.py judges the docs against this file; --verify-live additionally requires every claimed-open PR to be authoritatively open. Refresh with scripts/lane_state_refresh.py --write.",
  "lanes": {
   "1": {
    "doc": "AGENT-01-SHELL.md",
    "title": "Shell / navigation / design system / integration seam",
-   "active_pr": null,
-   "active_branch": null,
-   "open_prs": [],
+   "active_pr": 610,
+   "active_branch": "feat/prism-l1-legacy-non-map-inbound-01",
+   "open_prs": [
+    {
+     "number": 610,
+     "branch": "feat/prism-l1-legacy-non-map-inbound-01",
+     "head_sha": "f53b29b696d711d77e49898b9c25a0258f0337fc",
+     "draft": true,
+     "updated_at": "2026-11-02T00:34:45Z",
+     "title": "Lane 1: cover the archive's non-map inbound paths in the legacy-route guard"
+    }
+   ],
    "merged_prs": [
     {
      "number": 423,
@@ -37,7 +46,7 @@
      "merge_commit_sha": "df7899b9cdb7b732f6812a019d349e6faded05a3"
     }
    ],
-   "doc_guard": "idle"
+   "doc_guard": "current"
   },
   "2": {
    "doc": "AGENT-02-NOVANET-OPPORTUNITY.md",
@@ -106,7 +115,24 @@
    "doc_guard": "idle"
   }
  },
- "unassigned_open_prs": [],
+ "unassigned_open_prs": [
+  {
+   "number": 608,
+   "branch": "poc/arkadia-android-webview-01",
+   "head_sha": "8aaf8b3bb6d77005a27e8862e35b74e67cc0b505",
+   "draft": true,
+   "updated_at": "2026-11-01T22:02:44Z",
+   "title": "[POC] Restricted Arkadia Console Android WebView"
+  },
+  {
+   "number": 609,
+   "branch": "governance/weaver-conditional-merge-authority-01",
+   "head_sha": "18e892466bb77219a92f1c536dcb9fe4cb0c0075",
+   "draft": false,
+   "updated_at": "2026-11-02T00:06:01Z",
+   "title": "[GOV-01] Establish conditional Weaver merge authority"
+  }
+ ],
  "closed_unmerged": [
   {
    "number": 499,
