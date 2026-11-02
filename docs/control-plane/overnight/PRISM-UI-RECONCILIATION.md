@@ -6,7 +6,7 @@
 **Canonical production:** `https://arkadia-qzu4.onrender.com`
 **Workstream:** Arkadia Console rebuild / reconciliation with archived Prism
 **Consumers:** Upper Hands Engineering Lab, Weaver, and the Hourly Weaver Automation/pulse.
-**Authority:** Human retains merge, production-deployment, and acceptance authority.
+**Authority:** Weaver holds only the bounded conditional merge delegation in §7.1 / SHARED-CONTRACTS.md §9, effective after GOV-01 is human-merged. Human retains constitutional, required-approval, production-deployment, and acceptance authority.
 
 This document is the active work instruction for the overnight UI workstream. Every Engineering Lab / Weaver pulse must read it alongside `AGENTS.md`, the current `main` SHA, the live PR state, and the evidence files it cites. Do not depend on conversation memory or an old automation prompt.
 
@@ -120,7 +120,7 @@ On **each Hourly Weaver pulse**, perform these steps in order. The accepted shar
 6. **Record:** update feature matrix/work log with full SHA, paths, commands, exact results, failures, unknowns and next move.
 7. **Commit:** commit verified progress only to the workstream's assigned branch and update its existing PR. Never create a new PR for each pulse.
 8. **Reconcile:** reread branch/PR heads, checks and changed-file overlap across all four PRs. Stop if another actor moved a branch or semantic integration is unclear.
-9. **Integrate:** continuously identify dependency order and overlap; do not merge one PR into another or main automatically. Shared contract/interface changes go through Workstream 1 and require explicit human review.
+9. **Integrate:** continuously identify dependency order and overlap; do not merge one PR into another or main automatically. Weaver may merge an existing PR only under the conditional M1–M13 eligibility policy in SHARED-CONTRACTS.md §9; shared contract/interface changes and governance changes require explicit human review and approval.
 10. **Report:** end with exact state per workstream: IMPLEMENTED, BUILD/TEST PASSED, PREVIEW READY, PREVIEW VERIFIED, BLOCKED, or UNKNOWN. No inferred progress.
 
 1. **Reconstruct:** fetch current `main`, this branch, the existing PR, relevant open PRs, current CI/check-runs, and the latest evidence. Confirm the branch/PR is still the one authorized work surface. If `main` moved, inspect the delta before continuing.
@@ -145,8 +145,8 @@ The former single-branch/single-PR rule is superseded by the explicitly accepted
 - The single-owner table in the shared contract is binding. Shared route/API registry/type files are integrated by Workstream 1; feature agents submit exact contract changes rather than editing shared files directly.
 - Keep feature PRs draft while work is in progress. Do not mark a PR ready solely because an agent finished a turn.
 - **PR #418 disposition:** preserve it intact as the current existing shell + NovaNet implementation/evidence slice. Do not copy its changes into each new branch, rewrite its history, cherry-pick blindly, or close it automatically. Workstreams 1 and 2 must treat the paths already changed by #418 as existing implementation to reconcile, not recreate. Until #418 is merged or explicitly superseded by a human decision, avoid conflicting source edits to its owned files; Workstreams 1 and 2 may work on non-overlapping tests, inventory, evidence, and feature-local new modules while recording integration requests. Workstreams 3 and 4 may proceed in their isolated feature-owned paths.
-- Agents may inspect, implement, test, document, commit to their assigned branch, and update their PR. They may not merge any PR, deploy production, or declare product acceptance.
-- Integration means continuous overlap/dependency review and shared-contract reconciliation—not automatic merging. The human retains merge, production-deployment, and acceptance authority.
+- Agents may inspect, implement, test, document, commit to their assigned branch, and update their PR. Weaver alone may exercise the bounded conditional merge delegation in SHARED-CONTRACTS.md §9 after GOV-01 is human-merged. OpenHands and feature agents do not inherit merge authority. No agent may deploy production or declare product acceptance.
+- Integration means continuous overlap/dependency review and shared-contract reconciliation—not automatic merging. Weaver may merge only after live M1–M13 revalidation, through GitHub's permitted PR mechanism, and only when all required reviews/approvals and checks are satisfied. Human-only decisions, deployment, and acceptance remain reserved to the human sovereign.
 - Do not force-push, bypass required checks, weaken tests, delete archive history, or change provider settings.
 
 ## 8. Deployment boundary — explicit current rule
@@ -186,3 +186,16 @@ At the end of this workstream window, leave its PR in a truthful state and a det
 - explicit statement that no merge, production deployment, or acceptance was performed.
 
 **North star:** recover Prism's depth by reconciling its proven product work with the stronger current Arkadia substrate—not by throwing away the old work, and not by mistaking today's scaffold for the finished product.
+
+
+
+## 7.1 GOV-01 — conditional Weaver merge delegation (2026-11-02)
+
+**Authorization source:** explicit human authorization in the 2026-11-02 conversation approving the dedicated governance-amendment PR and the October 28, 2026 reconciliation contract.
+**Authorization revision:** 2026-10-28 execution contract; amendment GOV-01.
+**Effective date:** only after this amendment is reviewed and merged by the human sovereign.
+**Scope:** existing PRs targeting canonical `main`, subject to all M1–M13 criteria in `docs/control-plane/parallel-ui/SHARED-CONTRACTS.md` §9. No direct pushes to `main`, force-pushes, bypasses, skipped checks, waived approvals, or merge of governance-sensitive changes without specific human authorization.
+
+Routine eligible PR merges are delegated to Weaver only. Required human approvals remain mandatory wherever branch protection, repository policy, CODEOWNERS, checks, merge queues, or a specific decision requires them. Constitutional, identity, authority-model, K15/K3, approval-enforcement, scope-expansion, deployment/configuration, and acceptance decisions remain human-only. This governance amendment itself must be human-reviewed and human-merged; Weaver cannot use the authority proposed here to merge GOV-01.
+
+The four lane ownership boundaries and the existing one-open-PR-per-lane rule are unchanged. This amendment changes merge delegation only; it does not authorize implementation scope expansion or deployment.

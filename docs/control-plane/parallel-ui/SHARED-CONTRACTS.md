@@ -3,7 +3,7 @@
 **Status:** ACCEPTED — merged via PR #419 at `a29a9b8f18ada55cb9457ea3cdab98414522a4e8`.
 **Baseline observed:** `main` after the four PRs #425–#428 were merged: `f390526ab14e122fef358ef9b9e1cd438509463c`. Re-fetch `main` before every change; this SHA is not a permanent pin. The current branch map was refreshed 2026-10-11 against the four active next-wave branches below.
 **Canonical production:** https://arkadia-qzu4.onrender.com (ADR-016). Render is configured to auto-deploy commits on `main`; this merge wave was explicitly authorized by the user for production observation. Agents may not trigger manual deployments or claim production acceptance.
-**Authority:** agents may inspect, implement, test, commit to their assigned branch, and update their PR. Human retains merge, production deployment, and acceptance.
+**Authority:** agents may inspect, implement, test, commit to their assigned branch, and update their PR. Weaver has only the conditional standing merge authority in §9. Human retains constitutional, required-approval, deployment, and acceptance authority.
 
 ## 1. Four workstreams and exclusive file ownership
 
@@ -85,7 +85,7 @@ The initial reconciliation and four workstream PRs are merged into `main`; do no
 
 ## 6. Explicit supersession of the single-PR rule
 
-The current directive in `docs/control-plane/overnight/PRISM-UI-RECONCILIATION.md` §7 originally requires one long-lived branch/PR and prohibits parallel UI rebuild PRs. The user has since explicitly directed a four-PR parallel execution plan. This proposed contract supersedes **only that one-branch/one-PR constraint for the four named workstreams**, subject to human review/merge of this contract. All other governance remains in force: no duplicate ownership, no merge/deploy/acceptance by agents, no Vercel, evidence before claims, and no production change without explicit authorization.
+The current directive in `docs/control-plane/overnight/PRISM-UI-RECONCILIATION.md` §7 originally requires one long-lived branch/PR and prohibits parallel UI rebuild PRs. The user has since explicitly directed a four-PR parallel execution plan. This proposed contract supersedes **only that one-branch/one-PR constraint for the four named workstreams**, subject to human review/merge of this contract. All other governance remains in force: no duplicate ownership; only Weaver's bounded §9 merge delegation (no general agent merge authority); no deployment or acceptance by agents; no Vercel; evidence before claims; and no production change without explicit authorization.
 
 Until this contract is reviewed and accepted, treat the four new PRs as draft bootstrap artifacts only. Do not launch source-editing agents on the assumption that the governance conflict is already resolved. Once accepted, the coordinator should amend the overnight directive so Hourly Weaver and OpenHands consume this four-workstream contract rather than the old single-PR instruction.
 
@@ -141,3 +141,24 @@ Verified on the live tree: planting `apiRequest<VersionInfo>("/api/invented/rout
 **Deliberately still out of scope:** `ProjectOpportunityRadar`'s `readPath` prop and `KnowledgeGraphPanel`'s `readGraph(path)` — both receive their path from a caller, which is Workstream 2's and Workstream 3's composition respectively, not a shell-owned decision.
 
 **Domain correction (later pass, same day).** The widened detector originally ran over `*.tsx` only. The read is what carries the endpoint contract, not the file extension that performs it — `lib/arkana.ts` already reaches `POST /api/commune/resonance` through `apiRequest` — so a `.ts` contract module or helper could inline a path and pass unjudged. The domain is now `.ts` **and** `.tsx`, excluding `lib/apiClient.ts` (the transport itself, whose `fetch(path, …)` takes its path as a parameter). Measured: a planted `apiRequest<unknown>("/api/ghost-feed")` in `lib/arkana.ts` was reported by the widened domain and missed by the `.tsx`-only one. See the evidence doc §9.
+
+
+
+## 9. Conditional Weaver merge authority — GOV-01 (2026-11-02)
+
+**Authorization source:** explicit human authorization in the ChatGPT conversation dated 2026-11-02, approving a dedicated governance-amendment PR implementing the October 28, 2026 ARKADIA ENGINEERING LAB — WEAVER HOURLY BOUNDED EXECUTION CONTRACT (RECONCILIATION EDITION).
+**Authorization revision:** execution contract revision date 2026-10-28; amendment GOV-01.
+**Effective date:** only after this dedicated PR is reviewed and merged by the human sovereign.
+**Scope:** existing PRs in the canonical Arkadia repository targeting `main`, each individually subject to M1–M13 below. This is standing but bounded authority; it grants no waiver, policy bypass, scope expansion, or self-authorization.
+
+### Delegated routine merge authority
+
+Weaver may merge an **existing** PR into canonical `main` only when every applicable M1–M13 criterion is affirmatively verified immediately before merge: canonical target and provenance; authorized scope and exclusive ownership; no protected governance/identity/authority change lacking specific human authorization; all repository-required reviews and approvals; all required current-head checks; targeted tests and applicable architecture/build/type checks; clean mergeability and fresh base; satisfied dependencies; no unexplained regression; permitted GitHub merge method; standing authority for that exact class of change; and final revalidation of head/base/reviews/checks/mergeability.
+
+This delegation does not replace a required human review or approval. If repository rules, branch protection, CODEOWNERS, a required check, a merge queue, or a specific governance record requires human approval, Weaver must wait for that approval. If any criterion is false, unknown, stale, contradictory, or unavailable, the PR is not eligible. Never push directly to `main`, force-push, bypass protection, skip checks, or override a platform safeguard. If GitHub blocks the merge, stop.
+
+### Human-only authority retained
+
+The human sovereign retains exclusive authority over constitutional changes; identity and authority-model boundaries; K15/K3 governance; approval enforcement; scope expansion and exceptions; security/privacy decisions requiring sovereign judgment; production deployment/configuration; and product/production acceptance. A governance amendment, including GOV-01 itself, must be human-reviewed and human-merged. Weaver cannot merge its own governance amendment under the authority it proposes here.
+
+A successful merge is not deployment verification or acceptance. Render's existing deployment behavior is unchanged; no manual deployment, provider mutation, or production acceptance is authorized here. Preserve lane ownership, one-open-PR-per-lane constraints, review rules, branch protection, and the existing interface-request process.
