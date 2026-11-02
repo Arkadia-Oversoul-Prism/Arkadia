@@ -9,10 +9,12 @@ export function Page({ title, subtitle, children }: { title: string; subtitle?: 
   return (
     <div className="min-h-screen w-full relative">
       <div className="aurora-bg" />
-      <div className="page-column relative z-10 pt-10 pb-24">
-        <header className="mb-8">
-          <h1 className="font-display text-3xl tracking-[0.16em] text-gold">{title}</h1>
-          {subtitle && <p className="mt-2 max-w-2xl text-sm text-white/60">{subtitle}</p>}
+      <div className="page-column relative z-10 pt-8 pb-20 sm:pt-10 sm:pb-24">
+        <header className="mb-7 sm:mb-8">
+          <h1 className="font-display text-[1.65rem] tracking-[0.14em] text-gold sm:text-3xl sm:tracking-[0.16em]">{title}</h1>
+          {subtitle && (
+            <p className="mt-2 max-w-2xl text-[13px] leading-relaxed text-white/55 sm:text-sm sm:text-white/60">{subtitle}</p>
+          )}
         </header>
         {children}
       </div>
@@ -22,7 +24,7 @@ export function Page({ title, subtitle, children }: { title: string; subtitle?: 
 
 export function Panel({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
-    <section className={`rounded-xl border border-line bg-panel/70 p-5 ${className}`}>{children}</section>
+    <section className={`rounded-xl border border-line bg-panel/70 p-4 sm:p-5 ${className}`}>{children}</section>
   );
 }
 
