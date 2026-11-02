@@ -13,10 +13,10 @@ function Portal({ surface, onNavigate }: { surface: (typeof SURFACES)[number]; o
       onClick={() => onNavigate(surface.id)}
       data-testid={`portal-${surface.id}`}
       type="button"
-      className="group home-portal rounded-xl border border-line/90 bg-panel/50 p-4 text-left transition duration-150 hover:border-white/15 hover:bg-panel/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald/60"
+      className="group home-portal flex min-h-[5.5rem] flex-col rounded-xl border border-line/90 bg-panel/50 p-3.5 text-left transition duration-150 hover:border-white/15 hover:bg-panel/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald/60 sm:min-h-0 sm:p-4"
     >
       <p className={`font-mono text-[10px] uppercase tracking-[0.2em] ${surface.accent}`}>{surface.boundary}</p>
-      <p className="mt-1.5 font-display text-[1.05rem] tracking-wide text-white/90 transition group-hover:text-white">{surface.name}</p>
+      <p className="mt-1.5 font-display text-base tracking-wide text-white/90 transition group-hover:text-white sm:text-[1.05rem]">{surface.name}</p>
       <p className="mt-1.5 text-[13px] leading-relaxed text-white/45">{surface.summary}</p>
     </button>
   );
@@ -91,20 +91,20 @@ export function HomePage({ onNavigate }: { onNavigate: (id: SurfaceId) => void }
       subtitle="Operational console. Identity, mission control, and governed execution over one canonical spine."
     >
       {/* Identity-aware entry — contract-preserving primary / secondary actions */}
-      <Panel className="home-entry mb-7 border-line/80 bg-panel/55" data-testid="home-entry-panel">
-        <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+      <Panel className="home-entry mb-6 border-line/80 bg-panel/55 sm:mb-7" data-testid="home-entry-panel">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between sm:gap-5">
           <div className="min-w-0 max-w-xl">
             <p className="mb-1.5 font-mono text-[10px] uppercase tracking-[0.22em] text-white/40">
               {isAuthenticated ? "Entry · signed in" : "Entry · not signed in"}
             </p>
-            <p className="text-[15px] leading-relaxed text-white/65">{entry.primary.body}</p>
+            <p className="text-sm leading-relaxed text-white/65 sm:text-[15px]">{entry.primary.body}</p>
           </div>
-          <div className="flex flex-shrink-0 flex-wrap gap-2.5">
+          <div className="flex w-full flex-col gap-2.5 sm:w-auto sm:flex-row sm:flex-wrap">
             <button
               onClick={() => onNavigate(entry.primary.id)}
               data-testid="home-entry-primary"
               type="button"
-              className="rounded-lg border border-emerald/55 bg-emerald/12 px-5 py-2.5 font-mono text-[11px] uppercase tracking-[0.18em] text-emerald transition duration-150 hover:border-emerald/70 hover:bg-emerald/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald/60"
+              className="min-h-11 w-full rounded-lg border border-emerald/55 bg-emerald/12 px-5 py-2.5 font-mono text-[11px] uppercase tracking-[0.18em] text-emerald transition duration-150 hover:border-emerald/70 hover:bg-emerald/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald/60 sm:w-auto"
             >
               {entry.primary.label}
             </button>
@@ -112,7 +112,7 @@ export function HomePage({ onNavigate }: { onNavigate: (id: SurfaceId) => void }
               onClick={() => onNavigate(entry.secondary.id)}
               data-testid="home-entry-secondary"
               type="button"
-              className="rounded-lg border border-line bg-transparent px-4 py-2.5 font-mono text-[11px] uppercase tracking-[0.16em] text-white/55 transition duration-150 hover:border-gold/35 hover:text-white/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/50"
+              className="min-h-11 w-full rounded-lg border border-line bg-transparent px-4 py-2.5 font-mono text-[11px] uppercase tracking-[0.16em] text-white/55 transition duration-150 hover:border-gold/35 hover:text-white/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/50 sm:w-auto"
             >
               {entry.secondary.label}
             </button>
@@ -123,7 +123,7 @@ export function HomePage({ onNavigate }: { onNavigate: (id: SurfaceId) => void }
       {/* Primary operational workspace — authenticated only */}
       {isAuthenticated && (
         <section
-          className="home-mission mb-9 rounded-xl border border-gold/20 bg-panel/40 p-4 sm:p-5"
+          className="home-mission mb-8 rounded-xl border border-gold/20 bg-panel/40 p-3.5 sm:mb-9 sm:p-5"
           data-testid="home-mission-control"
           aria-labelledby="mission-control-heading"
         >
@@ -142,7 +142,7 @@ export function HomePage({ onNavigate }: { onNavigate: (id: SurfaceId) => void }
               onClick={() => onNavigate("engineering-lab")}
               data-testid="home-open-full-lab"
               type="button"
-              className="rounded-lg border border-line/90 bg-panel/60 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-white/55 transition hover:border-azure/40 hover:text-white/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azure/50"
+              className="min-h-10 rounded-lg border border-line/90 bg-panel/60 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-white/55 transition hover:border-azure/40 hover:text-white/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azure/50"
             >
               Full Engineering Lab
             </button>
@@ -152,8 +152,8 @@ export function HomePage({ onNavigate }: { onNavigate: (id: SurfaceId) => void }
       )}
 
       {/* Capability navigation by intent */}
-      <section className="home-capabilities mb-9" aria-labelledby="capabilities-heading">
-        <div className="mb-5 flex items-baseline justify-between gap-3">
+      <section className="home-capabilities mb-8 sm:mb-9" aria-labelledby="capabilities-heading">
+        <div className="mb-4 flex items-baseline justify-between gap-3 sm:mb-5">
           <p id="capabilities-heading" className="font-mono text-[11px] uppercase tracking-[0.22em] text-white/40">
             Capabilities
           </p>
@@ -161,7 +161,7 @@ export function HomePage({ onNavigate }: { onNavigate: (id: SurfaceId) => void }
             Surfaces · one spine
           </span>
         </div>
-        <div className="space-y-7">
+        <div className="space-y-6 sm:space-y-7">
           {CAPABILITY_GROUPS.map((group) => {
             const surfaces = group.ids
               .map((id) => SURFACES.find((s) => s.id === id))
@@ -170,7 +170,7 @@ export function HomePage({ onNavigate }: { onNavigate: (id: SurfaceId) => void }
             return (
               <div key={group.heading} className="home-capability-group">
                 <p className="mb-2.5 font-mono text-[10px] uppercase tracking-[0.18em] text-white/32">{group.heading}</p>
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-2.5 sm:grid-cols-2 sm:gap-3">
                   {surfaces.map((s) => (
                     <Portal key={s.id} surface={s} onNavigate={onNavigate} />
                   ))}
