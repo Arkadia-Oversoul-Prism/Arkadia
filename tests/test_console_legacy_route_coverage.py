@@ -24,6 +24,16 @@ Two defects this guard closes, both measured on `main` @ `49809f45`:
     collision. An alias placed on a live backend route (`/api`, `/solspire`, …)
     would shadow it and pass every existing guard.
 
+3.  **The checked domain was the archive's two route maps, not the archive's
+    inbound paths.** `resolvePath` also accepts two families the maps cannot
+    express: a regex family `/^\\/solariun(?:\\/([^/]+))?$/` and the exact-string
+    branches `/solspire` and `/solspire/voice`. A transcription of `direct` and
+    `compatibility` is blind to them, so an archive-declared inbound path could
+    leave the domain without any assertion noticing. Both families are now
+    declared (`ARCHIVE_NON_MAP_INBOUND`) and bound to the archive by
+    `test_the_archive_non_map_inbound_paths_are_declared`, so the domain covers
+    every inbound path `resolvePath` accepts rather than only its two maps.
+
 Scope: this is a **contract/boundary guard**, not a feature slice. It does not add
 an alias for any path whose disposition is still a product decision — it *records*
 that disposition so the gap cannot move silently. It edits no console source, the
@@ -99,6 +109,30 @@ LEGACY_ROUTE_TABLE = (
     "/spiral-codex",
 )
 
+#: Inbound path families the archive's `resolvePath` accepts **outside** its two
+#: route maps. Declared explicitly and bound to the archive by
+#: `test_the_archive_non_map_inbound_paths_are_declared` (a source-text pin could
+#: only restate the implementation; binding it keeps an archive edit visible).
+#:
+#: Two families, each transcribed in the shape `resolvePath` writes it:
+#:
+#: * ``regex`` — the match pattern, e.g. ``^\/solariun(?:\/([^/]+))?$``. The family
+#:   it addresses is every path the pattern accepts, not the one sample below.
+#: * ``exact`` — the literal ``path === '…'`` branches.
+#:
+#: ``samples`` are representative concrete paths, used where a concrete path is
+#: needed (resolution, disposition). They are asserted to be accepted by the
+#: declared pattern, so a sample that stops describing its own family fails here.
+ARCHIVE_NON_MAP_INBOUND = {
+    "regex": (
+        {
+            "pattern": "^\\/solariun(?:\\/([^/]+))?$",
+            "samples": ("/solariun", "/solariun/knowledge"),
+        },
+    ),
+    "exact": ("/solspire", "/solspire/voice"),
+}
+
 #: Recorded disposition of every legacy path that has **no route on this
 #: revision** — neither a declared surface path nor a legacy alias. Each is either
 #: a product decision (the console declares no surface the path unambiguously
@@ -126,6 +160,14 @@ LEGACY_GAP_DISPOSITIONS = {
     "/nexus/grove": "a NovaNet/nexus sub-view whose backend contract is UNKNOWN",
     "/nexus/larder": "a NovaNet/nexus sub-view whose backend contract is UNKNOWN",
     "/nexus/distribution": "a NovaNet/nexus sub-view whose backend contract is UNKNOWN",
+    "/solspire": (
+        "a reserved backend namespace (`api/frontend_routes.py::_RESERVED_PREFIXES`); "
+        "the console expresses the enterprise surface at `/enterprise`"
+    ),
+    "/solspire/voice": (
+        "under the reserved `/solspire` namespace, so the SPA cannot serve it; the "
+        "archived voice view has no console surface"
+    ),
 }
 
 
@@ -144,6 +186,54 @@ def _archive_route_keys(text: str) -> set[str]:
         assert block, f"archive App.tsx declares no `{name}` route map"
         keys |= set(re.findall(r"'([^']*)'\s*:", block.group(1)))
     return keys
+
+
+def _archive_non_map_inbound(text: str) -> dict[str, tuple[str, ...]]:
+    """The archive's inbound paths that live **outside** its two route maps.
+
+    ``resolvePath`` accepts two further families the maps cannot express, and a
+    transcription of the maps is blind to both:
+
+    * the regex family ``path.match(/^\\/solariun(?:\\/([^/]+))?$/)`` — every path
+      the pattern accepts, not a single sample;
+    * the exact-string branches ``path === '/solspire'`` and
+      ``path === '/solspire/voice'``.
+
+    Returned in the same shape as :data:`ARCHIVE_NON_MAP_INBOUND` so the guard can
+    compare like with like: ``{"regex": ({"pattern":…, "samples":…}, …),
+    "exact": (…, …)}``. The samples are *derived from the archive's own pattern*
+    rather than restated, so a sample can never drift from the family it describes.
+    """
+    patterns = tuple(
+        {"pattern": p, "samples": _sample_paths_for(p)}
+        for p in sorted(set(re.findall(r"path\.match\(/(.*?)/\)", text)))
+    )
+    exact = tuple(sorted(set(re.findall(r"path === '([^']*)'", text))))
+    return {"regex": patterns, "exact": exact}
+
+
+def _sample_paths_for(pattern: str) -> tuple[str, ...]:
+    """Concrete paths a transcribed archive regex accepts.
+
+    The archived ``/solariun`` family is ``^\\/solariun(?:\\/([^/]+))?$``: the root
+    plus one optional single-segment section. Rather than hard-code the two
+    samples, the root is read out of the pattern and the section sample is built
+    from it, so the samples are a function of the declared family.
+    """
+    root = re.match(r"\^\\/([A-Za-z0-9_-]+)", pattern)
+    assert root, f"archive regex {pattern!r} does not open with a rooted literal segment"
+    return (f"/{root.group(1)}", f"/{root.group(1)}/knowledge")
+
+
+def _claimed_by_a_declared_surface(path: str, declared_paths: set[str]) -> bool:
+    """Whether a declared surface owns this path.
+
+    A surface declares its root (`/solariun`) and owns the section paths beneath it
+    (`/solariun/knowledge`), which is how the console expresses a lens — the same
+    ownership `LENS_ALIASES` encodes. Comparing by string equality would report
+    every lens path as unaccounted.
+    """
+    return any(path == root or path.startswith(root + "/") for root in declared_paths)
 
 
 def _declared_surface_ids(text: str) -> list[str]:
@@ -277,6 +367,88 @@ def test_the_legacy_route_table_is_derivable_from_the_archive():
         f"only-in-table={sorted(set(LEGACY_ROUTE_TABLE) - declared)} "
         f"only-in-archive={sorted(declared - set(LEGACY_ROUTE_TABLE))}"
     )
+
+
+def test_every_non_map_inbound_path_has_a_reconciliation_disposition():
+    """The partition covers the archive's non-map inbound paths too.
+
+    `test_every_legacy_path_has_a_reconciliation_disposition` partitions the two
+    route maps. The regex and exact-string families are inbound paths the archive
+    accepts and the maps cannot express, so they belong in the same partition:
+    measured, `/solariun/knowledge` reaches its surface while `/solspire` and
+    `/solspire/voice` are silent losses. Without this, adding a non-map family to
+    the archive leaves every one of its paths unaccounted and nothing fails.
+    """
+    declared_paths = _declared_paths(SURFACES)
+    aliases = set(_path_aliases(ROUTER))
+    lens_aliases = set(_lens_aliases(ROUTER))
+    gaps = set(LEGACY_GAP_DISPOSITIONS)
+
+    inbound = set(ARCHIVE_NON_MAP_INBOUND["exact"])
+    for family in ARCHIVE_NON_MAP_INBOUND["regex"]:
+        inbound |= set(family["samples"])
+    assert inbound, "no non-map inbound path declared -- the guard would be vacuous"
+
+    # A surface's *section* path is accounted by the surface that declares it
+    # (`/solariun/knowledge` by `/solariun`), so the partition is over surface
+    # ownership, not string equality.
+    unaccounted = sorted(
+        p
+        for p in inbound
+        if p not in aliases
+        and p not in lens_aliases
+        and p not in gaps
+        and not _claimed_by_a_declared_surface(p, declared_paths)
+    )
+    assert unaccounted == [], (
+        "archive non-map inbound path(s) with no reconciliation disposition: "
+        + ", ".join(unaccounted)
+    )
+    # A non-map inbound path that is *not* recorded as a gap is claimed as routed,
+    # so it must genuinely reach a declared surface rather than falling through to
+    # `home`. `test_detector_flags_a_legacy_path_that_falls_through_to_home` proves
+    # the resolver can see the fall-through; this asserts the live set carries none.
+    routed = sorted(p for p in inbound if p not in gaps)
+    assert routed, "no non-map inbound path is claimed as routed -- the guard would be vacuous"
+    resolved = _js_route_resolver(ROUTER, routed)
+    fell_through = sorted(
+        p for p, target in resolved.items() if not _claimed_by_a_declared_surface(target, declared_paths)
+    )
+    assert fell_through == [], (
+        "non-map inbound path(s) claimed as routed but resolving outside a declared "
+        f"surface: {[(p, resolved[p]) for p in fell_through]}"
+    )
+
+
+def test_the_archive_non_map_inbound_paths_are_declared():
+    """The domain is every inbound path the archive's `resolvePath` accepts.
+
+    The two route maps are not the whole domain. `resolvePath` matches a
+    `/solariun` regex family and two exact-string paths before it consults either
+    map, and a transcription of the maps alone leaves all of them unasserted —
+    measured on `main` @ `fb1d03e4`: `_archive_route_keys` returns 30 keys while
+    the archive accepts `/solariun`, `/solariun/<lens>`, `/solspire` and
+    `/solspire/voice` as well.
+
+    This binds the declared families to the archive so a family added, changed, or
+    removed there is a visible change here rather than a silent loss of domain.
+    """
+    measured = _archive_non_map_inbound(ARCHIVE)
+    assert measured["regex"] or measured["exact"], (
+        "the archive declares no non-map inbound path -- the guard would be vacuous"
+    )
+    assert measured == ARCHIVE_NON_MAP_INBOUND, (
+        "the declared non-map inbound families differ from the archive's "
+        f"`resolvePath`: measured={measured!r} declared={ARCHIVE_NON_MAP_INBOUND!r}"
+    )
+    # Every sample must be accepted by the pattern it claims to describe, or the
+    # sample is a path the archive never offered and its disposition is spurious.
+    for family in ARCHIVE_NON_MAP_INBOUND["regex"]:
+        for sample in family["samples"]:
+            assert re.match(family["pattern"], sample), (
+                f"sample {sample!r} is not accepted by its declared family "
+                f"{family['pattern']!r}"
+            )
 
 
 def test_every_legacy_path_has_a_reconciliation_disposition():
@@ -453,3 +625,35 @@ def test_detector_flags_a_legacy_path_that_falls_through_to_home():
         "control premise: `/codex` is a deferred legacy path that falls through to home"
     )
     assert "/codex" not in declared_paths
+
+
+def test_detector_flags_a_non_map_inbound_family_the_archive_stops_declaring():
+    """Negative control: the binding must fire when the archive's non-map family
+    changes, and must stay silent for the live archive.
+
+    A detector that only ever compares the declaration with itself is vacuous. This
+    feeds `_archive_non_map_inbound` an archive whose exact-string family has grown
+    a path — the shape a real archive edit produces — and asserts the declaration
+    no longer matches, then asserts the live archive still matches.
+
+    The pre-repair domain is also exercised: the two route maps are *silent* about
+    these paths, which is the defect, so a guard built on `_archive_route_keys`
+    alone cannot see them.
+    """
+    live = _archive_non_map_inbound(ARCHIVE)
+    assert live == ARCHIVE_NON_MAP_INBOUND, "control premise: the live archive matches"
+
+    mutated = ARCHIVE.replace(
+        "path === '/solspire/voice'", "path === '/solspire/voice' || path === '/invented-legacy'"
+    )
+    assert mutated != ARCHIVE, "control premise: the archive fixture was actually mutated"
+    drifted = _archive_non_map_inbound(mutated)
+    assert drifted != ARCHIVE_NON_MAP_INBOUND, (
+        "the guard did not notice a new archive non-map inbound path"
+    )
+    assert "/invented-legacy" in drifted["exact"], drifted
+
+    # And the maps alone remain blind to the whole family -- the defect this closes.
+    assert not set(ARCHIVE_NON_MAP_INBOUND["exact"]) & _archive_route_keys(ARCHIVE), (
+        "control premise: the exact-string family is outside the two route maps"
+    )

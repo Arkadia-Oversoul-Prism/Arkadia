@@ -156,3 +156,27 @@ Measured at `main` `6ccb021fd0af1d34e3fb37aaca44f642c76cbac0`; snapshot refreshe
 pulse. Lane 1 at zero open PRs is a **deficit**, not a resting state: the next action is to
 open lane 1's next bounded draft PR from freshly fetched `main`, inside the lane's owned
 paths (`SHARED-CONTRACTS.md` §1).
+
+## Status — 2026-11-02 (LANE 1, active; supersedes the idle declaration above)
+
+**Active branch:** `feat/prism-l1-legacy-non-map-inbound-01`
+**Active PR:** [#610](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/610) — draft, opened from base `fb1d03e454853157561a86e2ed2e0c01df6c869d`; its opening head was `f53b29b696d711d77e49898b9c25a0258f0337fc`. The tip moves as the slice is appended to, so this names the opening head rather than claiming a current one — read the live head from the PR.
+
+Lane 1 is **active** again. The idle declaration above is superseded by this block
+(last-wins, the convention already merged for lanes 2 and 3); it is retained as
+provenance rather than rewritten.
+
+The slice repairs the checked *domain* of `tests/test_console_legacy_route_coverage.py`.
+The guard judged only the archive's two route maps, but `resolvePath` also accepts two
+families a route map cannot express: the regex family `/^\/solariun(?:\/([^/]+))?$/` and
+the exact-string branches `/solspire` and `/solspire/voice`. Measured at `main`
+`fb1d03e4`, all four fell outside the partition — `/solspire` and `/solspire/voice`
+resolving to `/`, a silent loss, because `/solspire` is a reserved backend namespace
+(`api/frontend_routes.py::_RESERVED_PREFIXES`) the SPA cannot serve. The declaration is
+now bound to the archive's own source and the partition covers every inbound path
+`resolvePath` accepts, with a negative control on the real file.
+
+Reconciliation was exhausted before this PR was opened: no eligible merge, no actionable
+dependency, no safe bounded repair outstanding, and lane 1 held no open PR — so N1–N8
+are satisfied and no lane's PR was duplicated or continued. Verified live:
+`scripts/lane_state.py --check --verify-live` → exit 0.
