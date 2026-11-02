@@ -59,6 +59,18 @@ jobs:
       PYTHONPATH: .
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The domain is DERIVED from the corpus, so it grows when a guard joins
+          # it — and at least one guard it can now reach reads repository
+          # *history*: `test_console_posture_currency.py` resolves
+          # `MAP_DERIVED_FROM` with `git cat-file -e`, so that commit must exist
+          # as an object. The default `fetch-depth: 1` omits it and the guard
+          # fails with "ae847dd is not a commit in this repository" — a wiring
+          # defect that reads as a console defect. The posture gate already
+          # fetches full history for the same reason; measured on a depth-1
+          # checkout of this revision: `1 failed, 1035 passed`; full clone:
+          # `1036 passed`.
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
