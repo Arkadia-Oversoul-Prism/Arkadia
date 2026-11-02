@@ -12,11 +12,12 @@ function Portal({ surface, onNavigate }: { surface: (typeof SURFACES)[number]; o
     <button
       onClick={() => onNavigate(surface.id)}
       data-testid={`portal-${surface.id}`}
-      className="rounded-xl border border-line bg-panel/60 p-4 text-left transition hover:border-emerald/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald/60"
+      type="button"
+      className="group home-portal rounded-xl border border-line/90 bg-panel/50 p-4 text-left transition duration-150 hover:border-white/15 hover:bg-panel/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald/60"
     >
-      <p className={`font-mono text-[11px] uppercase tracking-[0.18em] ${surface.accent}`}>{surface.boundary}</p>
-      <p className="mt-1 font-display text-lg text-white/90">{surface.name}</p>
-      <p className="mt-1 text-sm text-white/50">{surface.summary}</p>
+      <p className={`font-mono text-[10px] uppercase tracking-[0.2em] ${surface.accent}`}>{surface.boundary}</p>
+      <p className="mt-1.5 font-display text-[1.05rem] tracking-wide text-white/90 transition group-hover:text-white">{surface.name}</p>
+      <p className="mt-1.5 text-[13px] leading-relaxed text-white/45">{surface.summary}</p>
     </button>
   );
 }
@@ -90,38 +91,48 @@ export function HomePage({ onNavigate }: { onNavigate: (id: SurfaceId) => void }
       subtitle="Operational console. Identity, mission control, and governed execution over one canonical spine."
     >
       {/* Identity-aware entry — contract-preserving primary / secondary actions */}
-      <Panel className="mb-6 border-emerald/25" data-testid="home-entry-panel">
-        <p className="mb-1 font-mono text-[11px] uppercase tracking-widest text-white/40">
-          {isAuthenticated ? "Entry · signed in" : "Entry · not signed in"}
-        </p>
-        <p className="text-sm text-white/60">{entry.primary.body}</p>
-        <div className="mt-4 flex flex-wrap gap-3">
-          <button
-            onClick={() => onNavigate(entry.primary.id)}
-            data-testid="home-entry-primary"
-            className="rounded-lg border border-emerald/50 bg-emerald/10 px-4 py-2.5 font-mono text-[11px] uppercase tracking-widest text-emerald transition hover:bg-emerald/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald/60"
-          >
-            {entry.primary.label}
-          </button>
-          <button
-            onClick={() => onNavigate(entry.secondary.id)}
-            data-testid="home-entry-secondary"
-            className="rounded-lg border border-line bg-panel/60 px-4 py-2.5 font-mono text-[11px] uppercase tracking-widest text-white/70 transition hover:border-gold/40 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/50"
-          >
-            {entry.secondary.label}
-          </button>
+      <Panel className="home-entry mb-7 border-line/80 bg-panel/55" data-testid="home-entry-panel">
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0 max-w-xl">
+            <p className="mb-1.5 font-mono text-[10px] uppercase tracking-[0.22em] text-white/40">
+              {isAuthenticated ? "Entry · signed in" : "Entry · not signed in"}
+            </p>
+            <p className="text-[15px] leading-relaxed text-white/65">{entry.primary.body}</p>
+          </div>
+          <div className="flex flex-shrink-0 flex-wrap gap-2.5">
+            <button
+              onClick={() => onNavigate(entry.primary.id)}
+              data-testid="home-entry-primary"
+              type="button"
+              className="rounded-lg border border-emerald/55 bg-emerald/12 px-5 py-2.5 font-mono text-[11px] uppercase tracking-[0.18em] text-emerald transition duration-150 hover:border-emerald/70 hover:bg-emerald/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald/60"
+            >
+              {entry.primary.label}
+            </button>
+            <button
+              onClick={() => onNavigate(entry.secondary.id)}
+              data-testid="home-entry-secondary"
+              type="button"
+              className="rounded-lg border border-line bg-transparent px-4 py-2.5 font-mono text-[11px] uppercase tracking-[0.16em] text-white/55 transition duration-150 hover:border-gold/35 hover:text-white/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/50"
+            >
+              {entry.secondary.label}
+            </button>
+          </div>
         </div>
       </Panel>
 
       {/* Primary operational workspace — authenticated only */}
       {isAuthenticated && (
-        <section className="mb-8" data-testid="home-mission-control" aria-labelledby="mission-control-heading">
-          <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
-            <div>
-              <p id="mission-control-heading" className="font-mono text-[11px] uppercase tracking-widest text-gold">
+        <section
+          className="home-mission mb-9 rounded-xl border border-gold/20 bg-panel/40 p-4 sm:p-5"
+          data-testid="home-mission-control"
+          aria-labelledby="mission-control-heading"
+        >
+          <div className="mb-4 flex flex-wrap items-end justify-between gap-3 border-b border-line/70 pb-4">
+            <div className="min-w-0 max-w-2xl">
+              <p id="mission-control-heading" className="font-mono text-[11px] uppercase tracking-[0.22em] text-gold">
                 Mission Control
               </p>
-              <p className="mt-1 max-w-2xl text-sm text-white/55">
+              <p className="mt-1.5 text-sm leading-relaxed text-white/55">
                 Bounded engineering work with explicit human authorization. Create a session, authorize, execute a
                 read-only investigation, and review evidence. An approval is not execution; a completed run is a
                 proposal awaiting review.
@@ -130,7 +141,8 @@ export function HomePage({ onNavigate }: { onNavigate: (id: SurfaceId) => void }
             <button
               onClick={() => onNavigate("engineering-lab")}
               data-testid="home-open-full-lab"
-              className="rounded-lg border border-line bg-panel/50 px-3 py-1.5 font-mono text-[10px] uppercase tracking-widest text-white/60 transition hover:border-azure/40 hover:text-white"
+              type="button"
+              className="rounded-lg border border-line/90 bg-panel/60 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-white/55 transition hover:border-azure/40 hover:text-white/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azure/50"
             >
               Full Engineering Lab
             </button>
@@ -140,19 +152,24 @@ export function HomePage({ onNavigate }: { onNavigate: (id: SurfaceId) => void }
       )}
 
       {/* Capability navigation by intent */}
-      <section className="mb-8" aria-labelledby="capabilities-heading">
-        <p id="capabilities-heading" className="mb-4 font-mono text-[11px] uppercase tracking-widest text-white/40">
-          Capabilities
-        </p>
-        <div className="space-y-6">
+      <section className="home-capabilities mb-9" aria-labelledby="capabilities-heading">
+        <div className="mb-5 flex items-baseline justify-between gap-3">
+          <p id="capabilities-heading" className="font-mono text-[11px] uppercase tracking-[0.22em] text-white/40">
+            Capabilities
+          </p>
+          <span className="hidden font-mono text-[10px] uppercase tracking-widest text-white/25 sm:inline">
+            Surfaces · one spine
+          </span>
+        </div>
+        <div className="space-y-7">
           {CAPABILITY_GROUPS.map((group) => {
             const surfaces = group.ids
               .map((id) => SURFACES.find((s) => s.id === id))
               .filter((s): s is (typeof SURFACES)[number] => Boolean(s));
             if (surfaces.length === 0) return null;
             return (
-              <div key={group.heading}>
-                <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">{group.heading}</p>
+              <div key={group.heading} className="home-capability-group">
+                <p className="mb-2.5 font-mono text-[10px] uppercase tracking-[0.18em] text-white/32">{group.heading}</p>
                 <div className="grid gap-3 sm:grid-cols-2">
                   {surfaces.map((s) => (
                     <Portal key={s.id} surface={s} onNavigate={onNavigate} />
@@ -165,8 +182,8 @@ export function HomePage({ onNavigate }: { onNavigate: (id: SurfaceId) => void }
       </section>
 
       {/* Honest runtime reading — never fabricated */}
-      <Panel data-testid="home-runtime-panel">
-        <p className="mb-3 font-mono text-[11px] uppercase tracking-widest text-white/40">Canonical runtime</p>
+      <Panel className="home-runtime border-line/70 bg-panel/45" data-testid="home-runtime-panel">
+        <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.2em] text-white/40">Canonical runtime</p>
         {version.state === "ready" && version.data ? (
           <Facts
             rows={[
@@ -183,7 +200,7 @@ export function HomePage({ onNavigate }: { onNavigate: (id: SurfaceId) => void }
         ) : (
           <ContractState state={version.state} error={version.error?.message} onRetry={version.reload} />
         )}
-        <p className="mt-4 text-xs text-white/35">
+        <p className="mt-4 text-xs leading-relaxed text-white/35">
           {isAuthenticated
             ? "Identity verified. Mission Control is available above. Private surfaces remain behind their existing authorization boundaries."
             : "Sign in to open Mission Control, personal workspaces, and governed execution."}
