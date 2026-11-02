@@ -557,7 +557,7 @@ def test_engineering_lab_leads_with_mission_control_and_discloses_diagnostics():
         "<LabAgentRegistry",
         "<LabModelGateway",
         "<LabAutomationGrammar",
-        " <LabCapabilityDisclosure />",
+        "<LabCapabilityDisclosure />",
     ):
         assert surface in diagnostics, f"{surface} must remain reachable in the disclosure"
 
@@ -647,6 +647,7 @@ def test_worker_dispatch_reconciles_canonical_session_view_after_settlement():
     assert "const view = await getSessionView(sessionId);" in refresh
     assert "if (view.session && Array.isArray(view.runs))" in refresh
     assert "setRun(last);" in refresh
+
 
 def test_engineering_lab_capability_disclosure_matches_wired_mission_controls():
     """The diagnostic notice must not describe already-mounted controls as unwired."""

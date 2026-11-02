@@ -99,13 +99,24 @@ def test_lab_page_renders_the_session_read_model():
     assert "<LabSessionList />" in page
 
 
-def test_lab_page_keeps_the_mutating_acts_as_an_explicit_blocked_state():
-    """Authorize/execute/transition are not silently absent -- the page names
-    them as unwired rather than implying the surface can perform them."""
+def test_lab_page_separates_authorized_mission_controls_from_the_read_model():
+    """MissionWorkspace owns the explicit acts; the diagnostic notice names what remains unwired."""
     page = _read(PAGE)
-    assert "not wired" in page
-    for verb in ("authorize", "execute", "transition"):
-        assert verb in page
+    workspace = _read(CONSOLE / "src" / "components" / "lab" / "MissionWorkspace.tsx")
+    dispatch = _read(CONSOLE / "src" / "components" / "lab" / "LabWorkerDispatch.tsx")
+    contract = _read(CONSOLE / "src" / "components" / "lab" / "missionContract.ts")
+    disclosure = _read(CONSOLE / "src" / "components" / "lab" / "LabCapabilityDisclosure.tsx")
+
+    assert "<MissionWorkspace />" in page
+    assert "<LabSessionList />" in page
+    assert "<LabCapabilityDisclosure />" in page
+    assert "authorizeSession" in workspace
+    assert "executeBounded" in workspace
+    assert "dispatchWorker" in dispatch
+    assert "executeBoundedTest" in contract
+    assert "Not wired here: session transition" in disclosure
+    assert "merge" in disclosure
+    assert "production deployment" in disclosure
 
 
 # ---------------------------------------------------------------------------
