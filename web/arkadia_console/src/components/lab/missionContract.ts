@@ -103,7 +103,7 @@ export const SESSION_STATE_MEANING: Record<string, string> = {
   VERIFYING: "Run complete and awaiting human review. This is a proposal, not an acceptance.",
   READY_FOR_REVIEW: "Run complete and awaiting human review.",
   REVISION_REQUIRED: "A reviewer requested revision.",
-  VERIFIED: "A human verified the result.",
+  COMPLETED: "A human accepted the result. Merge and deployment remain separate human decisions.",
   BLOCKED: "The run was blocked; see the evidence for the reason.",
 };
 
