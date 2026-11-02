@@ -1,4 +1,5 @@
-import { Page, Panel, Facts, ContractState, NotYetWired } from "../components/ui";
+import { Page, Panel, Facts, ContractState } from "../components/ui";
+import { LabCapabilityDisclosure } from "../components/lab/LabCapabilityDisclosure";
 import { LabSessionList } from "../components/lab/LabSessionList";
 import { LabAuthorityReadings } from "../components/lab/LabAuthorityReadings";
 import type { LabGovernanceSource } from "../components/lab/labGovernance";
@@ -90,10 +91,7 @@ export function EngineeringLabPage() {
   
         <LabAutomationGrammar />
   
-        <NotYetWired
-          contract="/api/lab/engineering/sessions/{session_id}/transition"
-          note="The mission workspace above wires exactly one bounded act: a read-only mission that creates a session, records a human authorize decision, and executes a single read-only run to the review boundary. The remaining mutating Lab acts — transition, run-agent, merge and production deploy — require a separate human decision and are not wired to this surface. An approval is not an execution, and a run at the review boundary is not acceptance."
-        />
+        <LabCapabilityDisclosure />
         </div>
       </details>
     </Page>

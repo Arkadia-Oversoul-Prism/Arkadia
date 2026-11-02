@@ -557,7 +557,7 @@ def test_engineering_lab_leads_with_mission_control_and_discloses_diagnostics():
         "<LabAgentRegistry",
         "<LabModelGateway",
         "<LabAutomationGrammar",
-        "<NotYetWired",
+        " <LabCapabilityDisclosure />",
     ):
         assert surface in diagnostics, f"{surface} must remain reachable in the disclosure"
 
@@ -647,3 +647,23 @@ def test_worker_dispatch_reconciles_canonical_session_view_after_settlement():
     assert "const view = await getSessionView(sessionId);" in refresh
     assert "if (view.session && Array.isArray(view.runs))" in refresh
     assert "setRun(last);" in refresh
+
+def test_engineering_lab_capability_disclosure_matches_wired_mission_controls():
+    """The diagnostic notice must not describe already-mounted controls as unwired."""
+    page = _read(PAGE)
+    workspace = _read(WORKSPACE)
+    dispatch = _read(DISPATCH)
+    contract = _read(CONTRACT)
+    disclosure = _read(CONSOLE / "components" / "lab" / "LabCapabilityDisclosure.tsx")
+
+    assert "<LabCapabilityDisclosure />" in page
+    assert "<LabWorkerDispatch" in workspace
+    assert "<LabBoundedTest" in workspace
+    assert "dispatchWorker" in dispatch
+    assert "executeBoundedTest" in contract
+    assert "selector-only bounded test" in disclosure
+    assert "run-agent dispatch" in disclosure
+    assert (
+        "Not wired here: session transition, repository mutation, merge, and production deployment."
+        in disclosure
+    )
