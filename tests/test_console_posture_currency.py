@@ -1,6 +1,6 @@
 """Boundary guard: the operator console's claims must be bound to the substrate.
 
-The operator console (``web/console``) renders *claims* — deployment posture,
+The operator console (now ``web/arkadia_console/src/operator``) renders *claims* — deployment posture,
 provenance edges, cited evidence, a revision stamp. Every one of those is a
 statement about the repository or the runtime, and until this guard existed
 nothing checked them. Measured on ``main`` @ ``9195334c``, that produced three
@@ -38,13 +38,20 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-CONSOLE_SRC = ROOT / "web" / "console" / "src"
+# ARK-UI-CONVERGENCE-001: the operator console's claims now live inside the
+# canonical application's source tree, as one surface of the shell rather than a
+# second application. The guard's domain is unchanged — the same files, the same
+# claims — so only the path it reads moved. `web/console` is retained as the
+# retired source for a reversible retirement and is no longer judged here,
+# because nothing builds or serves it.
+CONSOLE_SRC = ROOT / "web" / "arkadia_console" / "src" / "operator"
 DATA_DIR = CONSOLE_SRC / "data"
 REVISION_MODULE = CONSOLE_SRC / "lib" / "revision.ts"
 
-# The operator console's own source, not the primary console's. Referenced by
-# path constant so the detectors can be driven against synthetic text too.
-_CONSOLE_DIR = "web/console/src"
+# The migrated operator surface's own source, not the primary console's.
+# Referenced by path constant so the detectors can be driven against synthetic
+# text too.
+_CONSOLE_DIR = "web/arkadia_console/src/operator"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -202,7 +209,7 @@ def test_the_revision_is_not_hardcoded_outside_one_module():
     """One source for the revision claim, so it cannot drift per-file again."""
     hits = _hardcoded_revision_hits()
     assert not hits, (
-        "commit-SHA literals outside web/console/src/lib/revision.ts: "
+        "commit-SHA literals outside web/arkadia_console/src/operator/lib/revision.ts: "
         f"{hits}. Import MAP_DERIVED_FROM instead."
     )
 

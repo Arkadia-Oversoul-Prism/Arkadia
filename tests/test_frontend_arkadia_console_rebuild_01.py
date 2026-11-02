@@ -12,6 +12,7 @@ The failure it exists to prevent is a "rebuild" that quietly deletes or drops
 the previous implementation, or an archive that keeps the source but loses the
 build instructions that make it restorable. Both are asserted here.
 """
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -57,11 +58,39 @@ def test_backend_root_serves_the_console_spa():
     assert '"public_prism"' not in main
 
 
-def test_frontend_routes_serve_the_console_and_the_operator_console():
+def test_frontend_routes_serve_the_one_console_application():
+    """One application, serving the product *and* the operator surface.
+
+    This guard previously asserted two mount literals — `"arkadia_console"` and
+    `"console"` — because two applications were served from this module.
+    ARK-UI-CONVERGENCE-001 removed that arrangement: the operator surface is now a
+    route of the one build. The invariant worth keeping is that the operator
+    capability is still *served*, so it is asserted against the serving path and
+    the surface registry instead of against a second mount — and the absence of
+    the second mount is asserted explicitly, so this cannot regress silently.
+    """
     routes = (ROOT / "api" / "frontend_routes.py").read_text(encoding="utf-8")
     assert '"arkadia_console"' in routes
-    assert '"console"' in routes
     assert "public_prism" not in routes
+
+    # The operator capability is reachable: a hard load of its routes must reach
+    # the SPA, so those paths must NOT be reserved backend namespaces.
+    reserved = re.search(r"_RESERVED_PREFIXES\s*=\s*\((.*?)\)", routes, re.DOTALL)
+    assert reserved, "frontend_routes.py declares no _RESERVED_PREFIXES"
+    for path in ("/operator", "/n-atlas-lab", "/n-atlas-tester"):
+        assert path not in reserved.group(1), (
+            f"{path} is a surface route of the one application and must not be reserved"
+        )
+
+    # The retired second application is not mounted, at any path.
+    assert "operator_dist" not in routes
+    assert not re.search(r'"web"\s*/\s*"console"', routes)
+
+    surfaces = (
+        ROOT / "web" / "arkadia_console" / "src" / "lib" / "surfaces.ts"
+    ).read_text(encoding="utf-8")
+    assert 'path: "/operator"' in surfaces
+    assert 'path: "/n-atlas-lab"' in surfaces
 
 
 # ---------------------------------------------------------------------------

@@ -234,7 +234,7 @@ def test_the_guard_derives_at_least_one_input():
     """An empty input set would make the coverage assertions vacuous."""
     inputs = guard_inputs()
     assert inputs, "no inputs derived from the guard's source"
-    assert "web/console/**" in inputs, f"console tree not derived: {sorted(inputs)}"
+    assert "web/arkadia_console/**" in inputs, f"console tree not derived: {sorted(inputs)}"
 
 
 def test_some_workflow_executes_the_guard():
@@ -338,12 +338,12 @@ def test_negative_control_a_real_invocation_is_recognised():
 
 def test_negative_control_a_narrowed_filter_is_caught():
     """Dropping an input from the filter must redden the coverage rule."""
-    narrowed = {"web/console/**", ".github/workflows/operator-console-posture.yml"}
+    narrowed = {"web/arkadia_console/**", ".github/workflows/operator-console-posture.yml"}
     inputs = guard_inputs()
     assert not all(_filter_selects(narrowed, n) for n in inputs), (
         "the narrowed filter unexpectedly covers every input"
     )
-    assert _filter_selects(narrowed, "web/console/**")
+    assert _filter_selects(narrowed, "web/arkadia_console/**")
     assert not _filter_selects(narrowed, "tests/**")
 
 

@@ -1,12 +1,21 @@
-# Build both Arkadia user-facing applications into the canonical Render image.
-# The primary application is the Arkadia Console (web/arkadia_console); the
-# retired Prism UI is archived under archive/frontend/arkadia-prism and is not built.
+# Build the one Arkadia application into the canonical Render image.
+#
+# The canonical shell is the Arkadia Console (web/arkadia_console). It builds ONE
+# bundle that serves the product at the origin root *and* the operator surface at
+# /operator and the external N-ATLaS tester at /n-atlas-lab — those are routes of
+# this application, not mounts of a second one.
+#
+# Two frontends are deliberately NOT built:
+#   * the retired Prism UI, archived under archive/frontend/arkadia-prism;
+#   * the former standalone operator application (web/console), whose capabilities
+#     were migrated into web/arkadia_console's route hierarchy. Its source is
+#     retained for a reversible retirement, but it is no longer part of the image.
 FROM node:24-bookworm-slim AS frontend-build
 
 WORKDIR /build
 
-# Primary Arkadia experience: the Arkadia Console (shell, Arkana, Solariun,
-# Engineering Lab, SolSpire, Knowledge OS, Weaver, About).
+# The one application: shell, Arkana, Solariun, Engineering Lab, SolSpire,
+# Knowledge OS, Weaver, About, the Operator surface and the N-ATLaS tester.
 #
 # The retired Prism UI is archived under archive/frontend/arkadia-prism and is
 # intentionally NOT built. See that directory's README for recovery.
@@ -15,12 +24,6 @@ RUN npm install --global pnpm@10.26.1 \
  && cd web/arkadia_console \
  && pnpm install --frozen-lockfile \
  && pnpm run build
-
-# Reconciled operator console and focused N-ATLaS tester.
-COPY web/console/ ./web/console/
-WORKDIR /build/web/console
-RUN npm ci --no-audit --no-fund \
- && npm run build
 
 
 FROM python:3.11-slim
@@ -56,9 +59,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY . /app
 
-# Replace source-tree output with the deterministic builds from the frontend stage.
+# Replace source-tree output with the deterministic build from the frontend stage.
 COPY --from=frontend-build /build/web/arkadia_console/dist /app/web/arkadia_console/dist
-COPY --from=frontend-build /build/web/console/dist /app/web/console/dist
 
 RUN mkdir -p /run
 RUN pip install --no-cache-dir -r requirements.txt

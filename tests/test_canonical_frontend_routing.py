@@ -1,3 +1,22 @@
+"""One served application, one route authority (ARK-UI-CONVERGENCE-001).
+
+Two React applications used to be packaged into the same image and answered from
+the same origin: the primary Arkadia Console at `/`, and a standalone operator
+console mounted at `/operator` plus `/n-atlas-lab` and `/n-atlas-tester`. That is
+two routing authorities over one backend.
+
+The operator's capabilities were migrated into the canonical application's route
+hierarchy, so `/operator`, `/n-atlas-lab` and `/n-atlas-tester` are now *surface
+routes of the one build*. This module binds that fact from both directions:
+
+* positively — every migrated route is served, and by the canonical SPA;
+* negatively — a `web/console/dist` tree present on disk is never served, so the
+  retired shell cannot be reactivated by leaving a stale build output behind.
+
+The negative direction is the load-bearing one: a positive assertion alone would
+still pass if BOTH applications were mounted, which is exactly the state this
+change removed.
+"""
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pathlib import Path
@@ -10,14 +29,28 @@ def _write(path, content):
     path.write_text(content, encoding="utf-8")
 
 
+SECOND_SHELL_MARKER = "<html>ARKADIA-RETIRED-OPERATOR-APP</html>"
+
+
+def _write_second_shell(tmp_path):
+    """A complete, servable build of the retired application.
+
+    This is not decoration: it is the control that proves the retirement is real.
+    Before this change the same tree was mounted at `/operator`, so a test that
+    omitted it could not distinguish "migrated" from "still mounted".
+    """
+    retired = tmp_path / "web" / "console" / "dist"
+    _write(retired / "index.html", SECOND_SHELL_MARKER)
+    _write(retired / "assets" / "operator.js", "retired-operator-asset")
+    return retired
+
+
 def test_canonical_frontend_routes_share_one_origin_and_preserve_backend(tmp_path):
     console_app = tmp_path / "web" / "arkadia_console" / "dist"
-    operator = tmp_path / "web" / "console" / "dist"
     _write(console_app / "index.html", "<html>ARKADIA-CONSOLE-APP</html>")
     _write(console_app / "assets" / "console.js", "console-asset")
     _write(console_app / "arkadia-mark.svg", "<svg>mark</svg>")
-    _write(operator / "index.html", "<html>ARKADIA-OPERATOR-APP</html>")
-    _write(operator / "assets" / "operator.js", "operator-asset")
+    _write_second_shell(tmp_path)
 
     app = FastAPI()
 
@@ -35,15 +68,61 @@ def test_canonical_frontend_routes_share_one_origin_and_preserve_backend(tmp_pat
     assert client.get("/assets/console.js").text == "console-asset"
     assert client.get("/arkadia-mark.svg").text == "<svg>mark</svg>"
 
-    # The reconciled operator console remains mounted at /operator.
-    assert client.get("/operator").text == "<html>ARKADIA-OPERATOR-APP</html>"
-    assert client.get("/operator/inspector").text == "<html>ARKADIA-OPERATOR-APP</html>"
-    assert client.get("/operator/assets/operator.js").text == "operator-asset"
-    assert client.get("/n-atlas-tester").text == "<html>ARKADIA-OPERATOR-APP</html>"
+    # The migrated operator surface is a route of THAT application.
+    for route in (
+        "/operator",
+        "/operator/inspector",
+        "/operator/boundary/approval-not-execution",
+        "/n-atlas-lab",
+        "/n-atlas-tester",
+    ):
+        response = client.get(route)
+        assert response.text == "<html>ARKADIA-CONSOLE-APP</html>", (
+            f"{route} did not resolve to the canonical application; got {response.text[:60]!r}"
+        )
+
+    # ...and the retired application is not served anywhere, even though a valid
+    # build of it exists on disk.
+    retired_paths = (
+        "/operator",
+        "/operator/inspector",
+        "/n-atlas-lab",
+        "/assets/operator.js",
+        "/operator/assets/operator.js",
+    )
+    for route in retired_paths:
+        response = client.get(route)
+        assert SECOND_SHELL_MARKER not in response.text, (
+            f"{route} served the retired operator application — the second shell is "
+            "still mounted somewhere in the serving path"
+        )
+    # The SPA catch-all answers an unrouted path with the canonical index — the
+    # documented behaviour — so the retired bundle's asset path is not a 404; it
+    # is the canonical application. What matters is that it is never the retired
+    # asset, which the loop above asserts for this same path.
+    assert client.get("/operator/assets/operator.js").text == "<html>ARKADIA-CONSOLE-APP</html>"
 
     assert client.get("/api/known").json() == {"ok": True}
     assert client.get("/api/unknown").status_code == 404
     assert client.get("/solspire/not-a-real-route").status_code == 404
+
+
+def test_retired_shell_alone_is_not_mounted(tmp_path):
+    """With only the retired build present, nothing is served at its old routes.
+
+    The mount is keyed on the canonical build, not on "some dist exists", so a
+    leftover `web/console/dist` cannot resurrect the second shell on its own.
+    """
+    _write_second_shell(tmp_path)
+
+    app = FastAPI()
+    configure_frontends(app, tmp_path)
+    client = TestClient(app)
+
+    for route in ("/", "/operator", "/n-atlas-lab", "/n-atlas-tester"):
+        response = client.get(route)
+        assert SECOND_SHELL_MARKER not in response.text
+    assert client.get("/operator").status_code == 404
 
 
 def test_frontend_mounts_are_omitted_when_build_output_is_missing(tmp_path):
@@ -85,6 +164,10 @@ def test_every_console_surface_path_is_served_as_the_spa(tmp_path):
 
     paths = _declared_console_paths()
     assert paths, "no console surface paths were declared -- the guard would be vacuous"
+    # The migrated operator and N-ATLaS surface paths must be in the declared set,
+    # or this guard would keep passing after they were dropped from the registry.
+    assert "/operator" in paths, "the operator surface is no longer declared"
+    assert "/n-atlas-lab" in paths, "the N-ATLaS surface is no longer declared"
     for path in paths:
         r = client.get(path, headers={"Accept": "text/html,application/xhtml+xml"})
         assert r.status_code == 200, f"surface path {path} is not served (status {r.status_code})"
@@ -107,6 +190,19 @@ def test_console_surface_paths_avoid_reserved_namespaces():
     # The detector would flag the pre-repair path.
     colliding = "/solspire"
     assert any(colliding == p or colliding.startswith(p + "/") for p in _RESERVED_PREFIXES)
+
+
+def test_operator_routes_are_no_longer_reserved_backend_namespaces():
+    """`/operator` and the N-ATLaS routes are surface routes of the SPA now.
+
+    They were reserved only because a second bundle answered them. Keeping them in
+    the reserved set would make a hard load of the SPA's own surface routes 404 —
+    the failure mode the reserved-prefix guard exists to prevent, inverted.
+    """
+    for path in ("/operator", "/n-atlas-lab", "/n-atlas-tester"):
+        assert path not in _RESERVED_PREFIXES, (
+            f"{path} is a declared surface route and must not be reserved against the SPA"
+        )
 
 
 # ── a declared surface must not be shadowed by a real backend handler ────────

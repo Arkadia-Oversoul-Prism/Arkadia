@@ -89,19 +89,37 @@ def _without_ts_comments(source: str) -> str:
     )
     return re.sub(r"(?m)^\s*//.*$", "", source)
 
+def _not_a_colour(source: str) -> str:
+    """Blank out ``#<digits>`` sequences that cannot be colour declarations.
+
+    Two shapes are *structurally identical* to a three-digit hex colour, so no
+    pattern for "is this a colour" can separate them and they are removed by
+    context instead:
+
+      * an HTML numeric character reference — ``&#123;`` is the entity for ``{``,
+        used in JSX text so a brace does not open an expression container;
+      * a pull-request citation — ``PR #294``.
+
+    Removing them keeps the detector precise about *colours* rather than
+    loosening the hex pattern, which would also stop catching a real one.
+    """
+    return re.sub(r"&#\d+;|(?<=\bPR )#\d+\b", "", source)
+
+
 def _hex_colour_literals(sources: dict[str, str]) -> list[tuple[str, str]]:
-    """Hex colour literals in TS/TSX source, excluding comments.
+    """Hex colour literals in TS/TSX source, excluding non-colour `#` uses.
 
     Design tokens live in ``tailwind.config.js`` (one shared palette) and
     ``index.css``; a page-local hex is styling drift, the defect Slice A exists
-    to remove. Comments may mention pull-request numbers such as `#493`; those
-    are not colour declarations and must not trip the detector.
+    to remove. Comments may mention pull-request numbers such as `#493`, and body
+    copy may carry HTML entities such as `&#123;`; those are not colour
+    declarations and must not trip the detector (see :func:`_not_a_colour`).
     """
     pattern = re.compile(r"#[0-9A-Fa-f]{3,8}\b")
     return [
         (name, src)
         for name, src in sources.items()
-        if pattern.search(_without_ts_comments(src))
+        if pattern.search(_not_a_colour(_without_ts_comments(src)))
     ]
 
 
@@ -1056,6 +1074,22 @@ def test_detector_flags_a_page_local_hex_literal():
     # Issue references in comments are not CSS colours; keep the detector precise.
     comments_only = {'src/pages/X.tsx': '// Related PR #493\\nconst label = "Solariun";'}
     assert _hex_colour_literals(comments_only) == []
+    # The same references in *body copy* are not colours either. Both are
+    # `#<digits>` and indistinguishable from a 3-digit hex by pattern alone, so
+    # they are excluded by context — `PR #294` is an issue citation and `&#123;`
+    # is the HTML entity for `{` in JSX text.
+    literal_refs = {
+        'src/pages/X.tsx': 'const note = "repaired by PR #294";'
+        ' const brace = "approvals/&#123;id&#125;/approve";'
+    }
+    assert _hex_colour_literals(literal_refs) == []
+    # ...and a real colour standing beside them is still caught, so the exclusion
+    # above cannot be used to smuggle a page-local literal through.
+    mixed = {
+        'src/pages/X.tsx': 'const note = "repaired by PR #294";'
+        ' const style = { color: "#0A0B12" };'
+    }
+    assert [n for n, _ in _hex_colour_literals(mixed)] == ["src/pages/X.tsx"]
 
 
 def test_detector_flags_a_declared_surface_with_no_composition_case():
