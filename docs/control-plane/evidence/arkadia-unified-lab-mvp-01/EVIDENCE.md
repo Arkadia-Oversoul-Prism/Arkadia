@@ -977,3 +977,61 @@ The completed SG-02-FE.2-V run [41415184686](https://github.com/Arkadia-Oversoul
 - Evidence artifact: [artifact 13127004699](https://api.github.com/repos/Arkadia-Oversoul-Prism/Arkadia/actions/artifacts/13127004699), created `2026-11-02T08:50:14Z`.
 
 All these SG-02 results are for source/test head `736951664c524d99ef1c4d5b3759854a3b511e00`. The PR's later evidence-only head is not represented by this SG-02 run. No authenticated session, responsive viewport inspection, preview, or production verification is claimed.
+
+## 15. DEA-01 mission session state vocabulary — 2026-11-02 09:32 UTC
+
+**Move ID:** `DEA-01-MISSION-STATE-VOCABULARY-01`  
+**Canonical directive:** [Issue #590](https://github.com/Arkadia-Oversoul-Prism/Arkadia/issues/590)  
+**Baseline:** `main` @ `53e6e5cf373fa72a230273b08d2888c9d289edaa`  
+**Integration PR:** [#611 — Engineering Lab capability truth](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/611)  
+**Code/test head:** `100424f078f4ea955792a85628357e18b5a22523`
+
+### Evidence-backed defect
+
+The frontend `SESSION_STATE_MEANING` map named `VERIFIED`, which is not a canonical session state in `lab/engineering_lab/contracts.py::CHECKPOINT_STATES`, while omitting `COMPLETED`, the human-accepted terminal state. `MissionWorkspace` also colored `VERIFIED` green rather than the canonical `COMPLETED` state. This could mislabel an invalid session state and render a valid terminal state as an unclassified neutral state.
+
+### Bounded implementation
+
+- Replaced the UI session label `VERIFIED` with `COMPLETED`.
+- Described `COMPLETED` as human acceptance while explicitly keeping merge and deployment separate.
+- Updated the session-state chip to style `COMPLETED`, not `VERIFIED`.
+- Added a regression contract requiring UI state labels to be a subset of the canonical backend checkpoint vocabulary, requiring `COMPLETED`, rejecting `VERIFIED`, and pinning the chip condition.
+- Corrected the regression's whitespace matcher before the final code/test verification.
+
+Changed paths:
+- `web/arkadia_console/src/components/lab/missionContract.ts`
+- `web/arkadia_console/src/components/lab/MissionWorkspace.tsx`
+- `tests/test_lab_mission_workspace_contract.py`
+- This evidence record.
+
+Implementation/test commits:
+- `e14de4adbf717d32da02d9773836a9bce62ff220` — canonical session label.
+- `b16a387568dfc0bb6ce49135846a372a5d42ff30` — canonical completed-state chip.
+- `6ef92b33e815edbd55ad4da38a6f166de377e33c` — regression test added.
+- `100424f078f4ea955792a85628357e18b5a22523` — regex correction; final verified code/test head.
+
+### Verification on code/test head `100424f078f4ea955792a85628357e18b5a22523`
+
+- Prism Console Contract [run 41420434252](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41420434252): **982 passed in 42.45s**; CI-wiring guard **30 passed in 6.12s**.
+- N-ATLAS Developer Lab [run 41420434404](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41420434404): frontend, backend, canonical Render image and self-host image jobs **success**.
+- N-ATLAS external beta validation [run 41420434590](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41420434590): English, Hausa, native golden workflow and evidence bundle jobs **success**.
+- Canonical Render Runtime Probe [run 41420434410](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41420434410): **success**, read-only PR probe only; not production or authenticated browser verification.
+- Boot Syntax Boundary [41420434476](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41420434476), security-secret-scan [41420434248](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41420434248), Operator Console Posture Currency [41420434372](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41420434372), N-ATLAS provider forensics [41420434264](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41420434264), and economic-seam-engine [41420434578](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41420434578): **success**.
+- SG-02-FE.2-V [run 41420434369](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41420434369): CP10-A **30 passed**; SolSpire isolated integration **23 passed**; CP10 API **success**; unauthenticated routes `/enterprise`, `/enterprise/projects`, and `/engineering-lab` returned HTTP 200 with `consoleErrors=[]`, `pageErrors=[]`, and `failedRequests=[]`; mutation-boundary judge **PASS**; runtime artifact secret scan **PASS**.
+- **Broad backend regression remains non-green:** raw CP10-B pytest output was **8 failed, 3,804 passed, 17 skipped, 3 warnings, 1 collection error**. The workflow is configured to continue on error; its successful job conclusion does not mean the full suite passed. The two Lab API failures are the known stale `require_auth` vs `require_lab_auth` assertion and stale mutation-endpoint inventory. Existing evidence records these as unowned boundary-test drift; no `api/lab_routes.py` authority-surface change was made. The other failures are outside this bounded UI move; no baseline comparison was performed here.
+- Authenticated Engineering Lab browser lens: **DEFERRED / UNKNOWN**, not PASS. The log records blank Firebase web configuration and no disposable identity for this run. The unauthenticated route check passed; it is not authenticated acceptance.
+- CP10 evidence artifact: [13129607787](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41420434369/artifacts/13129607787), created `2026-11-02T09:31:53Z`.
+
+### Remaining acceptance gaps
+
+- Authenticated browser acceptance: **UNKNOWN / DEFERRED**.
+- Desktop/mobile responsive visual acceptance: **UNKNOWN**.
+- Preview verification: **UNKNOWN**.
+- Production verification: **NOT PERFORMED**.
+- Broad backend regression: **NOT GREEN** (counts above).
+
+No backend, API, identity, authorization, approval enforcement, provenance, WorkEvent, workspace, K15/K3, credential, production configuration, merge, or deployment change occurred.
+
+### Next action
+
+Keep PR #611 open for human review. The next review-boundary implementation must not invent a `VERIFIED` session state or bypass the canonical transition rules; `COMPLETED` remains a human-accepted terminal, and merge/deployment remain separate human decisions.
