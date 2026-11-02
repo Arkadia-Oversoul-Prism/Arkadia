@@ -669,6 +669,7 @@ def test_engineering_lab_capability_disclosure_matches_wired_mission_controls():
         in disclosure
     )
 
+
 def test_session_state_labels_match_the_canonical_checkpoint_vocabulary():
     """The UI may not invent session states or omit the human-accepted terminal."""
     canonical = _read(REPO / "lab" / "engineering_lab" / "contracts.py")
@@ -678,12 +679,12 @@ def test_session_state_labels_match_the_canonical_checkpoint_vocabulary():
     canonical_block = canonical.split(
         "CHECKPOINT_STATES: tuple[str, ...] = (", 1
     )[1].split(")", 1)[0]
-    canonical_states = set(re.findall(r'^\\s+"([A-Z_]+)",$', canonical_block, re.M))
+    canonical_states = set(re.findall(r'^\s+"([A-Z_]+)",$', canonical_block, re.M))
 
     meaning_block = contract.split(
         "export const SESSION_STATE_MEANING: Record<string, string> = {", 1
     )[1].split("};", 1)[0]
-    ui_states = set(re.findall(r"^\\s{2}([A-Z_]+):", meaning_block, re.M))
+    ui_states = set(re.findall(r"^\s{2}([A-Z_]+):", meaning_block, re.M))
 
     assert ui_states <= canonical_states
     assert "COMPLETED" in ui_states
