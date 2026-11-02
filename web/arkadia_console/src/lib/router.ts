@@ -13,9 +13,26 @@ export interface Route {
   path: string;
   /** Optional sub-section within a surface (for example a Solariun lens). */
   section?: string;
+  /**
+   * Optional second-level segment for a surface that declares one
+   * (`SurfaceDef.param`) — for example the operator surface's boundary instance
+   * id in `/operator/boundary/approval-not-execution`.
+   */
+  param?: string;
 }
 
 const SECTION_PATTERN = /^\/([^/]+)\/([^/]+)$/;
+
+/**
+ * A three-segment path: `<surface>/<section>/<param>`.
+ *
+ * Nested addressing is opt-in per surface. Without that gate, adding this pattern
+ * would silently widen what every surface accepts — a path such as
+ * `/solariun/a/b` would begin resolving to a section-plus-param view the surface
+ * never declared, which is how an address bar starts claiming a view that is not
+ * rendered.
+ */
+const PARAM_PATTERN = /^\/([^/]+)\/([^/]+)\/([^/]+)$/;
 
 /**
  * Legacy inbound-link aliases, reconciled to a canonical surface (directive §5.2).
@@ -71,6 +88,13 @@ export const PATH_ALIASES: Record<string, SurfaceId> = {
   "/knowledge-os": "knowledge",
   "/gate": "login",
   "/living-gate": "login",
+  // The retired operator bundle answered `/n-atlas-tester` directly. The view it
+  // rendered is now a surface of this application at `/n-atlas-lab`, so the
+  // inbound path reconciles to that surface instead of falling through to `home`.
+  // It is an alias, never a second surface: the canonical path is the one
+  // declared in `surfaces.ts`, and the resolver returns that path so the
+  // address bar is normalised on load.
+  "/n-atlas-tester": "n-atlas",
 };
 
 /**
@@ -147,6 +171,15 @@ export function resolvePath(pathname: string): Route {
     return { surface: alias, section, path: routeForSurface(alias, section) };
   }
 
+  // A nested path resolves only when the surface declares a `param`. The
+  // declaration is the gate: a deeper path for an undeclared surface falls
+  // through to `home` exactly as before this route shape existed.
+  const nested = path.match(PARAM_PATTERN);
+  if (nested) {
+    const surface = SURFACES.find((s) => s.path === `/${nested[1]}` && s.param);
+    if (surface) return { surface: surface.id, section: nested[2], param: nested[3], path };
+  }
+
   const match = path.match(SECTION_PATTERN);
   if (match) {
     const surface = SURFACES.find((s) => s.path === `/${match[1]}`);
@@ -157,9 +190,10 @@ export function resolvePath(pathname: string): Route {
   return { surface: "home", path: "/" };
 }
 
-export function routeForSurface(id: SurfaceId, section?: string): string {
+export function routeForSurface(id: SurfaceId, section?: string, param?: string): string {
   const base = SURFACE_BY_ID[id].path;
-  return section && base !== "/" ? `${base}/${section}` : base;
+  if (!section || base === "/") return base;
+  return param ? `${base}/${section}/${param}` : `${base}/${section}`;
 }
 
 export function useRouter() {
@@ -185,10 +219,10 @@ export function useRouter() {
     return () => window.removeEventListener("popstate", onPop);
   }, []);
 
-  const navigate = useCallback((id: SurfaceId, section?: string) => {
-    const next = routeForSurface(id, section);
+  const navigate = useCallback((id: SurfaceId, section?: string, param?: string) => {
+    const next = routeForSurface(id, section, param);
     if (window.location.pathname !== next) window.history.pushState({}, "", next);
-    setRoute({ surface: id, section, path: next });
+    setRoute({ surface: id, section, param, path: next });
   }, []);
 
   return { route, navigate };

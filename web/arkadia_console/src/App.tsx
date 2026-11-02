@@ -23,6 +23,8 @@ import { KnowledgePage } from "./pages/KnowledgePage";
 import { WeaverPage } from "./pages/WeaverPage";
 import { AboutPage } from "./pages/AboutPage";
 import { SignInPage } from "./pages/SignInPage";
+import { OperatorPage } from "./pages/OperatorPage";
+import { NAtlasTesterPage } from "./pages/NAtlasTesterPage";
 
 function AuthThreshold({ onNavigate }: { onNavigate: (id: SurfaceId, section?: string) => void }) {
   return (
@@ -62,9 +64,9 @@ function Surfaces() {
   // Both sign-in entries (the threshold and the shell button) reach `login`
   // through this wrapper, and the address-bar pathname itself stays owned by
   // the router — nothing outside `lib/router.ts` parses it.
-  const handleNavigate = (id: SurfaceId, section?: string) => {
+  const handleNavigate = (id: SurfaceId, section?: string, param?: string) => {
     if (id === "login") rememberReturnTo(route.path);
-    navigate(id, section);
+    navigate(id, section, param);
   };
 
   const body = (() => {
@@ -87,6 +89,10 @@ function Surfaces() {
         return <KnowledgePage />;
       case "weaver":
         return <WeaverPage />;
+      case "operator":
+        return <OperatorPage section={route.section} param={route.param} onNavigate={handleNavigate} />;
+      case "n-atlas":
+        return <NAtlasTesterPage />;
       case "about":
         return <AboutPage />;
       case "login":
@@ -95,6 +101,19 @@ function Surfaces() {
         return <HomePage onNavigate={navigate} />;
     }
   })();
+
+  // A standalone surface owns the whole document. Only the external N-ATLaS
+  // tester declares it: its contract is "no Arkadia architecture knowledge
+  // required", which the product shell's navigation and identity chrome would
+  // contradict. It is still this application — same bundle, same origin, same
+  // backend — not a second shell.
+  //
+  // It renders outside the composition root's single error boundary on that same
+  // declaration: the boundary is mounted *inside* the shell, and a second mount
+  // would nest failure states (`tests/test_console_surface_error_boundary.py`
+  // pins exactly one). Recorded as a known limitation, not an oversight — a
+  // render failure in the external tester is not caught by a boundary.
+  if (def.standalone) return body;
 
   return (
     <Shell current={route.surface} onNavigate={handleNavigate}>

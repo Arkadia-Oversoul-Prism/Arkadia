@@ -1,12 +1,23 @@
-"""Serve Arkadia's user-facing applications from the canonical FastAPI origin.
+"""Serve Arkadia's single user-facing application from the canonical FastAPI origin.
 
-The primary Arkadia experience is the Arkadia Console in web/arkadia_console.
-The reconciled operator console is mounted at /operator, while the focused
-N-ATLaS tester remains reachable at its established direct routes. All routes
-share the same origin, service, backend, and authorization boundary.
+There is ONE application shell: the Arkadia Console in ``web/arkadia_console``. It
+owns the origin-root SPA and every route the product declares — including the
+operator surface at ``/operator`` and the external N-ATLaS tester at
+``/n-atlas-lab`` (with ``/n-atlas-tester`` reconciled to it as an alias). Those are
+*surface routes of one build*, not mounts of a second application.
 
-The retired Prism UI is archived under archive/frontend/arkadia-prism and is no
-longer served or built.
+Two frontends are not served:
+
+* the retired Prism UI, archived under ``archive/frontend/arkadia-prism``;
+* the former standalone operator application (``web/console``). Its capabilities
+  were migrated into the canonical application's route hierarchy, so it is no
+  longer built into the image and no longer mounted here. The source is retained in
+  the tree so the retirement remains reversible; nothing in this module reads it.
+
+Reserved prefixes are therefore backend namespaces only. ``/operator`` and the
+N-ATLaS routes used to be listed here because a second bundle answered them; now
+that the canonical SPA answers them, reserving them would make the SPA's own
+surface routes fall through to the API and 404 on a hard load.
 """
 from __future__ import annotations
 
@@ -25,42 +36,18 @@ _RESERVED_PREFIXES = (
     "/docs",
     "/redoc",
     "/static",
-    "/operator",
-    "/n-atlas-lab",
-    "/n-atlas-tester",
 )
 
 
 def configure_frontends(app: FastAPI, repo_root: str | Path | None = None) -> None:
-    """Mount built frontends without shadowing backend routes.
+    """Mount the one built frontend without shadowing backend routes.
 
     Missing build output is reported by omission rather than silently serving a
     different application's index. The Docker build is responsible for producing
-    both dist directories before this function is called.
+    ``web/arkadia_console/dist`` before this function is called.
     """
     root = Path(repo_root).resolve() if repo_root else Path(__file__).resolve().parents[1]
     console_app_dist = root / "web" / "arkadia_console" / "dist"
-    operator_dist = root / "web" / "console" / "dist"
-
-    if operator_dist.is_dir() and (operator_dist / "index.html").is_file():
-        operator_assets = operator_dist / "assets"
-        if operator_assets.is_dir():
-            app.mount(
-                "/operator/assets",
-                StaticFiles(directory=str(operator_assets)),
-                name="operator-assets",
-            )
-
-        async def operator_index() -> FileResponse:
-            return FileResponse(operator_dist / "index.html")
-
-        app.add_api_route("/operator", operator_index, methods=["GET"], include_in_schema=False)
-        app.add_api_route("/operator/", operator_index, methods=["GET"], include_in_schema=False)
-        app.add_api_route("/operator/{path:path}", operator_index, methods=["GET"], include_in_schema=False)
-        app.add_api_route("/n-atlas-lab", operator_index, methods=["GET"], include_in_schema=False)
-        app.add_api_route("/n-atlas-lab/", operator_index, methods=["GET"], include_in_schema=False)
-        app.add_api_route("/n-atlas-tester", operator_index, methods=["GET"], include_in_schema=False)
-        app.add_api_route("/n-atlas-tester/", operator_index, methods=["GET"], include_in_schema=False)
 
     if console_app_dist.is_dir() and (console_app_dist / "index.html").is_file():
         console_app_assets = console_app_dist / "assets"

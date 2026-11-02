@@ -234,7 +234,7 @@ def test_the_guard_derives_at_least_one_input():
     """An empty input set would make the coverage assertions vacuous."""
     inputs = guard_inputs()
     assert inputs, "no inputs derived from the guard's source"
-    assert "web/console/**" in inputs, f"console tree not derived: {sorted(inputs)}"
+    assert "web/arkadia_console/**" in inputs, f"console tree not derived: {sorted(inputs)}"
 
 
 def test_some_workflow_executes_the_guard():
@@ -338,12 +338,12 @@ def test_negative_control_a_real_invocation_is_recognised():
 
 def test_negative_control_a_narrowed_filter_is_caught():
     """Dropping an input from the filter must redden the coverage rule."""
-    narrowed = {"web/console/**", ".github/workflows/operator-console-posture.yml"}
+    narrowed = {"web/arkadia_console/**", ".github/workflows/operator-console-posture.yml"}
     inputs = guard_inputs()
     assert not all(_filter_selects(narrowed, n) for n in inputs), (
         "the narrowed filter unexpectedly covers every input"
     )
-    assert _filter_selects(narrowed, "web/console/**")
+    assert _filter_selects(narrowed, "web/arkadia_console/**")
     assert not _filter_selects(narrowed, "tests/**")
 
 
@@ -436,3 +436,79 @@ def test_negative_control_a_shallow_checkout_is_caught():
     assert not _checkout_provides_history(no_checkout), "no checkout cannot provide history"
     assert _checkout_provides_history(repaired), "fetch-depth: 0 (int) must pass"
     assert _checkout_provides_history(quoted), "fetch-depth: '0' (str) must pass"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# The DERIVED domain — a gate can inherit this guard without ever naming it
+# ─────────────────────────────────────────────────────────────────────────────
+
+DOMAIN_SCRIPT = "scripts/console_contract_domain.py"
+
+
+def _domain_executing_workflows() -> list[str]:
+    """Workflows that execute the derived console-contract domain.
+
+    `prism-console-contract.yml` runs
+    `pytest -q $(python scripts/console_contract_domain.py)`, so it never *names*
+    the guard and `_gates()` cannot derive it. That is a real hole, not a
+    theoretical one: the domain is derived from the corpus, so a guard can join
+    it with **no workflow edited at all** — and a joining guard that reads
+    repository history then fails inside a shallow checkout, with no wiring
+    change to point at.
+
+    Measured: the operator-console migration moved
+    `tests/test_console_posture_currency.py` into the domain (61 -> 64 files),
+    because the migrated app now lives under `web/arkadia_console` and the guard
+    names that tree. `console-contract` went red with
+    `MAP_DERIVED_FROM=ae847dd is not a commit in this repository`
+    (`1 failed, 1035 passed`) while the posture gate — which does fetch history —
+    stayed green. Same guard, two checkouts, opposite verdicts.
+    """
+    found = []
+    for path in sorted(WORKFLOWS.glob("*.yml")):
+        workflow = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        for _job, step in _iter_steps(workflow):
+            if not step or not isinstance(step.get("run"), str):
+                continue
+            run = step["run"]
+            if DOMAIN_SCRIPT not in run:
+                continue
+            try:
+                tokens = shlex.split(run, comments=True)
+            except ValueError:
+                continue
+            # A mention is not an execution: pytest must be the invoked word.
+            if any(Path(tok).name in ("pytest", "py.test") for tok in tokens):
+                found.append(path.name)
+                break
+    return found
+
+
+@pytest.mark.parametrize("workflow_name", _domain_executing_workflows() or ["<none>"])
+def test_a_gate_running_the_derived_domain_provides_history(workflow_name: str):
+    """The domain can drag a history-reading guard into a shallow gate."""
+    if workflow_name == "<none>":
+        pytest.skip("no workflow executes the derived domain")
+    workflow = yaml.safe_load((WORKFLOWS / workflow_name).read_text(encoding="utf-8")) or {}
+    assert _checkout_provides_history(workflow), (
+        f"{workflow_name} executes the derived console-contract domain, whose "
+        f"membership includes {GUARD} (it resolves a commit with `git cat-file`), "
+        "but its checkout does not set `fetch-depth: 0`; the guard will fail on a "
+        "shallow clone"
+    )
+
+
+def test_the_derived_domain_invariant_is_not_vacuous():
+    """A gate must still execute the domain, or the assertion above is vacuous."""
+    assert _domain_executing_workflows(), (
+        f"no workflow executes {DOMAIN_SCRIPT}; the derived-domain history "
+        "invariant would assert nothing"
+    )
+
+
+def test_negative_control_a_domain_gate_with_the_default_depth_is_caught():
+    """The detector must reject the exact pre-repair shape."""
+    default_depth = {"jobs": {"j": {"steps": [{"uses": "actions/checkout@v4"}]}}}
+    assert not _checkout_provides_history(default_depth), (
+        "the default `fetch-depth` must be flagged"
+    )

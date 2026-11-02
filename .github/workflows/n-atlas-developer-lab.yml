@@ -13,7 +13,9 @@ on:
       - "tests/test_natlas_selfhost_contract.py"
       - "tests/test_natlas_selfhost_ci_wiring.py"
       - "deploy/n-atlas-server/**"
-      - "web/console/**"
+      # ARK-UI-CONVERGENCE-001: the N-ATLaS tester and the operator surfaces are
+      # routes of the canonical application, so `web/arkadia_console/**` selects
+      # this gate and the retired `web/console/**` no longer builds.
       - "web/arkadia_console/**"
       - "api/main.py"
       - "api/operator_security_routes.py"
@@ -64,19 +66,23 @@ jobs:
 
   frontend:
     runs-on: ubuntu-latest
+    # ARK-UI-CONVERGENCE-001: this job used to build the standalone operator
+    # application (`web/console`), which served the N-ATLaS tester at its own
+    # `/n-atlas-lab` mount. Both are now routes of the canonical application, so
+    # the job builds THAT application — otherwise a breaking change to the tester
+    # would leave this gate green because it compiled a tree nothing serves.
     defaults:
       run:
-        working-directory: web/console
+        working-directory: web/arkadia_console
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: web/console/package-lock.json
-      - run: npm ci
-      - name: Console typecheck and build
-        run: npm run build
+          node-version: 24
+      - run: npm install --global pnpm@10.26.1
+      - run: pnpm install --frozen-lockfile
+      - name: Canonical application typecheck and build
+        run: pnpm run build
 
 
   selfhost-image:

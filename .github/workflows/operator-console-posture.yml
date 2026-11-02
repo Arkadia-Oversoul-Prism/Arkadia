@@ -14,7 +14,10 @@ name: Operator Console Posture Currency
 # `test_boot_syntax_boundary.py` and `test_baseline_fingerprint.py`.
 #
 # The guard's inputs are wide by construction, so the filter names each of them:
-#   * `web/console/**`    — the console whose claims are judged
+#   * `web/arkadia_console/**` — the application whose operator surface claims
+#                           are judged (ARK-UI-CONVERGENCE-001: those files moved
+#                           into the canonical tree; `web/console` is retired and
+#                           no longer read by the guard)
 #   * `tests/**`          — the corpus the citations must resolve against, so
 #                           adding/renaming/removing a test re-runs the guard
 #   * `api/**`            — the route table the declared surfaces must resolve against
@@ -27,7 +30,7 @@ on:
       - ".github/workflows/operator-console-posture.yml"
       - "tests/test_console_posture_currency.py"
       - "tests/test_console_posture_currency_ci_wiring.py"
-      - "web/console/**"
+      - "web/arkadia_console/**"
       - "tests/**"
       - "api/**"
   push:
@@ -36,7 +39,7 @@ on:
       - ".github/workflows/operator-console-posture.yml"
       - "tests/test_console_posture_currency.py"
       - "tests/test_console_posture_currency_ci_wiring.py"
-      - "web/console/**"
+      - "web/arkadia_console/**"
       - "tests/**"
       - "api/**"
   # Path-filtered, so a revision touching none of the above never runs it.

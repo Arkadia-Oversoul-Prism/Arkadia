@@ -16,6 +16,8 @@ export type SurfaceId =
   | "solspire"
   | "knowledge"
   | "weaver"
+  | "operator"
+  | "n-atlas"
   | "about"
   | "login";
 
@@ -31,6 +33,23 @@ export interface SurfaceDef {
   requiresAuth?: boolean;
   /** False for surfaces reachable but not shown in global navigation (for example sign-in). */
   nav?: boolean;
+  /**
+   * The name of a second-level path segment this surface accepts — for example a
+   * boundary instance id at `/operator/boundary/<id>`. Absent means the surface
+   * addresses only `<surface>/<section>`.
+   *
+   * This is a declaration, not a convention: `lib/router.ts` resolves a nested
+   * path only for a surface that sets it, so one surface cannot silently begin
+   * accepting a deeper shape it never declared.
+   */
+  param?: string;
+  /**
+   * True for a surface that renders as its own document rather than inside the
+   * shared shell. Only the external N-ATLaS tester declares it: that surface's
+   * contract is "no Arkadia architecture knowledge required", so the product
+   * shell around it would contradict the promise it makes.
+   */
+  standalone?: boolean;
 }
 
 export const SURFACES: SurfaceDef[] = [
@@ -109,6 +128,31 @@ export const SURFACES: SurfaceDef[] = [
     summary: "Governed execution and orchestration. Proposal, approval, execution, verification.",
     path: "/weaver",
     accent: "text-violet",
+  },
+  {
+    id: "operator",
+    name: "Operator",
+    boundary: "ARKADIA",
+    summary: "Reconciled operator console — boundary posture, evidence, and authority.",
+    // Reconciled from the retired standalone operator application. It is a
+    // section-addressed surface of THIS shell, not a second application; its
+    // worked boundary instances are addressed one level deeper.
+    path: "/operator",
+    accent: "text-gold",
+    param: "id",
+  },
+  {
+    id: "n-atlas",
+    name: "N-ATLaS",
+    boundary: "Knowledge OS + Engineering Lab",
+    summary: "External N-ATLaS developer test — run a prompt, inspect the evidence.",
+    // The established direct route the retired operator bundle answered.
+    // `/n-atlas-tester` is reconciled to it as an alias, so the inbound links a
+    // tester may hold keep resolving to the same view on the same origin.
+    path: "/n-atlas-lab",
+    accent: "text-azure",
+    nav: false,
+    standalone: true,
   },
   {
     id: "about",
