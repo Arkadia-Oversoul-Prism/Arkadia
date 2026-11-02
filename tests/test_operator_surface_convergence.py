@@ -223,6 +223,88 @@ def test_the_n_atlas_direct_routes_survive_as_aliases():
         assert resolved[path]["path"] == "/n-atlas-lab", (path, resolved[path])
 
 
+RETIRED_APP = ROOT / "web" / "console" / "src" / "main.tsx"
+
+#: Every view the retired operator application answered, frozen from its own route
+#: table (`web/console/src/main.tsx`, basename `/operator`) at the baseline this
+#: migration was cut from. Frozen rather than re-derived so the contract survives
+#: the retired tree's deletion -- and compared against that tree while it still
+#: exists, so the two cannot drift apart unnoticed.
+LEGACY_OPERATOR_PATHS = (
+    "/operator",
+    "/operator/inspector",
+    "/operator/boundary/approval-not-execution",
+    "/operator/work",
+    "/operator/authority",
+    "/operator/mie-lab",
+    "/operator/security-verification",
+)
+
+
+def _unrendered_legacy_views(page: str, resolved: dict[str, dict]) -> list[str]:
+    """Legacy addresses that reach a section the surface composes no view for.
+
+    The defect this names is a **rename without an alias**. The route still
+    resolves to the right surface and the address bar still reads correctly, but
+    the section id is one no branch matches, so the page falls to its "not a view
+    of this surface" default and the view the link named is simply gone. A
+    resolver-only check cannot see that: it is satisfied by the wrong destination.
+    """
+    cases = set(re.findall(r'case "([^"]+)":', page))
+    missing = []
+    for path, got in sorted(resolved.items()):
+        if got["surface"] != "operator":
+            missing.append(f"{path} resolves to {got['surface']!r}, not the operator surface")
+        elif got["section"] is None:
+            continue  # the surface's own root view
+        elif got["section"] == "boundary" and got["param"]:
+            continue  # rendered by BoundaryView and addressed by its param
+        elif got["section"] not in cases:
+            missing.append(f"{path} reaches section {got['section']!r}, which no branch renders")
+    return missing
+
+
+def test_every_retired_operator_route_still_reaches_a_composed_view():
+    """Parity: no view the retired application served may be lost in the migration.
+
+    Judged by resolution *and* composition, because those failed independently
+    here: `/operator/security-verification` is a real address (a sidebar link,
+    `Layout.tsx` item "07"), and after the migration it resolved to
+    `section="security-verification"` while the page only composed `security`.
+    The route answered 200; the view did not exist.
+    """
+    resolved = _resolve(list(LEGACY_OPERATOR_PATHS))
+    unrendered = _unrendered_legacy_views(PAGE, resolved)
+    assert unrendered == [], f"retired operator views are unreachable: {unrendered}"
+
+
+def test_the_frozen_legacy_contract_matches_the_retired_route_table():
+    """The frozen list is a record of the retired app, not an invention.
+
+    Skipped by returning early once the tree is gone -- at that point the frozen
+    tuple is the only surviving statement of what parity means.
+    """
+    if not RETIRED_APP.exists():
+        return
+    retired = set(re.findall(r'<Route path="([^"]+)"', RETIRED_APP.read_text(encoding="utf-8")))
+    retired.discard("*")  # the catch-all is a redirect, not a view
+    expected = set()
+    for path in retired:
+        if path.startswith("/n-atlas"):
+            continue  # standalone tester routes, covered by their own alias test
+        if path == "/":
+            expected.add("/operator")
+        elif ":id" in path:
+            expected.add("/operator/boundary/approval-not-execution")
+        else:
+            expected.add("/operator" + path)
+    assert expected == set(LEGACY_OPERATOR_PATHS), (
+        "the retired route table and the frozen contract disagree: "
+        f"missing {sorted(expected - set(LEGACY_OPERATOR_PATHS))}, "
+        f"invented {sorted(set(LEGACY_OPERATOR_PATHS) - expected)}"
+    )
+
+
 def test_nested_addressing_is_opt_in_and_does_not_widen_other_surfaces():
     """The negative control for the router change itself.
 
@@ -293,6 +375,19 @@ def test_detector_flags_a_listed_section_with_no_view():
     stale = PAGE.replace('case "mie-lab":', 'case "removed-view":')
     assert stale != PAGE, "control did not mutate OperatorPage.tsx -- detector unproven"
     assert _sections_without_a_view(stale) == ["mie-lab"]
+
+
+def test_detector_flags_a_legacy_route_left_without_a_view():
+    """Control: the exact historical defect must be reported, or the guard is vacuous.
+
+    Removes the alias added for `/operator/security-verification` and asserts the
+    detector names that view. Without this, deleting the guard's teeth would look
+    like a passing test.
+    """
+    stale = PAGE.replace('case "security-verification":', "")
+    assert stale != PAGE, "control did not mutate OperatorPage.tsx -- detector unproven"
+    flagged = _unrendered_legacy_views(stale, _resolve(["/operator/security-verification"]))
+    assert len(flagged) == 1 and "security-verification" in flagged[0], flagged
 
 
 def test_detector_flags_a_dockerfile_that_still_builds_the_retired_app():

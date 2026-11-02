@@ -50,8 +50,6 @@ const SECTIONS = [
   { id: "security", label: "Security" },
 ];
 
-const SECTION_IDS = new Set(SECTIONS.map((s) => s.id));
-
 export function OperatorPage({
   section = "spine",
   param,
@@ -81,6 +79,12 @@ export function OperatorPage({
         return <MieLab />;
       case "n-atlas":
         return <NAtlasTester />;
+      // The retired application served this view at `/security-verification` (its
+      // sidebar entry "07 · Security Verification"). The canonical id here is
+      // `security`, but a rename without an alias silently converts a working deep
+      // link into the "not a view of this surface" panel below: the address still
+      // resolves, so nothing looks broken, and the view the link named is gone.
+      case "security-verification":
       case "security":
         return <SecurityVerification />;
       default:
@@ -122,7 +126,7 @@ export function OperatorPage({
           ))}
         </div>
 
-        {SECTION_IDS.has(section) || section === "boundary" ? body : body}
+        {body}
       </div>
     </Page>
   );
