@@ -942,7 +942,7 @@ No backend, API, identity, authorization, approval enforcement, provenance, Work
 - N-ATLAS external beta validation [run 41415184651](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41415184651): English, Hausa, native golden workflow, and evidence bundle jobs **success**.
 - Canonical Render Runtime Probe [run 41415184740](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41415184740): **success**, read-only PR probe only; no deployment or browser acceptance is implied.
 - Boot Syntax Boundary [run 41415184622](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41415184622), security-secret-scan [run 41415184705](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41415184705), Operator Console Posture Currency [run 41415184684](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41415184684), economic-seam-engine [run 41415184636](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41415184636), and N-ATLAS provider forensics [run 41415184680](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41415184680): **success**.
-- SG-02-FE.2-V [run 41415184686](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41415184686): frontend build, CP10-A Lab tests, and SolSpire isolated integration contracts **success**. CP10-B broader backend regression was still **in progress** at the latest observation; API and browser-route steps had not yet started.
+- SG-02-FE.2-V [run 41415184686](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41415184686): frontend build, CP10-A Lab tests, and SolSpire isolated integration contracts completed successfully. CP10-A reported **30 passed**; SolSpire isolated integration reported **23 passed**. CP10-B raw full-suite output reported **8 failed, 3,803 passed, 17 skipped, 3 warnings, and 1 collection error**. The workflow step/job conclusion was success because the regression step is configured to continue on error; this is **not** a green full backend suite. CP10 API verification and the unauthenticated browser-route verification completed successfully. Browser logs recorded `/enterprise/projects` and `/engineering-lab` as HTTP 200, with `consoleErrors=[]`, `pageErrors=[]`, and `failedRequests=[]`. The authenticated Engineering Lab lens was explicitly **DEFERRED** because Firebase web configuration and a disposable identity were not supplied; the identity cleanup step was skipped because no identity was provisioned.
 
 ### Regression correction chronology
 
@@ -962,3 +962,18 @@ Open PR #610 currently carries a diff to the shared `docs/control-plane/parallel
 
 Inspect CP10-B when it completes, then capture CP10 API and browser-route results. After PR #610's shared lane-state diff is resolved, refresh the existing lane snapshot and append the lane-4 pointer without overlapping its active diff. Keep #611 draft and unmerged pending human review; no deployment or product acceptance is claimed.
 
+
+
+### 14.1. SG-02 acceptance update — 2026-11-02 08:50 UTC
+
+The completed SG-02-FE.2-V run [41415184686](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41415184686) supersedes the earlier in-progress observation above:
+
+- CP10-B completed, but the raw full-suite result remains **8 failed, 3,803 passed, 17 skipped, 3 warnings, 1 collection error**. The observed failures include two stale Lab API/router assertions (`require_auth` vs `require_lab_auth`, and an extra `/api/lab/engineering/voice/resolve` route), an unrelated SolSpire runtime mutation-permission failure, and the `tests/test_autonomy.py` collection error. The remaining failing nodes are retained in the run log; they were not changed by this UI disclosure PR. Because the workflow's broad regression step is `continue-on-error`, the overall workflow success does not convert these failures into a pass.
+- CP10 API verification: **PASS**.
+- Unauthenticated browser route verification: **PASS**. The observed routes `/enterprise/projects` and `/engineering-lab` returned HTTP 200; console errors, page errors, and failed requests were all empty in the captured browser log.
+- Authenticated Engineering Lab lens: **DEFERRED / UNKNOWN**, not PASS. The workflow log explicitly reports blank Firebase web configuration and no disposable identity for this run.
+- CP10 mutation-boundary judge: **PASS**.
+- CP10 security artifact scan: **PASS**.
+- Evidence artifact: [artifact 13127004699](https://api.github.com/repos/Arkadia-Oversoul-Prism/Arkadia/actions/artifacts/13127004699), created `2026-11-02T08:50:14Z`.
+
+All these SG-02 results are for source/test head `736951664c524d99ef1c4d5b3759854a3b511e00`. The PR's later evidence-only head is not represented by this SG-02 run. No authenticated session, responsive viewport inspection, preview, or production verification is claimed.
