@@ -118,7 +118,7 @@ function recordJson(record: Record<string, unknown>, key: string, fallback: stri
 
 function StateChip({ state }: { state: string }) {
   const tone =
-    state === "AUTHORIZED" || state === "VERIFIED"
+    state === "AUTHORIZED" || state === "COMPLETED"
       ? "border-emerald/40 text-emerald"
       : state === "BLOCKED"
         ? "border-red-400/40 text-red-300"

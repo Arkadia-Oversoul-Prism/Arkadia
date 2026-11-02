@@ -557,7 +557,7 @@ def test_engineering_lab_leads_with_mission_control_and_discloses_diagnostics():
         "<LabAgentRegistry",
         "<LabModelGateway",
         "<LabAutomationGrammar",
-        "<NotYetWired",
+        "<LabCapabilityDisclosure />",
     ):
         assert surface in diagnostics, f"{surface} must remain reachable in the disclosure"
 
@@ -647,3 +647,47 @@ def test_worker_dispatch_reconciles_canonical_session_view_after_settlement():
     assert "const view = await getSessionView(sessionId);" in refresh
     assert "if (view.session && Array.isArray(view.runs))" in refresh
     assert "setRun(last);" in refresh
+
+
+def test_engineering_lab_capability_disclosure_matches_wired_mission_controls():
+    """The diagnostic notice must not describe already-mounted controls as unwired."""
+    page = _read(PAGE)
+    workspace = _read(WORKSPACE)
+    dispatch = _read(DISPATCH)
+    contract = _read(CONTRACT)
+    disclosure = _read(CONSOLE / "components" / "lab" / "LabCapabilityDisclosure.tsx")
+
+    assert "<LabCapabilityDisclosure />" in page
+    assert "<LabWorkerDispatch" in workspace
+    assert "<LabBoundedTest" in workspace
+    assert "dispatchWorker" in dispatch
+    assert "executeBoundedTest" in contract
+    assert "selector-only bounded test" in disclosure
+    assert "run-agent dispatch" in disclosure
+    assert (
+        "Not wired here: session transition, repository mutation, merge, and production deployment."
+        in disclosure
+    )
+
+
+def test_session_state_labels_match_the_canonical_checkpoint_vocabulary():
+    """The UI may not invent session states or omit the human-accepted terminal."""
+    canonical = _read(REPO / "lab" / "engineering_lab" / "contracts.py")
+    contract = _read(CONTRACT)
+    workspace = _read(WORKSPACE)
+
+    canonical_block = canonical.split(
+        "CHECKPOINT_STATES: tuple[str, ...] = (", 1
+    )[1].split(")", 1)[0]
+    canonical_states = set(re.findall(r'^\s+"([A-Z_]+)",$', canonical_block, re.M))
+
+    meaning_block = contract.split(
+        "export const SESSION_STATE_MEANING: Record<string, string> = {", 1
+    )[1].split("};", 1)[0]
+    ui_states = set(re.findall(r"^\s{2}([A-Z_]+):", meaning_block, re.M))
+
+    assert ui_states <= canonical_states
+    assert "COMPLETED" in ui_states
+    assert "VERIFIED" not in ui_states
+    assert 'state === "AUTHORIZED" || state === "COMPLETED"' in workspace
+    assert 'state === "VERIFIED"' not in workspace
