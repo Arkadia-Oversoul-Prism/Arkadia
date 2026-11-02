@@ -26,8 +26,8 @@ function NavLink({
       title={label}
       aria-current={active ? "page" : undefined}
       data-testid={`nav-${label.toLowerCase().replace(/\s+/g, "-")}`}
-      className={`whitespace-nowrap rounded-lg px-2.5 py-2 text-left font-mono text-[10px] uppercase tracking-[0.12em] transition sm:px-3 sm:text-[11px] sm:tracking-[0.16em] ${
-        active ? `bg-white/5 ${accent}` : "text-white/45 hover:text-white/80"
+      className={`min-h-11 shrink-0 snap-start whitespace-nowrap rounded-lg px-3 py-2.5 text-left font-mono text-[10px] uppercase tracking-[0.1em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald/55 sm:min-h-0 sm:px-3 sm:py-2 sm:text-[11px] sm:tracking-[0.16em] ${
+        active ? `bg-white/8 ${accent}` : "text-white/45 hover:bg-white/[0.03] hover:text-white/80"
       }`}
     >
       {label}
@@ -78,7 +78,7 @@ export function Shell({
     if (!active) return;
     const navBox = nav.getBoundingClientRect();
     const box = active.getBoundingClientRect();
-    const pad = 8; // matches the strip's `p-2`
+    const pad = 8; // matches the strip's padding
     if (box.left < navBox.left + pad) {
       nav.scrollLeft -= navBox.left + pad - box.left;
     } else if (box.right > navBox.right - pad) {
@@ -159,7 +159,7 @@ export function Shell({
         <nav
           ref={mobileNavRef}
           aria-label="Primary navigation (mobile)"
-          className="flex gap-0.5 overflow-x-auto border-b border-line bg-panel/40 p-1.5 md:hidden"
+          className="flex gap-1 overflow-x-auto overscroll-x-contain scroll-smooth snap-x snap-mandatory border-b border-line bg-panel/40 px-2 py-1.5 md:hidden [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           {NAV_SURFACES.map((s) => (
             <NavLink key={s.id} active={current === s.id} label={s.name} accent={s.accent} onClick={() => onNavigate(s.id)} />
