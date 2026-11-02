@@ -901,3 +901,64 @@ Fresh GitHub Actions observations on the new PR head:
 - SG-02-FE.2-V [run 41289210628](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41289210628): CP10-A and SolSpire isolated integration steps succeeded; **CP10-B broader backend regression was still running** at this observation. CP10 API/browser steps had not yet been reached on this head.
 
 The new gateway regression is therefore **TESTED** by the passing console-contract run, and the frontend/backend/image build jobs passed. Full CP10 acceptance remains pending. The authenticated Engineering Lab browser lens and desktop/mobile visual acceptance are not claimed; no preview, production verification, merge, or deployment occurred.
+
+## 14. DEA-01 Engineering Lab capability disclosure truth — 2026-11-02
+
+**Move ID:** `DEA-01-LAB-CAPABILITY-DISCLOSURE-01`  
+**Canonical directive:** [Issue #590](https://github.com/Arkadia-Oversoul-Prism/Arkadia/issues/590)  
+**Baseline:** `main` @ `53e6e5cf373fa72a230273b08d2888c9d289edaa`  
+**Implementation PR:** [#611 — align capability disclosure with wired mission controls](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/611)  
+**Implementation commit:** `69ce49a2fefb844dba4e13e8b34c399c304dcb65`  
+**Regression-correction commit:** `736951664c524d99ef1c4d5b3759854a3b511e00`
+
+### Evidence-backed defect
+
+At the baseline, `EngineeringLabPage.tsx` rendered a `NotYetWired` notice claiming the workspace wired exactly one bounded act and listing `run-agent` among operations not wired to the surface. Current source contradicted that copy: `MissionWorkspace.tsx` mounts both `LabWorkerDispatch` and `LabBoundedTest`; the former calls the existing `run-agent` action for an already-authorized session, and the latter calls the existing execute route with a selector-only `test` operation.
+
+The old notice therefore understated existing functionality and could mislead an operator about what the workspace actually exposes.
+
+### Bounded implementation
+
+- Extracted the notice into `web/arkadia_console/src/components/lab/LabCapabilityDisclosure.tsx`.
+- The disclosure now names the existing session creation, separate human authorization, bounded read-only investigation, selector-only bounded test request, and `run-agent` dispatch surfaces.
+- It explicitly preserves the remaining boundaries: session transition, repository mutation, merge, and production deployment are not wired here.
+- It states that bounded tests still depend on the existing authorization and digest-pinned container boundary, and model-backed dispatch still depends on a dispatchable provider. UI presence is not represented as provider/container availability.
+- Added a regression contract tying the disclosure to the components and request functions actually mounted.
+- Corrected the older read-model assertion to distinguish the authorized MissionWorkspace controls from the read-only LabSessionList and the remaining unwired actions.
+
+Changed paths:
+- `web/arkadia_console/src/pages/EngineeringLabPage.tsx`
+- `web/arkadia_console/src/components/lab/LabCapabilityDisclosure.tsx`
+- `tests/test_lab_mission_workspace_contract.py`
+- `tests/test_prism_w4_lab_read_model.py`
+- This evidence record.
+
+No backend, API, identity, authorization, approval enforcement, provenance, WorkEvent, workspace, K15/K3, provider configuration, credentials, production configuration, merge, or deployment change.
+
+### Verification on source/test head `736951664c524d99ef1c4d5b3759854a3b511e00`
+
+- Prism Console Contract [run 41415184685](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41415184685): **981 passed in 39.65s**; console CI-wiring guard **30 passed in 5.75s**.
+- N-ATLAS Developer Lab [run 41415184635](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41415184635): frontend, backend, canonical Render image, and self-host image jobs **success**.
+- N-ATLAS external beta validation [run 41415184651](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41415184651): English, Hausa, native golden workflow, and evidence bundle jobs **success**.
+- Canonical Render Runtime Probe [run 41415184740](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41415184740): **success**, read-only PR probe only; no deployment or browser acceptance is implied.
+- Boot Syntax Boundary [run 41415184622](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41415184622), security-secret-scan [run 41415184705](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41415184705), Operator Console Posture Currency [run 41415184684](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41415184684), economic-seam-engine [run 41415184636](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41415184636), and N-ATLAS provider forensics [run 41415184680](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41415184680): **success**.
+- SG-02-FE.2-V [run 41415184686](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41415184686): frontend build, CP10-A Lab tests, and SolSpire isolated integration contracts **success**. CP10-B broader backend regression was still **in progress** at the latest observation; API and browser-route steps had not yet started.
+
+### Regression correction chronology
+
+On the initial implementation head `69ce49a2fefb844dba4e13e8b34c399c304dcb65`, Prism Console Contract run [41414727426](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41414727426) reported **980 passed, 1 failed**. The one failure was an older assertion in `test_prism_w4_lab_read_model.py` requiring the page file itself to contain the old `not wired` text and all mutating verbs. The notice had moved into the new Lab component, and MissionWorkspace already owned the explicit authorization/execute controls. The assertion was corrected to check the actual component separation and the remaining unwired transition. The successor source/test head then passed **981** console contract tests and the 30-test wiring guard.
+
+### Explicitly unverified / coordination
+
+- CP10-B final result, CP10 API verification, and browser-route verification on this head: **PENDING** at the latest observation.
+- Authenticated browser acceptance and desktop/mobile visual acceptance: **UNKNOWN**.
+- Preview verification: **UNKNOWN** (Render PR previews are disabled in the recorded repository context).
+- Production verification: **NOT PERFORMED**.
+- Real provider-backed dispatch and real bounded container execution: not demonstrated by this UI/copy move.
+
+Open PR #610 currently carries a diff to the shared `docs/control-plane/parallel-ui/lane-state.json`. This PR deliberately avoids overlapping that file and `AGENT-04-ARKANA-WEAVER-LAB.md`; lane-4 pointer/snapshot reconciliation remains pending after #610's disposition. The current lane snapshot therefore does not yet record #611.
+
+### Next action
+
+Inspect CP10-B when it completes, then capture CP10 API and browser-route results. After PR #610's shared lane-state diff is resolved, refresh the existing lane snapshot and append the lane-4 pointer without overlapping its active diff. Keep #611 draft and unmerged pending human review; no deployment or product acceptance is claimed.
+
