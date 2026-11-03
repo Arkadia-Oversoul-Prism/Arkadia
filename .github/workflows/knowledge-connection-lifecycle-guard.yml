@@ -24,18 +24,20 @@ on:
   pull_request:
     paths:
       - ".github/workflows/knowledge-connection-lifecycle-guard.yml"
-      - "knowledge/__init__.py"
-      - "knowledge/db.py"
+      - "knowledge/**"
       - "tests/test_knowledge_shared_connection_lifecycle.py"
+      - "tests/test_knowledge_graph_health_read_boundary.py"
+      - "tests/test_knowledge_graph_health_ci_wiring.py"
       - "tests/test_knowledge_shared_connection_lifecycle_ci_wiring.py"
       - "tests/test_sqlite_busy_timeout.py"
   push:
     branches: [main]
     paths:
       - ".github/workflows/knowledge-connection-lifecycle-guard.yml"
-      - "knowledge/__init__.py"
-      - "knowledge/db.py"
+      - "knowledge/**"
       - "tests/test_knowledge_shared_connection_lifecycle.py"
+      - "tests/test_knowledge_graph_health_read_boundary.py"
+      - "tests/test_knowledge_graph_health_ci_wiring.py"
       - "tests/test_knowledge_shared_connection_lifecycle_ci_wiring.py"
       - "tests/test_sqlite_busy_timeout.py"
   workflow_dispatch:
@@ -61,4 +63,4 @@ jobs:
       - run: pip install pytest pyyaml
       - name: Shared connection lifecycle guard
         run: |
-          python -m pytest tests/test_knowledge_shared_connection_lifecycle.py tests/test_sqlite_busy_timeout.py tests/test_knowledge_shared_connection_lifecycle_ci_wiring.py -q
+          python -m pytest tests/test_knowledge_shared_connection_lifecycle.py tests/test_sqlite_busy_timeout.py tests/test_knowledge_shared_connection_lifecycle_ci_wiring.py tests/test_knowledge_graph_health_read_boundary.py tests/test_knowledge_graph_health_ci_wiring.py -q

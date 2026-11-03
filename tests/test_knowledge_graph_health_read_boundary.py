@@ -24,6 +24,13 @@ binds the reading to the real ``execute_one`` rather than restating a count, and
 carries a negative control that drives the pre-repair expression against the same
 row so the detector cannot be disarmed by rewriting the module.
 
+Scope note: the route-level assertion (``GET /api/knowledge/status`` serving a real
+verdict) lives in ``tests/test_knowledge_status_read_boundary.py``, which already
+covers that surface. It is deliberately **not** duplicated here: this file is
+executed by ``knowledge-connection-lifecycle-guard.yml``, a stdlib+pytest-only gate
+that installs no application dependency, and importing ``fastapi`` here would
+require widening that job's install step.
+
 See ``docs/control-plane/evidence/lane3-graph-health-count-read-01/EVIDENCE.md``.
 """
 from __future__ import annotations
@@ -194,24 +201,6 @@ def test_a_dangling_edge_is_still_reported_as_error(seeded_db):
 # ---------------------------------------------------------------------------
 
 
-def test_status_route_serves_the_evaluation(seeded_db, monkeypatch):
-    """`graph_health` on the public status body must be a real verdict, not the crash."""
-    from fastapi import FastAPI
-    from fastapi.testclient import TestClient
-
-    from api.knowledge_routes import router as knowledge_router
-
-    a, b = _add_note(seeded_db, "a"), _add_note(seeded_db, "b")
-    _add_edge(seeded_db, a, b)
-
-    app = FastAPI()
-    app.include_router(knowledge_router)
-    body = TestClient(app).get("/api/knowledge/status").json()
-    assert body["graph_health"] == "ok", (
-        f"status served graph_health={body['graph_health']!r} for a clean graph"
-    )
-
-
 # ---------------------------------------------------------------------------
 # Negative control — the pre-repair expression against the same row
 # ---------------------------------------------------------------------------
@@ -249,11 +238,14 @@ def test_negative_control_the_pre_repair_ratio_raises(seeded_db):
 def test_no_other_module_reads_a_row_positionally():
     """The defect class, not just the instance.
 
-    `knowledge/` and `api/` must read rows by column name; a positional read of a
-    dict row is the same mistake waiting to recur.
+    Every reader of ``knowledge.db``'s dict rows must read them by column name; a
+    positional read is the same mistake waiting to recur. Scanned over the
+    ``knowledge`` package, which is the bounded domain this guard declares to the
+    workflow that executes it -- an ``api/`` sweep would silently widen that
+    domain past the gate's ``paths`` filter (see the ci-wiring guard).
     """
     offenders: list[str] = []
-    for base in (REPO_ROOT / "knowledge", REPO_ROOT / "api"):
+    for base in (REPO_ROOT / "knowledge",):
         for path in sorted(base.rglob("*.py")):
             for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
                 stripped = line.strip()

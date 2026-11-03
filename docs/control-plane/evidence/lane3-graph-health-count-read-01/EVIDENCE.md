@@ -221,3 +221,61 @@ Deferred, with reasons:
 
 **This is a deficit to close, not a resting state:** the next Lane 3 slice (or the
 lane-doc-currency workstream) must land the doc + snapshot refresh atomically.
+
+## 10. The guard was executed by no gate — found in this pass, repaired here
+
+The first revision of this PR (``8442ace4``) added ``tests/test_knowledge_graph_health_read_boundary.py``
+and nothing executed it. Measured on that head, **not** inferred:
+
+```
+GET /actions/runs?head_sha=8442ace4922561bc35573f07574c7f15e0be2cb5
+  -> 7 workflow runs (boot-syntax, economic-seam-engine, n-atlas-external-beta,
+     n-atlas-provider-forensics, operator-console-posture, prism-console-contract,
+     security-secret-scan)
+scanning every run log for "knowledge_graph_health_read_boundary"
+  -> 0 mentions in all 7 runs
+```
+
+Every check was green while the guard never ran. The two workflows whose ``tests/**``
+filter *selects* a new knowledge test (``economic-seam-engine.yml``,
+``prism-console-contract.yml``) execute only their own derived domains, and
+``provider-routing.yml`` — the only full-suite surface — is path-filtered to
+``weaver/**``, ``providers/**``, ``api/lab_routes.py`` and named files. This is the
+recorded "a guard no workflow executes is decoration" class, and it is a defect **in
+this PR**, not pre-existing debt.
+
+### Repair
+
+``.github/workflows/knowledge-connection-lifecycle-guard.yml`` is the executable
+surface that already exists for exactly this class. It now:
+
+- selects ``knowledge/**`` (the guard's bounded scan domain — see below) plus both
+  new test files in **both** the ``pull_request`` and ``push`` ``paths`` filters;
+- executes both files in its existing step, which has no ``continue-on-error``.
+
+``tests/test_knowledge_graph_health_ci_wiring.py`` (12 tests) states the invariant
+over the **real** workflow file: some workflow executes the contract; it is
+dispatchable; every declared ``paths`` filter selects every input the guard reads;
+the executing step can fail the job. It carries six negative controls, including the
+decisive live one — replacing the real step with ``echo pytest …`` reddens 3 nodes,
+restoring the file byte-identically (``sha256 96df0111…``) returns 12 passed.
+
+### Two coupling defects the wiring surfaced, both repaired
+
+1. **Unbounded oracle.** ``test_no_other_module_reads_a_row_positionally`` swept
+   ``knowledge/`` **and** ``api/``, so the guard's true input set included every
+   module under ``api/`` — unreachable by any path-filtered gate. Bounded to the
+   ``knowledge`` package, which is what the filter can actually select. No
+   ``api/``-side positional read was present, so nothing was lost.
+2. **A dependency the gate must not need.** An earlier revision of the guard carried
+   a route-level assertion importing ``fastapi``. The existing
+   ``test_knowledge_shared_connection_lifecycle_ci_wiring.py`` derives executed-module
+   dependencies by AST and correctly failed with *"executes modules importing fastapi
+   but never installs them"* — this gate is deliberately stdlib+pytest only, so a
+   dependency gap cannot be misreported as a boundary break. The assertion was
+   **removed, not the gate widened**: ``tests/test_knowledge_status_read_boundary.py``
+   already covers that route surface, so the duplicate added no coverage.
+
+Gate command, executed locally: **35 passed**. With ``tests/test_economic_seam_ci_wiring.py``,
+``tests/test_m02a_ci_gate_integrity.py`` and ``tests/architecture``: **104 passed**
+(the CP10 allowlist already admits ``tests/**``, so no policy edit was needed).
