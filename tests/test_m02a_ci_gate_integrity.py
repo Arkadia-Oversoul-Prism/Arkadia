@@ -472,6 +472,59 @@ def test_delegated_verdict_admits_federation_and_rejects_lookalikes():
         assert rc != 0, f"{path} must stay outside the boundary"
 
 
+# ---------------------------------------------------------------------------
+# `arkadia-webview-poc/` is the restricted Android WebView proof of concept
+# (Kotlin sources, Gradle build, AndroidManifest), merged to main via PR #608
+# (merge e67c1faf0a) together with its own build workflow. The allowlist omitted
+# it, so three fitness tests were red on main and the next ordinary commit
+# touching the tree would have failed CP10. The omission landed silently because
+# the gate is path-filtered and #608 touched no path in this gate's filter, so
+# the completeness invariant never executed at that revision. It is pinned here
+# so a future removal of the entry reddens the same change that removes it.
+# ---------------------------------------------------------------------------
+_WEBVIEW_POC_CHANGESET = [
+    "arkadia-webview-poc/README.md",
+    "arkadia-webview-poc/app/build.gradle.kts",
+    "arkadia-webview-poc/app/src/main/AndroidManifest.xml",
+    "arkadia-webview-poc/app/src/main/java/com/arkadia/webviewpoc/MainActivity.kt",
+    "arkadia-webview-poc/app/src/main/java/com/arkadia/webviewpoc/OriginPolicy.kt",
+    ".github/workflows/arkadia-android-webview-poc.yml",
+]
+
+
+def test_webview_poc_surface_is_legitimate():
+    ok, msg = evaluate_changed_paths(["arkadia-webview-poc/README.md"])
+    assert ok is True, msg
+
+
+def test_shipped_webview_poc_changeset_passes_policy():
+    """The exact change set PR #608 shipped must pass the gate it runs under."""
+    ok, msg = evaluate_changed_paths(_WEBVIEW_POC_CHANGESET)
+    assert ok is True, msg
+
+
+def test_webview_poc_admission_is_not_overbroad():
+    """Admitting the tree must not admit its lookalikes or any unknown root."""
+    for path in (
+        "arkadia-webview-poc-evil/x.py",
+        "arkadia-webview-pocx/README.md",
+        ".arkadia-webview-poc/README.md",
+        "webview-poc/README.md",
+    ):
+        ok, msg = evaluate_changed_paths([path])
+        assert ok is False, f"{path} should still be rejected ({msg})"
+
+
+def test_delegated_verdict_admits_webview_poc_and_rejects_lookalikes():
+    """The CLI the workflow executes must reach the same verdict as the API."""
+    for path in _WEBVIEW_POC_CHANGESET:
+        rc, out = _run_judge(path)
+        assert rc == 0, f"{path} must be admitted by the delegated judge: {out}"
+    for path in ("arkadia-webview-poc-evil/x.py", "arkadia-webview-pocx/README.md"):
+        rc, out = _run_judge(path)
+        assert rc != 0, f"{path} must stay outside the boundary"
+
+
 def test_research_and_schemas_admission_is_not_overbroad():
     """Admitting those trees must not weaken the boundary elsewhere.
 

@@ -1820,3 +1820,45 @@ Keep `feat/prism-ui-reconciliation-overnight-01` as this reconciliation workstre
 This delegation does not authorize direct pushes to `main`, force-pushes, bypasses of branch protection, skipped/overridden checks, waived reviews, or self-approval. All required human approvals remain mandatory. OpenHands and feature agents do not inherit Weaver's merge authority. The GOV-01 amendment itself must be human-reviewed and human-merged.
 
 Human-only: constitutional changes; identity and authority-model boundaries; K15/K3 governance; approval enforcement; scope expansion/exceptions; sovereign security/privacy decisions; production deployment/configuration; and product/production acceptance. Lane ownership, branch protection, required checks/reviews, and one-open-PR-per-lane remain unchanged. Merge does not imply deployment verification or acceptance.
+
+## A path-filtered gate's red can surface on an unrelated PR — the failing assertion can live in the base tree (gate-hygiene)
+- PR #614 (Lane 1) carried a red `test` check that had nothing to do with its diff. `test` is the
+  `economic-seam-engine` job; its `paths` filter selects `tests/**`, and #614 touched
+  `tests/test_console_legacy_route_coverage.py`, so the gate ran and executed
+  `tests/test_m02a_ci_gate_integrity.py`, which fails on **pre-existing `main` debt**:
+  `arkadia-webview-poc/` is tracked but omitted from the CP10 allowlist.
+- **Read the failing assertion before attributing it to the PR.** `gh pr checks <n>` names the
+  check; `gh run view <run> --log-failed` gives the node and the message. The `test` check name is
+  shared by many workflows — resolve it via
+  `commits/<head>/check-runs` -> `details_url`, or
+  `actions/runs?head_sha=<full sha>` -> `.path`. An abbreviated SHA silently returns zero runs.
+- **The tree landed silently because no gate ran the invariant.** `arkadia-webview-poc/` arrived
+  with PR #608 (`e67c1faf0a`) plus its own workflow, and touched neither `tests/**`
+  (economic-seam-engine) nor anything in `sg-02-fe-2-v.yml`'s filter, so the CP10 completeness
+  invariant never executed. `main` @ `f2a7158f11` carries only `weaver_evolution (skipped)`,
+  `lane-doc-currency (success)`, `Full-history secret scan (success)` — no CP10 run at all. Same
+  class already recorded for the console-contract and economic-seam domains: **a content-derived
+  domain cannot be validated by the branch that adds a member to it, only by the composition.**
+- **Repair the prerequisite on its own branch; do not widen the PR under investigation.** The fix
+  is one allowlist entry (`r"|arkadia-webview-poc/"`, trailing slash so lookalike roots are not
+  over-admitted) plus four companion pins in the `federation/` convention, opened as a separate
+  gate-hygiene PR (#615) from `main`. #614's diff stayed untouched.
+- **Prove the composition, do not assume it.** `git worktree add --detach <pr-head>` then
+  `git merge <fix-sha>` — zero conflicted files, and the economic-seam domain reads **86 passed**.
+  `git apply --3way --check` would have proven only that the hunks land.
+- **A gate that judges its own rewrite is the strongest available signal.** #615's `validate`
+  check *is* `SG-02-FE.2-V`, and it passes on a branch that edits
+  `scripts/cp10_mutation_boundary_policy.py` and `tests/test_m02a_ci_gate_integrity.py`, both of
+  which are trigger paths. `test` (economic-seam-engine) passes too, so the previously-red
+  invariant is green in CI, not merely locally.
+- The m02a guard was 3F/65P before and **72 passed** after; `--collect-only` 68 -> 72 (+4 = the
+  new pins, measured per file rather than inferred from the delta). `tests/architecture`
+  **11 passed**. Live negative control (entry removed from the real policy module) reddens exactly
+  the 3 new pins + 3 completeness invariants, then restores byte-identically.
+- Full-suite baseline at `main` `f2a7158f11`: 12 nodes, sha256
+  `06fe4438aaddbbb8cf83da0343123057c3680a1d831ce911ceb0ac38e310d4aa` (9 pre-existing + the 3
+  repaired). Attribute by node identity, never by count.
+- **A green branch is not a merge.** #615 is `CLEAN`/`MERGEABLE` with 11/11 checks but stays a
+  **draft**: OpenHands does not inherit Weaver's merge authority, and marking a PR ready because
+  an agent finished a turn is prohibited. Merge order is human-only: **#615 first, then #614** —
+  #614's `test` cannot go green until the failing assertion leaves the base tree.
