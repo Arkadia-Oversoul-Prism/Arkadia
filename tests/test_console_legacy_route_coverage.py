@@ -827,8 +827,9 @@ def test_detector_flags_a_nexus_subview_disposition_that_hides_its_resolution():
 def test_recorded_solariun_lens_absences_agree_with_the_surface_that_declares_lenses():
     """A recorded absence claim about a Solariun lens must match the page's `LENSES`.
 
-    Six gaps are recorded as "addressed a Solariun `<lens>` lens the console does not
-    declare". That is a fact about `SolariunPage.tsx`, but nothing bound it: the
+    Six gaps record an absent Solariun lens: four use explicit "does not declare"
+    wording and two use the "same absent" shorthand. Both forms are facts about
+    `SolariunPage.tsx`, but nothing bound them: the
     claim could go stale the moment the surface gained the lens, and no guard would
     notice — the ledger would assert an absent lens that exists, which is exactly the
     "stale record" class this file already guards for the `/nexus/*` resolutions.
@@ -883,8 +884,10 @@ def test_detector_flags_a_solariun_lens_absence_claim_the_surface_contradicts():
     )
     flagged = _solariun_lens_absence_defects(reconciled, declared | {"observatory"})
     assert flagged == [
+        "/echofeild-matrix: records the Solariun `observatory` lens as undeclared, "
+        "but SolariunPage.tsx declares it",
         "/personal-echofeild: records the Solariun `observatory` lens as undeclared, "
-        "but SolariunPage.tsx declares it"
+        "but SolariunPage.tsx declares it",
     ], flagged
 
     # Alias-form "same absent" records are absence claims too and must be bound.
