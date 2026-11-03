@@ -117,9 +117,82 @@ function RunRow({ trace }: { trace: RunTrace }) {
   );
 }
 
+/**
+ * One session-level linkage classification, rendered by *identity*.
+ *
+ * The ledger reports these as a total inside `ledger.unresolved`, which tells a
+ * reader that a reference failed to resolve but never which one. A duplicate id
+ * is dropped from the traced set rather than merged, so the identity is the only
+ * way to find the record the surface left out.
+ */
+function LinkageGroup({
+  kind,
+  label,
+  ids,
+  note,
+}: {
+  kind: string;
+  label: string;
+  ids: string[];
+  note: string;
+}) {
+  if (ids.length === 0) return null;
+  return (
+    <li className="text-xs text-gold/80" data-testid={`lab-trace-linkage-${kind}`}>
+      {ids.length} {label}: <span className="font-mono text-[10px] text-white/55">{ids.join(", ")}</span>{" "}
+      {note}
+    </li>
+  );
+}
+
 export function LabRunTrace({ view }: { view: LabTraceSource }) {
   const ledger = buildRunTrace(view);
   const accepted = ledger.acceptance.state === "HUMAN_ACCEPTED";
+
+  const linkage = [
+    {
+      kind: "unlinked-events",
+      label: "work event(s) name a run that is not in this view",
+      ids: ledger.unlinked_events.map((event) => event.event_id),
+      note: "Recorded work whose run is absent.",
+    },
+    {
+      kind: "unlinked-evidence",
+      label: "evidence record(s) name a run not in this view",
+      ids: ledger.unlinked_evidence.map((record) => record.evidence_id),
+      note: "Not attributed to any run here.",
+    },
+    {
+      kind: "unattributed-evidence",
+      label: "evidence record(s) carry no run reference",
+      ids: ledger.unattributed_evidence.map((record) => record.evidence_id),
+      note: "A record with no link, not a link that failed.",
+    },
+    {
+      kind: "unlinked-artifacts",
+      label: "artifact(s) name a run not in this view",
+      ids: ledger.unlinked_artifacts.map((artifact) => artifact.artifact_id),
+      note: "A captured proposal whose run is absent.",
+    },
+    {
+      kind: "unattributed-artifacts",
+      label: "artifact(s) carry no run reference",
+      ids: ledger.unattributed_artifacts.map((artifact) => artifact.artifact_id),
+      note: "Captured with no link, not a link that failed.",
+    },
+    {
+      kind: "duplicate-evidence",
+      label: "duplicate evidence id(s) in the view",
+      ids: ledger.duplicate_evidence_ids,
+      note: "Only the first record per id is traced.",
+    },
+    {
+      kind: "duplicate-artifacts",
+      label: "duplicate artifact id(s) in the view",
+      ids: ledger.duplicate_artifact_ids,
+      note: "Only the first record per id is traced.",
+    },
+  ].filter((group) => group.ids.length > 0);
 
   return (
     <Panel className="mb-4">
@@ -169,6 +242,23 @@ export function LabRunTrace({ view }: { view: LabTraceSource }) {
       >
         acceptance: {accepted ? "recorded by a human" : "not recorded"} · {ledger.acceptance.note}
       </p>
+
+      {linkage.length > 0 && (
+        <ul
+          className="mt-3 flex flex-col gap-1 border-t border-line/60 pt-3"
+          data-testid="lab-trace-linkage"
+        >
+          {linkage.map((group) => (
+            <LinkageGroup
+              key={group.kind}
+              kind={group.kind}
+              label={group.label}
+              ids={group.ids}
+              note={group.note}
+            />
+          ))}
+        </ul>
+      )}
 
       <p className="mt-2 text-xs text-white/45" data-testid="lab-trace-unresolved">
         {ledger.unresolved.length > 0
