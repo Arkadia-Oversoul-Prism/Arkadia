@@ -201,7 +201,7 @@ Lane 1 at zero open PRs is a **deficit**, not a resting state: the next action i
 lane 1's next bounded draft PR from freshly fetched `main`, inside the lane's owned paths
 (`SHARED-CONTRACTS.md` §1). Merge, production deployment and acceptance remain human-only.
 
-## Status — 2026-11-03 (LANE 1, active: #614; supersedes the idle declaration above)
+## Status — 2026-11-03 (LANE 1: slice record, no active PR declared)
 
 **Active branch:** `feat/prism-l1-nexus-subview-disposition-01` (recorded for provenance only).
 **Active PR:** none declared — this section records the slice's objective; the snapshot below is the judge.
@@ -216,7 +216,8 @@ active PR and leaves the lane's status to the derived snapshot.
 
 This is the **continuation** the idle block called for — lane 1's next bounded slice, opened from
 freshly fetched `main` under `11 — LANE NEW-PR AUTHORIZATION`. It is not a continuation of #610:
-that PR merged as `6b28ddba` and its subject (route-map record currency) is closed.
+that PR merged as `6b28ddba` and its subject (route-map record currency) is closed. The slice
+landed as PR #614; once merged, lane 1 is idle again until its next bounded PR is opened.
 
 **Objective.** The four archived hub sub-views recorded as gaps in
 `tests/test_console_legacy_route_coverage.py::LEGACY_GAP_DISPOSITIONS` (`/nexus/ims`,
