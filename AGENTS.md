@@ -1862,3 +1862,52 @@ Human-only: constitutional changes; identity and authority-model boundaries; K15
   **draft**: OpenHands does not inherit Weaver's merge authority, and marking a PR ready because
   an agent finished a turn is prohibited. Merge order is human-only: **#615 first, then #614** —
   #614's `test` cannot go green until the failing assertion leaves the base tree.
+
+## A lane snapshot that records its own PR open reddens `main` the instant it merges (lane-doc-currency)
+- A lane PR's `lane-state.json` is committed *while its PR is open*, so recording that PR under
+  `open_prs` is self-contradicting: the merge closes it, and the snapshot then claims an open PR
+  that is `MERGED`. Measured on #614 (`main` `0c615bda`): left unrepaired, the merge reddens
+  `lane-doc-currency` on `main` exactly as #610 did (merged `6b28ddba`, repaired by follow-up
+  #613). The defect is structural, not a slip — the snapshot cannot be both "written by the PR"
+  and "free of the PR".
+- **`doc_guard` does not exempt the claim.** Measured against the live decision function
+  `scripts/lane_state.py::_pr_state_findings` with #614 reported `MERGED`, all three values
+  produced the same finding: `current`, `deferred`, and `idle` each returned
+  `PR #614 (lane 1 open_prs) is recorded as open but is MERGED`. Only `open_prs=[]` returns `[]`.
+  Do not reach for `doc_guard` as the repair; empty the claim.
+- **The decision table is total.** `_pr_state_findings` iterates `claimed_open_prs(state)` —
+  `open_prs` plus `deferred_to_pr` — and has no exemption for the snapshot's own PR. Do not
+  add one: the self-reference is the defect, so an exemption would encode it.
+- **Repair is re-derivation plus a no-self-pointer doc, in one commit.** Hand-editing the
+  snapshot to `open_prs: []` works only because the post-merge derivation agrees; do it via
+  `scripts/lane_state_refresh.py --write --base-main <sha>` so the two cannot disagree. The lane
+  doc must then declare no active PR (`**Active PR:** none declared`) and leave lane status to
+  the derived snapshot, otherwise `check_lane_docs` compares a doc pointer against an idle lane.
+- **Prove it on the live function, not a simulation.** `--check --verify-live` cannot demonstrate
+  the pre-repair failure while the PR is still open (the live API correctly reports it open).
+  Drive `_pr_state_findings` directly with a synthetic `MERGED` record and the two snapshots
+  (pre-repair blob vs repaired worktree); that is the control that discriminates. Then confirm
+  post-merge that `--check --verify-live` exits 0 with **0** DRIFT findings on the merged `main`
+  — the repair's whole purpose is that the gate stays green once the PR is closed.
+- Lane 1 held no PR after the merge and no bounded, owned slice was outstanding that was not
+  already a separate authorization question (`unassigned_open_prs` is derived and printed but
+  judged nowhere; wiring it changes what the gate judges). Zero open PRs was reported as a
+  deficit rather than filled with an unverified PR.
+
+## A negative control must carry the field its classifier reads, or it tests the wrong branch (gate-hygiene)
+- Driving `scripts/lane_state.py::_pr_state_findings` with a synthetic `MERGED` record, the first
+  attempt omitted `merged: True` and produced
+  `PR #614 ... has an unrecognised live state 'closed'; classified UNKNOWN, not a pass` — the
+  **UNKNOWN** branch, not the MERGED branch the control existed to exercise. `pr_status` consults
+  `record["merged"]` **before** `record["state"]` because GitHub returns `state == "closed"` for
+  both outcomes; a record carrying only `state` is deliberately classified UNKNOWN. With
+  `merged: True` present the same call returns the MERGED finding. Both outcomes are correct
+  behaviour; only one is the control.
+- **Consequence:** a control that silently lands on the UNKNOWN branch still returns a non-empty
+  finding, so it *looks* like it proved the defect. It proves the classifier is suspicious of
+  malformed input, which is a different property. Read the returned **message**, not its
+  non-emptiness — the two branches share the "a finding came back" shape and differ only in text.
+- Recorded because the first draft of this pass's PR body quoted the MERGED message while the
+  command that produced it had emitted the UNKNOWN one. The quoted evidence was not the measured
+  evidence. Re-run the control against the live function and paste **its** output; the merge commit
+  in the message (`0c615bda`) is also the check that the right record was fed.
