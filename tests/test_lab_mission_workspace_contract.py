@@ -567,8 +567,8 @@ def test_mission_control_reads_server_evidence_and_artifacts_with_truthful_state
     contract = _read(CONTRACT)
 
     assert "interface LabSessionView" in contract
-    assert "evidence?: Array<Record<string, unknown>>" in contract
-    assert "artifacts?: Array<Record<string, unknown>>" in contract
+    assert "evidence?: LabEvidenceRecord[]" in contract
+    assert "artifacts?: LabArtifactRecord[]" in contract
     assert "Array.isArray(view.evidence)" in workspace
     assert "Array.isArray(view.artifacts)" in workspace
     assert "The session view did not return both evidence and artifact collections." in workspace
