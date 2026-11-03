@@ -62,10 +62,12 @@ ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "web" / "arkadia_console" / "src"
 SURFACES_PATH = SRC / "lib" / "surfaces.ts"
 ROUTER_PATH = SRC / "lib" / "router.ts"
+SOLARIUN_PAGE_PATH = SRC / "pages" / "SolariunPage.tsx"
 ARCHIVE_APP = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/App.tsx"
 
 SURFACES = SURFACES_PATH.read_text(encoding="utf-8")
 ROUTER = ROUTER_PATH.read_text(encoding="utf-8")
+SOLARIUN_PAGE = SOLARIUN_PAGE_PATH.read_text(encoding="utf-8")
 ARCHIVE = ARCHIVE_APP.read_text(encoding="utf-8")
 
 
@@ -386,6 +388,58 @@ def _nexus_subview_dispositions(
             defects.append(f"{legacy}: resolves to {canonical} but is not recorded as a gap")
         elif not re.search(rf"(?<![\w/-]){re.escape(canonical)}(?![\w/-])", disposition):
             defects.append(f"{legacy}: resolves to {canonical}, ledger says {disposition!r}")
+    return defects
+
+
+def _declared_lens_ids(page_text: str) -> set[str]:
+    """The lens ids a surface page declares, read from its `LENSES` array.
+
+    A lens is a *section* of a surface (`/solariun/<lens>`), and the page that owns
+    the surface is the only authority on which sections it declares — `surfaces.ts`
+    declares surface roots, not their sections. Reading the array rather than
+    restating it keeps the oracle a function of the source: adding a lens changes
+    the answer with no edit here.
+    """
+    block = re.search(r"const\s+LENSES\s*=\s*\[(.*?)\];", page_text, re.DOTALL)
+    assert block, "SolariunPage.tsx declares no LENSES array"
+    return set(re.findall(r'id:\s*"([^"]+)"', block.group(1)))
+
+
+def _solariun_lens_absence_defects(
+    dispositions: dict[str, str] | None = None, lens_ids: set[str] | None = None
+) -> list[str]:
+    """Recorded gaps claiming a Solariun lens the surface does **not** declare.
+
+    A disposition is a *record*: several say the archived path "addressed a Solariun
+    `<lens>` lens the console does not declare". That absence claim is a fact about
+    `SolariunPage.tsx`'s `LENSES` array, so it can be checked against the source
+    instead of standing as unbound prose. The defect is one-directional and worth
+    stating: if the lens is *present*, the recorded absence is stale and the ledger
+    is lying about a reconciliation that has since happened.
+
+    Only absence claims are bound. A disposition that merely *names* a lens that does
+    exist (`/codex` names the present `knowledge` lens, and the distinct `knowledge`
+    surface) makes no absence claim, so it is not judged here — binding it would
+    invert the assertion and report a correct record as a defect.
+
+    Both arguments are parameters so a negative control can feed a synthetic ledger
+    and lens set without mutating module state.
+    """
+    ledger = LEGACY_GAP_DISPOSITIONS if dispositions is None else dispositions
+    declared = _declared_lens_ids(SOLARIUN_PAGE) if lens_ids is None else lens_ids
+    defects = []
+    for legacy, disposition in sorted(ledger.items()):
+        if "does not declare" not in disposition:
+            continue
+        claim = re.search(r"Solariun\s+`([a-z-]+)`\s+lens", disposition)
+        if claim is None:
+            continue
+        lens = claim.group(1)
+        if lens in declared:
+            defects.append(
+                f"{legacy}: records the Solariun `{lens}` lens as undeclared, "
+                f"but SolariunPage.tsx declares it"
+            )
     return defects
 
 
@@ -768,3 +822,73 @@ def test_detector_flags_a_nexus_subview_disposition_that_hides_its_resolution():
     # the check is the resolver's answer, not merely the presence of a path.
     wrong_target = {p: f"{v}-elsewhere" for p, v in resolved.items()}
     assert len(_nexus_subview_dispositions(resolved, wrong_target)) == len(subviews)
+
+
+def test_recorded_solariun_lens_absences_agree_with_the_surface_that_declares_lenses():
+    """A recorded absence claim about a Solariun lens must match the page's `LENSES`.
+
+    Six gaps are recorded as "addressed a Solariun `<lens>` lens the console does not
+    declare". That is a fact about `SolariunPage.tsx`, but nothing bound it: the
+    claim could go stale the moment the surface gained the lens, and no guard would
+    notice — the ledger would assert an absent lens that exists, which is exactly the
+    "stale record" class this file already guards for the `/nexus/*` resolutions.
+
+    Measured on `main` @ `0c615bda`: the declared lens ids are
+    `{projects, knowledge, memory, weaver}`, and the claimed-absent ones are
+    `{settings, overview, observatory, tasks}` — disjoint, so every absence claim
+    holds. The assertion is what keeps that true, and the controls prove it can fail.
+    """
+    declared = _declared_lens_ids(SOLARIUN_PAGE)
+    assert declared, "no lens ids parsed from SolariunPage.tsx -- the guard would be vacuous"
+
+    claims = {
+        path: m.group(1)
+        for path, disposition in LEGACY_GAP_DISPOSITIONS.items()
+        if "does not declare" in disposition
+        for m in [re.search(r"Solariun\s+`([a-z-]+)`\s+lens", disposition)]
+        if m
+    }
+    assert claims, "no Solariun lens-absence claim recorded -- the guard would be vacuous"
+    # Premise: the bound claims really are about lenses the surface does not declare,
+    # so the assertion below is not trivially satisfied by an empty intersection.
+    assert not (set(claims.values()) & declared), (
+        "control premise: a claimed-absent lens is already declared: "
+        f"{sorted(set(claims.values()) & declared)}"
+    )
+    assert _solariun_lens_absence_defects() == [], _solariun_lens_absence_defects()
+
+
+def test_detector_flags_a_solariun_lens_absence_claim_the_surface_contradicts():
+    """Negative control: the binding must fire when a claimed-absent lens appears.
+
+    The defect is not a wrong statement today — every recorded absence holds — but an
+    *unbound* one. Feeding the detector the shape a real reconciliation produces (the
+    surface declares `observatory`, the ledger still records it as absent) must report
+    exactly that entry, and the live ledger must report none. A detector silent on
+    both is not a detector.
+
+    The control also proves the check is not merely "any lens named anywhere": a
+    disposition that *names* a declared lens without claiming its absence (`/codex`
+    names the present `knowledge` lens) must stay silent, so the detector cannot be
+    satisfied by weakening it into a presence check.
+    """
+    declared = _declared_lens_ids(SOLARIUN_PAGE)
+
+    reconciled = dict(LEGACY_GAP_DISPOSITIONS)
+    reconciled["/personal-echofeild"] = (
+        "addressed a Solariun `observatory` lens the console does not declare"
+    )
+    flagged = _solariun_lens_absence_defects(reconciled, declared | {"observatory"})
+    assert flagged == [
+        "/personal-echofeild: records the Solariun `observatory` lens as undeclared, "
+        "but SolariunPage.tsx declares it"
+    ], flagged
+
+    # A mere naming of a present lens is not an absence claim and must not be flagged.
+    naming_only = {"/codex": "names the Solariun `knowledge` lens *and* the distinct `knowledge` surface"}
+    assert _solariun_lens_absence_defects(naming_only, declared) == [], (
+        "the detector reported a disposition that makes no absence claim"
+    )
+
+    # And the live ledger is clean under the same detector.
+    assert _solariun_lens_absence_defects() == [], _solariun_lens_absence_defects()
