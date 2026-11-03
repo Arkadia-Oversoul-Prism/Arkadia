@@ -168,3 +168,56 @@ existing knowledge-test surface (`tests/**` selection).
 unpinned surface in this module is the **ontology-violation** check
 (`unknown_relationship_types`): no test drives a real unknown relationship type through
 it. That is the next bounded Lane 3 slice.
+
+## 9. Lane 3 doc currency — measured, deliberately NOT applied in this PR
+
+`AGENT-03-SOLARIUN-KNOWLEDGE.md` is stale. Its declared pointers name threads that are
+gone:
+
+| line | declaration | live state |
+|---|---|---|
+| 4 | `**Active PR:** #431` | **MERGED** as `bcc6a8b4` |
+| 33 | `**Active PR:** #450` (head `22b15091`) | **CLOSED** |
+
+The snapshot already agrees the lane is idle (`lanes."3".open_prs: []`, `doc_guard:
+"idle"`), so the doc disagrees with the snapshot in the *permissive* direction: it points a
+successor agent at two dead threads. Measured live this pass: the only open PRs in the
+repository are #619 (Lane 1) and #620 (Lane 4), both drafts; Lane 3 holds none.
+
+### Why the edit is not in this PR
+
+The guard passed on a working-tree doc edit, which was initially read as "the edit is safe".
+That reading was **wrong**, and the mechanism matters:
+
+`scripts/lane_state.py::resolve_main()` reads the **local `origin/main` ref**, not `HEAD`.
+So a doc edit committed on a branch is invisible to the freshness window until that commit
+reaches `origin/main`. `_freshness_findings` anchors the window on the newest commit that
+touched `lane-state.json` (`0c615bda`) and then asks whether any commit in
+`(0c615bda, origin/main]` touched a guarded lane doc.
+
+Proven by moving the local ref, same tree, same commit:
+
+```
+A. origin/main = 46d85e2d (doc edit on a side branch)   -> exit 0, no finding
+B. origin/main = 3ccf0ba0 (doc edit reachable from main) -> DRIFT snapshot is stale:
+   "1 commit(s) since it was recorded (0c615bda) changed a guarded lane doc
+    (AGENT-01…, AGENT-02…, AGENT-03…, AGENT-04…) -- re-measure the lane PRs and
+    refresh the snapshot (first: 3ccf0ba0)"
+```
+
+A **doc-only** edit reddens the gate once merged. The repair is therefore
+`AGENT-03…md` + a refreshed `lane-state.json` **in one commit**, re-derived with
+`scripts/lane_state_refresh.py --write --base-main <sha>` rather than hand-edited — the
+class already recorded for #610/#613.
+
+Deferred, with reasons:
+
+1. The refresh is a **shared guarded surface** re-derived from live GitHub state across
+   **all four lanes**, so it would carry other lanes' state into a knowledge-repair PR and
+   make the diff hard to review.
+2. Lane 3 may hold **at most one open PR** (`SHARED-CONTRACTS.md` §1 / contract §11 N2), so
+   a separate Lane 3 PR for the doc repair is not permitted while #621 is open.
+3. Bundling a cross-lane snapshot refresh into this PR is scope expansion.
+
+**This is a deficit to close, not a resting state:** the next Lane 3 slice (or the
+lane-doc-currency workstream) must land the doc + snapshot refresh atomically.
