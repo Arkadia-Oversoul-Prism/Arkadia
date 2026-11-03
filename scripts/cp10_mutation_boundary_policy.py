@@ -61,6 +61,22 @@ LEGIT = re.compile(
     # product surface (Kotlin sources, Gradle build, resources), not scratch space,
     # so it is enumerated rather than left to the generic rules.
     r"|arkadia-console-android/"
+    # arkadia-webview-poc/ is the restricted Android WebView proof of concept
+    # (Kotlin sources, Gradle build, AndroidManifest), merged to main via PR #608
+    # (merge e67c1faf0a). Same omission class as arkadia-console-android/: it is
+    # tracked while this allowlist still omitted it, so three fitness tests were
+    # red on main (test_allowlist_admits_every_tracked_top_level_prefix,
+    # test_allowlist_covers_every_tracked_surface,
+    # test_delegated_verdict_admits_every_tracked_surface) and the CP10 gate would
+    # reject the next ordinary commit touching the tree. The omission landed
+    # silently because the gate is path-filtered and #608 touched neither
+    # `tests/**` nor any path in this gate's own filter, so the completeness
+    # invariant was not executed at that revision. It is a first-class product
+    # surface (a companion Android client, built by
+    # .github/workflows/arkadia-android-webview-poc.yml), not scratch space, so it
+    # is enumerated rather than left to the generic rules. The trailing slash keeps
+    # it from over-admitting lookalike roots such as `arkadia-webview-poc-evil/`.
+    r"|arkadia-webview-poc/"
     r"|app/|architecture/|arkana_rasa/|arkana_space/|bot/|codex/|collective/"
     r"|corpus/|forge/|governance/|openclaw/|orchestration/|providers/|sanctum/|static/"
     # opportunity_radar/ carries the SAPZ capture MVP persisted state
