@@ -156,10 +156,22 @@ LEGACY_GAP_DISPOSITIONS = {
     "/challenge": "the archived Future Skills Challenge has no console surface",
     "/future-skills": "same absent challenge surface as `/challenge`",
     "/offerings": "the archived Offerings surface has no console surface",
-    "/nexus/ims": "a NovaNet/nexus sub-view whose backend contract is UNKNOWN",
-    "/nexus/grove": "a NovaNet/nexus sub-view whose backend contract is UNKNOWN",
-    "/nexus/larder": "a NovaNet/nexus sub-view whose backend contract is UNKNOWN",
-    "/nexus/distribution": "a NovaNet/nexus sub-view whose backend contract is UNKNOWN",
+    "/nexus/ims": (
+        "a NovaNet/nexus sub-view whose backend contract is UNKNOWN; the `/nexus` alias "
+        "resolves to /novanet/ims"
+    ),
+    "/nexus/grove": (
+        "a NovaNet/nexus sub-view whose backend contract is UNKNOWN; the `/nexus` alias "
+        "resolves to /novanet/grove"
+    ),
+    "/nexus/larder": (
+        "a NovaNet/nexus sub-view whose backend contract is UNKNOWN; the `/nexus` alias "
+        "resolves to /novanet/larder"
+    ),
+    "/nexus/distribution": (
+        "a NovaNet/nexus sub-view whose backend contract is UNKNOWN; the `/nexus` alias "
+        "resolves to /novanet/distribution"
+    ),
     "/solspire": (
         "a reserved backend namespace (`api/frontend_routes.py::_RESERVED_PREFIXES`); "
         "the console expresses the enterprise surface at `/enterprise`"
@@ -345,6 +357,36 @@ def _js_route_resolver(router_text: str, probes: list[str]) -> dict[str, str]:
     result = subprocess.run([node, "-e", script], capture_output=True, text=True, timeout=60)
     assert result.returncode == 0, f"router evaluation failed: {result.stderr.strip()}"
     return dict(zip(probes, json.loads(result.stdout)))
+
+
+def _nexus_subview_dispositions(
+    resolved: dict[str, str], dispositions: dict[str, str] | None = None
+) -> list[str]:
+    """Recorded `/nexus/<view>` gaps that do not name the path they resolve to.
+
+    A disposition is a *record*: it states what the path is and what became of it.
+    For a sub-view the alias reconciles, the second half is the canonical path
+    `resolvePath` returns, so the ledger can be checked against the router's own
+    answer instead of a second hand-written table. The ledger argument is a
+    parameter so a negative control can feed the pre-repair shape without mutating
+    the module-level ledger.
+
+    The canonical path is matched as a **whole path token**, not as a substring: a
+    disposition naming `/novanet/distribution-elsewhere` must not satisfy
+    `/novanet/distribution`. The lookarounds exclude any neighbouring path or word
+    character, so `-`, `/` and letters all break the match.
+    """
+    ledger = LEGACY_GAP_DISPOSITIONS if dispositions is None else dispositions
+    defects = []
+    for legacy, canonical in sorted(resolved.items()):
+        if not legacy.startswith("/nexus/"):
+            continue
+        disposition = ledger.get(legacy)
+        if disposition is None:
+            defects.append(f"{legacy}: resolves to {canonical} but is not recorded as a gap")
+        elif not re.search(rf"(?<![\w/-]){re.escape(canonical)}(?![\w/-])", disposition):
+            defects.append(f"{legacy}: resolves to {canonical}, ledger says {disposition!r}")
+    return defects
 
 
 # ---------------------------------------------------------------------------
@@ -562,6 +604,43 @@ def test_deferred_legacy_paths_are_neither_aliased_nor_declared():
     )
 
 
+def test_recorded_nexus_subview_gaps_name_the_path_they_resolve_to():
+    """A recorded `/nexus/<view>` gap must record *where it goes*, not only that it
+    is unresolved.
+
+    The four sub-views are the case where "unresolved" and "lost" are different
+    facts. The archive offered them (`App.tsx:71-72`) and the alias branch now
+    carries a single remainder segment, so each resolves to its NovaNet section and
+    renders that surface's own `NotYetWired` state. The backend contract is still
+    UNKNOWN — that is what the disposition records — but the shared link is no
+    longer discarded, and the disposition alone did not say so.
+
+    Measured on `main` @ `f2a7158f` with the pre-repair ledger: the entry read "a
+    NovaNet/nexus sub-view whose backend contract is UNKNOWN" while the router
+    returned `/novanet/ims` for `/nexus/ims`. Both halves are true, so no existing
+    guard fired — this one compares the record against the resolver's own answer.
+    """
+    resolved = _js_route_resolver(ROUTER, ["/nexus", "/nexus/ims", "/nexus/a/b"])
+    assert resolved["/nexus/ims"] == "/novanet/ims", (
+        "control premise: the alias branch carries one remainder segment"
+    )
+    assert resolved["/nexus/a/b"] == "/novanet", (
+        "control premise: a two-segment remainder has no canonical path"
+    )
+
+    subviews = [p for p in LEGACY_GAP_DISPOSITIONS if p.startswith("/nexus/")]
+    assert subviews, "no `/nexus/<view>` gap recorded -- the guard would be vacuous"
+
+    probes = sorted(subviews) + ["/nexus"]
+    resolved_subviews = _js_route_resolver(ROUTER, probes)
+    assert _nexus_subview_dispositions(resolved_subviews) == [], (
+        "recorded `/nexus/<view>` disposition(s) disagree with the resolver: "
+        f"{_nexus_subview_dispositions(resolved_subviews)}"
+    )
+    # `/nexus` itself is an alias, not a gap, so the guard must not claim it.
+    assert "/nexus" not in LEGACY_GAP_DISPOSITIONS
+
+
 # ---------------------------------------------------------------------------
 # Negative controls -- each detector must fire on the defect it names
 # ---------------------------------------------------------------------------
@@ -657,3 +736,35 @@ def test_detector_flags_a_non_map_inbound_family_the_archive_stops_declaring():
     assert not set(ARCHIVE_NON_MAP_INBOUND["exact"]) & _archive_route_keys(ARCHIVE), (
         "control premise: the exact-string family is outside the two route maps"
     )
+
+
+def test_detector_flags_a_nexus_subview_disposition_that_hides_its_resolution():
+    """Negative control: the pre-repair ledger must be reported, and the repaired
+    one must not.
+
+    The defect is not a wrong statement — "backend contract is UNKNOWN" was true —
+    but an incomplete one: it omitted the canonical path the alias now produces, so
+    a reader could not tell a reconciled sub-view from a discarded link. Feeding the
+    detector the exact pre-repair strings must produce one finding per sub-view, and
+    the live ledger must produce none. A detector that is silent on both is not a
+    detector.
+    """
+    subviews = [p for p in LEGACY_GAP_DISPOSITIONS if p.startswith("/nexus/")]
+    resolved = _js_route_resolver(ROUTER, sorted(subviews))
+    assert len(resolved) == len(subviews) == 4, (resolved, subviews)
+
+    pre_repair = {
+        p: "a NovaNet/nexus sub-view whose backend contract is UNKNOWN" for p in subviews
+    }
+    flagged = _nexus_subview_dispositions(resolved, pre_repair)
+    assert len(flagged) == len(subviews), (
+        "the detector did not report every pre-repair disposition: " f"{flagged}"
+    )
+
+    # And the live ledger must be clean under the same detector.
+    assert _nexus_subview_dispositions(resolved) == [], _nexus_subview_dispositions(resolved)
+
+    # A disposition that names a *different* canonical path must also be reported:
+    # the check is the resolver's answer, not merely the presence of a path.
+    wrong_target = {p: f"{v}-elsewhere" for p, v in resolved.items()}
+    assert len(_nexus_subview_dispositions(resolved, wrong_target)) == len(subviews)
