@@ -55,6 +55,7 @@ import {
 import { LabWorkerDispatch } from "./LabWorkerDispatch";
 import { LabBoundedTest } from "./LabBoundedTest";
 import { LabRunTrace } from "./LabRunTrace";
+import type { LabArtifactRecord, LabEvidenceRecord } from "./labRunTrace";
 
 /** Which mutating act is currently awaiting a server response.
  *  Only that act's controls are blocked; the rest of the panel stays readable.
