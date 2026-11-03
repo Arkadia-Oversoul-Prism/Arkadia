@@ -251,3 +251,46 @@ hand-edited.
 Merge, production deployment and acceptance remain human-only. Lane 1 opens its next bounded PR
 only after #614 merges.
 
+
+## Status — 2026-11-03 (LANE 1: sub-view contract binding, no active PR declared)
+
+**Active branch:** `feat/prism-l1-nexus-subview-contract-binding-01` (recorded for provenance only).
+**Active PR:** none declared — this section records the slice's objective; the snapshot below is the judge.
+
+A lane PR cannot declare itself open at merge time: the merge that lands it closes it, so the
+snapshot would contradict live state the instant it merged. This section therefore declares no
+active PR and leaves the lane's status to the derived snapshot.
+
+This is lane 1's next bounded slice, opened from freshly fetched `main` under
+`11 — LANE NEW-PR AUTHORIZATION`. It is **not** a continuation of #614: that PR merged as
+`0c615bda` and its subject (recording *where* each `/nexus` sub-view resolves) is closed. The
+residue #614 left is a different claim.
+
+**Objective.** #614 made each `/nexus/<view>` disposition name the canonical path the alias
+produces, but left the *other* half of the record untouched: every entry still read "a
+NovaNet/nexus sub-view whose backend contract is UNKNOWN". That statement is true and
+**unfalsifiable** — nothing tied it to the backend, so it could survive the route appearing or
+disappearing, and it did not distinguish four genuinely different situations. Measured at `main`
+`46d85e2d`: `/api/ims/` serves 5 paths (with `/api/ims/inquiries` gated on the `x-sovereign-key`
+header), `/api/distribution/` serves 6, and `/api/grove/` and `/api/larder/` serve none. The
+record now states that asymmetry and is bound to the served app.
+
+**Bounded scope.** `tests/test_console_legacy_route_coverage.py` only — lane-1 owned
+(`SHARED-CONTRACTS.md` §1; `scripts/lane_state_refresh.py` lane 1 `paths`). No route, alias,
+surface, or backend contract changed. `_nexus_subview_contract_defects()` parses the family claim
+from the disposition text itself (a present claim, its `No …` negation, and the sovereign-gate
+claim) rather than keeping a second hand-written table, and `_sovereign_gated_paths()` reads the
+gate from `api/main.py` because the served OpenAPI document declares no security scheme at all —
+the schema cannot express a header check inside a handler body.
+
+**Evidence.** Targeted `19 passed` (was 16); a **live** negative control on the real file (restore
+the pre-repair ledger) reddens exactly
+`test_recorded_nexus_subview_contracts_agree_with_the_served_app` and
+`test_the_served_family_claims_are_not_uniformly_true_or_false` (`2 failed, 17 passed`), and the
+file was restored byte-identically; the gate that executes this guard
+(`pytest $(python scripts/console_contract_domain.py)`) reports `1052 passed`; console wiring
+`30 passed`; `tests/architecture` `11 passed`; `scripts/lane_state.py --check` and
+`--check --verify-live` both exit 0.
+
+Merge, production deployment and acceptance remain human-only. Lane 1 opens its next bounded PR
+only after this one merges.
