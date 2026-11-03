@@ -707,6 +707,7 @@ def test_active_mission_workspace_mounts_traceable_review_from_the_canonical_ses
     contract = _read(CONTRACT)
 
     assert 'import { LabRunTrace } from "./LabRunTrace";' in workspace
+    assert 'import type { LabArtifactRecord, LabEvidenceRecord } from "./labRunTrace";' in workspace
     assert 'const [traceView, setTraceView] = useState<LabSessionView | null>(null);' in workspace
     assert 'const [traceState, setTraceState] = useState<EvidencePanelState>("IDLE");' in workspace
     assert "runs?: LabRunRecord[];" in contract
