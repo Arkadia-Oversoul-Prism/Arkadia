@@ -1893,3 +1893,21 @@ Human-only: constitutional changes; identity and authority-model boundaries; K15
   already a separate authorization question (`unassigned_open_prs` is derived and printed but
   judged nowhere; wiring it changes what the gate judges). Zero open PRs was reported as a
   deficit rather than filled with an unverified PR.
+
+## A negative control must carry the field its classifier reads, or it tests the wrong branch (gate-hygiene)
+- Driving `scripts/lane_state.py::_pr_state_findings` with a synthetic `MERGED` record, the first
+  attempt omitted `merged: True` and produced
+  `PR #614 ... has an unrecognised live state 'closed'; classified UNKNOWN, not a pass` — the
+  **UNKNOWN** branch, not the MERGED branch the control existed to exercise. `pr_status` consults
+  `record["merged"]` **before** `record["state"]` because GitHub returns `state == "closed"` for
+  both outcomes; a record carrying only `state` is deliberately classified UNKNOWN. With
+  `merged: True` present the same call returns the MERGED finding. Both outcomes are correct
+  behaviour; only one is the control.
+- **Consequence:** a control that silently lands on the UNKNOWN branch still returns a non-empty
+  finding, so it *looks* like it proved the defect. It proves the classifier is suspicious of
+  malformed input, which is a different property. Read the returned **message**, not its
+  non-emptiness — the two branches share the "a finding came back" shape and differ only in text.
+- Recorded because the first draft of this pass's PR body quoted the MERGED message while the
+  command that produced it had emitted the UNKNOWN one. The quoted evidence was not the measured
+  evidence. Re-run the control against the live function and paste **its** output; the merge commit
+  in the message (`0c615bda`) is also the check that the right record was fed.
