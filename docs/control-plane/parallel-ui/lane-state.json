@@ -1,7 +1,7 @@
 {
  "schema": "arkadia.lane-state/1.2",
- "observed_at": "2026-11-03T02:36:40Z",
- "base_main": "f2a7158f11ade7edeaaa297cef2769a82c6f7ebc",
+ "observed_at": "2026-11-03T17:43:53Z",
+ "base_main": "46d85e2d74df4f5016f54a4ee9c3d994a5bb0c03",
  "source": "GitHub REST reads API (Arkadia-Oversoul-Prism/Arkadia), read-only, derived by scripts/lane_state_refresh.py",
  "note": "Machine-readable mirror of the four Prism UI lane threads, DERIVED from live PR state rather than hand-transcribed. Lane assignment is by exclusive path ownership (SHARED-CONTRACTS.md section 1); a PR touching more than one lane's owned paths appears in each. scripts/lane_state.py judges the docs against this file; --verify-live additionally requires every claimed-open PR to be authoritatively open. Refresh with scripts/lane_state_refresh.py --write.",
  "lanes": {
