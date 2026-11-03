@@ -23,8 +23,11 @@ def _count(sql: str, params: tuple = ()) -> int:
     row = execute_one(sql, params)
     if row is None:
         return 0
-    # execute_one returns a sqlite3.Row; first value is the count
-    return list(row)[0]
+    # execute_one returns a dict keyed by column name. Iterating it yields the
+    # *keys*, so the value must be read positionally — taking list(row)[0]
+    # returned the column name (e.g. "COUNT(*)") and every division below then
+    # raised TypeError, collapsing the whole evaluation to {"overall": "error"}.
+    return int(next(iter(row.values())))
 
 
 # ─────────────────────────────────────────────────────────────────────────────
