@@ -180,3 +180,24 @@ Reconciliation was exhausted before this PR was opened: no eligible merge, no ac
 dependency, no safe bounded repair outstanding, and lane 1 held no open PR — so N1–N8
 are satisfied and no lane's PR was duplicated or continued. Verified live:
 `scripts/lane_state.py --check --verify-live` → exit 0.
+
+## Status — 2026-11-03 (LANE 1, idle; supersedes the #610 pointer above)
+
+**Active thread:** none
+
+PR #610 merged as `6b28ddba`, so the pointer block above names a merged thread and is
+superseded by this declaration, which is the declaration the guard reads (last-wins). Lane 1
+holds **no open PR** again.
+
+This block is a **reconciliation**, not a new slice. Measured at `main` `e67c1faf`: the
+`lane-doc-currency` gate was **red on `main`** (`Lane Doc Currency`, `push` at `6b28ddba`)
+because `lane-state.json` still recorded #610 under lane 1 `open_prs` while the PR was merged,
+and this doc still pointed at it. The snapshot was re-derived with
+`scripts/lane_state_refresh.py --write --base-main e67c1faf0a12a8ba232cfc4f34a39944c29b3553`,
+which moves #610 into `merged_prs` (`6b28ddba`), empties lane 1 `open_prs`, and returns
+`doc_guard: "idle"`.
+
+Lane 1 at zero open PRs is a **deficit**, not a resting state: the next action is to open
+lane 1's next bounded draft PR from freshly fetched `main`, inside the lane's owned paths
+(`SHARED-CONTRACTS.md` §1). Merge, production deployment and acceptance remain human-only.
+
