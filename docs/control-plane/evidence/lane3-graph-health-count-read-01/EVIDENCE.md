@@ -279,3 +279,26 @@ restoring the file byte-identically (``sha256 96df0111…``) returns 12 passed.
 Gate command, executed locally: **35 passed**. With ``tests/test_economic_seam_ci_wiring.py``,
 ``tests/test_m02a_ci_gate_integrity.py`` and ``tests/architecture``: **104 passed**
 (the CP10 allowlist already admits ``tests/**``, so no policy edit was needed).
+
+## 11. Proposed global lesson (not applied — owned by Workstream 1)
+
+`docs/control-plane/parallel-ui/SHARED-CONTRACTS.md` §1 states of `AGENTS.md`: *"Do not duplicate or
+rewrite from feature PRs. Workstream 1 proposes any future global changes separately."* The
+transferable findings from §10 are therefore **recorded here as a proposal**, not applied to
+`AGENTS.md` in this PR. A Lane 3 PR editing a shared root instruction file would breach exclusive
+ownership regardless of how clean the append is.
+
+Proposed text for Workstream 1:
+
+- A new test file can enter a gate domain that is **derived at test time**. The domain's own wiring
+  guard parses each executed module's AST for third-party imports and asserts the job installs them,
+  so a new guard importing an application package (e.g. `fastapi`) into a deliberately stdlib+pytest
+  gate fails with *"executes modules importing X but never installs them"*. The repair is to drop the
+  redundant assertion if an existing file already covers that surface — **not** to widen the install
+  step, which converts a precise signal into a slow one for no coverage gain.
+- A guard's scan domain must be **selectable by the gate that runs it**. An oracle sweeping
+  `knowledge/` *and* `api/` has an input set no path-filtered workflow can select. Bound the domain to
+  what the filter reaches, after confirming no finding is lost.
+- Prove wiring in CI by the **step log**, not the job conclusion: this gate was green on `8442ace4`
+  precisely because it never ran the guard, and the repaired run's log reads `35 passed in 1.44s`
+  naming both files.
