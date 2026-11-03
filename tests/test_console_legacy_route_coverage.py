@@ -429,10 +429,10 @@ def _solariun_lens_absence_defects(
     declared = _declared_lens_ids(SOLARIUN_PAGE) if lens_ids is None else lens_ids
     defects = []
     for legacy, disposition in sorted(ledger.items()):
-        if "does not declare" not in disposition:
-            continue
         claim = re.search(r"Solariun\s+`([a-z-]+)`\s+lens", disposition)
-        if claim is None:
+        if claim is None or not (
+            "does not declare" in disposition or "same absent Solariun" in disposition
+        ):
             continue
         lens = claim.group(1)
         if lens in declared:
@@ -844,11 +844,14 @@ def test_recorded_solariun_lens_absences_agree_with_the_surface_that_declares_le
     claims = {
         path: m.group(1)
         for path, disposition in LEGACY_GAP_DISPOSITIONS.items()
-        if "does not declare" in disposition
+        if "does not declare" in disposition or "same absent Solariun" in disposition
         for m in [re.search(r"Solariun\s+`([a-z-]+)`\s+lens", disposition)]
         if m
     }
-    assert claims, "no Solariun lens-absence claim recorded -- the guard would be vacuous"
+    assert len(claims) == 6, (
+        "all six explicit and alias-form Solariun lens-absence claims must be bound: "
+        f"{sorted(claims.items())}"
+    )
     # Premise: the bound claims really are about lenses the surface does not declare,
     # so the assertion below is not trivially satisfied by an empty intersection.
     assert not (set(claims.values()) & declared), (
@@ -883,6 +886,15 @@ def test_detector_flags_a_solariun_lens_absence_claim_the_surface_contradicts():
         "/personal-echofeild: records the Solariun `observatory` lens as undeclared, "
         "but SolariunPage.tsx declares it"
     ], flagged
+
+    # Alias-form "same absent" records are absence claims too and must be bound.
+    alias_reconciled = dict(LEGACY_GAP_DISPOSITIONS)
+    alias_reconciled["/account"] = "same absent Solariun `knowledge` lens as `/settings`"
+    alias_flagged = _solariun_lens_absence_defects(alias_reconciled, declared)
+    assert alias_flagged == [
+        "/account: records the Solariun `knowledge` lens as undeclared, "
+        "but SolariunPage.tsx declares it"
+    ], alias_flagged
 
     # A mere naming of a present lens is not an absence claim and must not be flagged.
     naming_only = {"/codex": "names the Solariun `knowledge` lens *and* the distinct `knowledge` surface"}
