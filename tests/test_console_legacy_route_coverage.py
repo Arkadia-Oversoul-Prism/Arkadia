@@ -159,20 +159,22 @@ LEGACY_GAP_DISPOSITIONS = {
     "/future-skills": "same absent challenge surface as `/challenge`",
     "/offerings": "the archived Offerings surface has no console surface",
     "/nexus/ims": (
-        "a NovaNet/nexus sub-view whose backend contract is UNKNOWN; the `/nexus` alias "
-        "resolves to /novanet/ims"
+        "a NovaNet/nexus sub-view; the `/nexus` alias resolves to /novanet/ims. A served "
+        "family exists under `/api/ims/`, but its listing route requires the "
+        "`x-sovereign-key` header the console's Bearer-only client cannot present, so the "
+        "read side is not wired"
     ),
     "/nexus/grove": (
-        "a NovaNet/nexus sub-view whose backend contract is UNKNOWN; the `/nexus` alias "
-        "resolves to /novanet/grove"
+        "a NovaNet/nexus sub-view; the `/nexus` alias resolves to /novanet/grove. No served "
+        "family exists under `/api/grove/`, so there is no contract to wire"
     ),
     "/nexus/larder": (
-        "a NovaNet/nexus sub-view whose backend contract is UNKNOWN; the `/nexus` alias "
-        "resolves to /novanet/larder"
+        "a NovaNet/nexus sub-view; the `/nexus` alias resolves to /novanet/larder. No served "
+        "family exists under `/api/larder/`"
     ),
     "/nexus/distribution": (
-        "a NovaNet/nexus sub-view whose backend contract is UNKNOWN; the `/nexus` alias "
-        "resolves to /novanet/distribution"
+        "a NovaNet/nexus sub-view; the `/nexus` alias resolves to /novanet/distribution. A "
+        "served family exists under `/api/distribution/`"
     ),
     "/solspire": (
         "a reserved backend namespace (`api/frontend_routes.py::_RESERVED_PREFIXES`); "
@@ -297,6 +299,77 @@ def _served_paths() -> set[str]:
     from api.main import app
 
     return set(app.openapi()["paths"].keys())
+
+
+def _sovereign_gated_paths() -> set[str]:
+    """Served routes whose handler requires the `x-sovereign-key` header.
+
+    Read from `api/main.py` rather than from the OpenAPI document: the gate is a
+    header check inside the handler body, and the served document declares no
+    security scheme at all, so the schema cannot express it.
+    """
+    text = (ROOT / "api" / "main.py").read_text(encoding="utf-8")
+    gated = set()
+    for match in re.finditer(
+        r'@app\.(?:get|post|put|delete|patch)\("([^"]+)"\)(.*?)(?=@app\.|\Z)',
+        text,
+        re.DOTALL,
+    ):
+        if "x-sovereign-key" in match.group(2):
+            gated.add(match.group(1))
+    return gated
+
+
+def _nexus_subview_contract_defects(
+    served: set[str],
+    sovereign_gated: set[str],
+    dispositions: dict[str, str] | None = None,
+) -> list[str]:
+    """Recorded `/nexus/<view>` backend-contract claims the served app contradicts.
+
+    The four sub-view dispositions previously recorded only that the backend
+    contract was UNKNOWN. That was true and unfalsifiable: nothing tied the record
+    to the backend, so the claim could outlive the route it described. Each now
+    states what was measured, and this detector binds those statements to the
+    served app.
+
+    Two claim forms are parsed from the disposition text itself, so there is no
+    second hand-written table to drift from the ledger:
+
+    * ``served family exists under `/api/<fam>/``` (or its ``No `` negation) —
+      compared against the served route table.
+    * ``x-sovereign-key`` — the family must carry a route whose handler gates on
+      that header.
+
+    A disposition recording no family claim is not judged here; the other guards
+    in this file still hold it to its canonical path.
+    """
+    ledger = LEGACY_GAP_DISPOSITIONS if dispositions is None else dispositions
+    defects = []
+    for legacy, disposition in sorted(ledger.items()):
+        if not legacy.startswith("/nexus/"):
+            continue
+        match = re.search(r"(No )?served family exists under `(/api/[a-z0-9-]+/)`", disposition)
+        if not match:
+            continue
+        family = match.group(2)
+        claimed_present = match.group(1) is None
+        present = any(path.startswith(family) for path in served)
+        if claimed_present != present:
+            defects.append(
+                f"{legacy}: records "
+                f"{'a served family' if claimed_present else 'no served family'} under "
+                f"{family}, but the served route table says "
+                f"{'one exists' if present else 'none exists'}"
+            )
+        if "x-sovereign-key" in disposition:
+            gated = [p for p in served if p.startswith(family) and p in sovereign_gated]
+            if not gated:
+                defects.append(
+                    f"{legacy}: records an `x-sovereign-key` gate under {family}, but no "
+                    f"served route there requires that header"
+                )
+    return defects
 
 
 def _shadowed_backend_routes(paths, served: set[str], reserved: tuple[str, ...]) -> list[str]:
@@ -695,6 +768,54 @@ def test_recorded_nexus_subview_gaps_name_the_path_they_resolve_to():
     assert "/nexus" not in LEGACY_GAP_DISPOSITIONS
 
 
+def test_recorded_nexus_subview_contracts_agree_with_the_served_app():
+    """A recorded sub-view backend-contract claim must match the served route table.
+
+    The four dispositions previously said only that the contract was UNKNOWN. That
+    is unfalsifiable: nothing bound the record to the backend, so the claim could
+    survive the route appearing or disappearing. Each now records what was
+    measured, and this guard binds those statements to the served app.
+
+    Measured on `main` @ `46d85e2d`: `/api/ims/` serves 5 paths and `/api/distribution/`
+    6, while `/api/grove/` and `/api/larder/` serve none — the asymmetry the record
+    now states and this assertion keeps true.
+    """
+    served = _served_paths()
+    assert served, "the served app declares no paths -- the guard would be vacuous"
+
+    claims = {
+        p: d for p, d in LEGACY_GAP_DISPOSITIONS.items() if p.startswith("/nexus/")
+    }
+    assert len(claims) == 4, f"all four sub-view contracts must be bound: {sorted(claims)}"
+    # Premise: the bound claims really do name families, so the assertion below is
+    # not trivially satisfied by a ledger that records no contract at all.
+    assert all("served family exists under" in d for d in claims.values()), sorted(claims.items())
+
+    assert _nexus_subview_contract_defects(served, _sovereign_gated_paths()) == [], (
+        "recorded `/nexus/<view>` backend contract(s) disagree with the served app: "
+        f"{_nexus_subview_contract_defects(served, _sovereign_gated_paths())}"
+    )
+
+
+def test_the_served_family_claims_are_not_uniformly_true_or_false():
+    """Control premise: the claim set must exercise both polarities.
+
+    If every family were claimed present (or every one absent), the binding above
+    could pass while only ever checking one branch. The live ledger must contain at
+    least one present claim and at least one absent claim, or the detector is only
+    half exercised.
+    """
+    claims = {
+        p: d for p, d in LEGACY_GAP_DISPOSITIONS.items() if p.startswith("/nexus/")
+    }
+    present = [p for p, d in claims.items() if "No served family exists under" not in d]
+    absent = [p for p, d in claims.items() if "No served family exists under" in d]
+    assert present and absent, (
+        "the sub-view contract claims do not exercise both polarities: "
+        f"present={sorted(present)} absent={sorted(absent)}"
+    )
+
+
 # ---------------------------------------------------------------------------
 # Negative controls -- each detector must fire on the defect it names
 # ---------------------------------------------------------------------------
@@ -907,3 +1028,56 @@ def test_detector_flags_a_solariun_lens_absence_claim_the_surface_contradicts():
 
     # And the live ledger is clean under the same detector.
     assert _solariun_lens_absence_defects() == [], _solariun_lens_absence_defects()
+
+
+def test_detector_flags_a_nexus_subview_contract_the_served_app_contradicts():
+    """Negative control: a sub-view contract claim must be reported when it is false.
+
+    The defect is not a wrong statement today — every recorded claim holds — but an
+    *unbound* one: the ledger said "backend contract is UNKNOWN" and nothing tied
+    that to the backend, so it could not be contradicted. The detector must fire in
+    both polarities, and the live ledger must produce none.
+
+    Each control flips one claim against the measured served table, so the two
+    directions (claimed present / claimed absent) and the sovereign-gate claim are
+    each exercised. A detector silent on all of them is not a detector.
+    """
+    served = _served_paths()
+    gated = _sovereign_gated_paths()
+
+    # Polarity 1: a family that serves nothing recorded as present.
+    false_present = dict(LEGACY_GAP_DISPOSITIONS)
+    false_present["/nexus/grove"] = "A served family exists under `/api/grove/`"
+    assert _nexus_subview_contract_defects(served, gated, false_present) == [
+        "/nexus/grove: records a served family under /api/grove/, but the served "
+        "route table says none exists"
+    ], _nexus_subview_contract_defects(served, gated, false_present)
+
+    # Polarity 2: a family that does serve recorded as absent.
+    false_absent = dict(LEGACY_GAP_DISPOSITIONS)
+    false_absent["/nexus/distribution"] = "No served family exists under `/api/distribution/`"
+    assert _nexus_subview_contract_defects(served, gated, false_absent) == [
+        "/nexus/distribution: records no served family under /api/distribution/, but "
+        "the served route table says one exists"
+    ], _nexus_subview_contract_defects(served, gated, false_absent)
+
+    # The sovereign-gate half must fire independently: an accurate presence claim
+    # with an invented gate is still a contradiction.
+    false_gate = dict(LEGACY_GAP_DISPOSITIONS)
+    false_gate["/nexus/distribution"] = (
+        "A served family exists under `/api/distribution/`, but its route requires the "
+        "`x-sovereign-key` header"
+    )
+    assert _nexus_subview_contract_defects(served, gated, false_gate) == [
+        "/nexus/distribution: records an `x-sovereign-key` gate under "
+        "/api/distribution/, but no served route there requires that header"
+    ], _nexus_subview_contract_defects(served, gated, false_gate)
+
+    # A disposition that records no family claim is not judged here.
+    no_claim = {"/nexus/ims": "a NovaNet/nexus sub-view; the `/nexus` alias resolves to /novanet/ims"}
+    assert _nexus_subview_contract_defects(served, gated, no_claim) == []
+
+    # And the live ledger is clean under the same detector.
+    assert _nexus_subview_contract_defects(served, gated) == [], (
+        _nexus_subview_contract_defects(served, gated)
+    )
