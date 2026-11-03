@@ -1035,3 +1035,84 @@ No backend, API, identity, authorization, approval enforcement, provenance, Work
 ### Next action
 
 Keep PR #611 open for human review. The next review-boundary implementation must not invent a `VERIFIED` session state or bypass the canonical transition rules; `COMPLETED` remains a human-accepted terminal, and merge/deployment remain separate human decisions.
+
+
+## 17. DEA-01 active mission run-to-evidence trace — 2026-11-03
+
+**Move ID:** `DEA-01-ACTIVE-MISSION-RUN-TRACE-01`  
+**Status:** IMPLEMENTED · CONSOLE CONTRACT PASSED · FRONTEND BUILD PASSED · PR #618 OPEN/DRAFT · NOT MERGED · NOT DEPLOYED · NOT ACCEPTED.
+
+### Baseline and decision
+
+- Fresh `main` baseline at start: `c4814abf757dfab8e81686bbc23cd9503dc13ed3`.
+- PR #611 and PR #617 were already merged before this cycle; the open-pull-request inventory returned **0** before this branch was created.
+- Existing `LabRunTrace` / `buildRunTrace` already projected the canonical session view, but the component was mounted only inside the read-only historical `LabSessionList` detail under Engineering evidence & diagnostics.
+- The active `MissionWorkspace` separately displayed a last-run summary, events, evidence and artifacts. The operator therefore had no single linked run → work-event → evidence → artifact review view inside the active mission.
+
+### Bounded implementation
+
+Reuse the existing pure `LabRunTrace` component and projection in the active mission workspace. The trace is populated only from the existing owner-scoped `GET /api/lab/engineering/sessions/{id}` response.
+
+- Refresh the trace on session-view load/resume/refresh, dispatch settlement and the existing execute-request poll.
+- Require all four canonical collections (runs, events, evidence, artifacts) and their join identifiers before rendering a trace.
+- Preserve distinct `IDLE`, `LOADING`, `LIVE`, `EMPTY`, `UNAVAILABLE`, and `FAILED` states. Missing or malformed collections are unavailable, not an empty success.
+- Bind session-view types to the projection's `LabRunRecord`, `LabEvidenceRecord`, and `LabArtifactRecord` contracts.
+- Reuse the existing API client and read path. No new endpoint, persistence, approval mechanism, tracker, backend route, or authority path.
+
+### Changed files
+
+| Path | Change |
+|---|---|
+| `web/arkadia_console/src/components/lab/MissionWorkspace.tsx` | Mount the existing trace in the active mission; hydrate it only from complete canonical session views; propagate read/poll/resume state and failure truthfully. |
+| `web/arkadia_console/src/components/lab/missionContract.ts` | Type run/evidence/artifact collections against the existing trace record contracts. |
+| `tests/test_lab_mission_workspace_contract.py` | Guard canonical collection validation, trace mounting, state distinctions, polling reuse and absence of a second request path. |
+
+### Commits
+
+- `cc5abe9f22ca4a20bf657c74d2092d3562244e4b` — bind session-view record types.
+- `4f1d0d592d09dd1020fd246cb0923205bcb8e7e7` — mount trace in active mission.
+- `69555698b4909502c2afad0ef0c608b35b42e445` — add integration contract.
+- `fb33f6440c48d15a6503815a0e4b1cae57ae00dc` — add the trace record type imports required by the component (corrected after the first build).
+- `846d098e131ec2efbb3a3b5e438c776a12d8f9da` — assert the type imports in the contract.
+- `7d309bcad943fe412fff895b0192ddfd7c0f97dd` — align the existing evidence-contract assertions with the strengthened types.
+
+### PR
+
+- [PR #618](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/618) — `feat/lab: expose run-to-evidence trace in active mission workspace`.
+- Branch: `feat/dea-01-active-mission-run-trace-01`.
+- Base: `main` at `c4814abf757dfab8e81686bbc23cd9503dc13ed3`.
+- Code/test head verified by the successful console and build workflows: `7d309bcad943fe412fff895b0192ddfd7c0f97dd`.
+- PR remains OPEN and DRAFT. No merge or production deployment.
+
+### Verification (fresh, 2026-11-03)
+
+| Workflow / evidence | Result |
+|---|---|
+| [Prism Console Contract run 41606135153](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41606135153) | **1,049 passed in 49.80s**; CI-wiring guard **30 passed in 6.01s**. |
+| [N-ATLAS Developer Lab run 41606135171](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41606135171) | **All four jobs succeeded:** backend, frontend typecheck/build, canonical Render image build, N-ATLAS self-host image build and smoke test. |
+| [N-ATLAS external beta validation run 41606135164](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41606135164) | **All four jobs succeeded:** English, Hausa, native Arkadia golden workflow, evidence bundle. |
+| [Canonical Render Runtime Probe run 41606135105](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41606135105) | **SUCCESS**, read-only probe only; not production acceptance. |
+| [Security secret scan run 41606135092](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41606135092) | SUCCESS. |
+| [Boot Syntax Boundary run 41606135185](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41606135185) | SUCCESS. |
+| [Operator Console Posture Currency run 41606135139](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41606135139) | SUCCESS. |
+| [Economic Seam Engine run 41606135101](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41606135101) | SUCCESS. |
+| [N-ATLAS provider forensics run 41606135503](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41606135503) | SUCCESS. |
+| [SG-02-FE.2-V run 41606135141](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41606135141) | **IN PROGRESS** at last inspection; CP10-B broader backend regression still running. No CP10 API/browser-route result claimed from this workflow. |
+
+The initial build attempt on the first PR head failed with TypeScript TS2304 because the new record types had not been imported into `MissionWorkspace.tsx`; the import was added in `fb33f644`. The next console-contract run found one existing source assertion still expecting the former generic `Array<Record<string, unknown>>` type; that assertion was updated to the stronger record types in `7d309bca`. The successful build and console-contract results above are from the corrected code/test head, not the superseded failing attempts.
+
+### Remaining acceptance gaps / unknowns
+
+- CP10-B broader backend regression: **IN PROGRESS**; inspect its final raw result before classifying.
+- CP10 API and browser-route gates: **NOT YET VERIFIED in the still-running SG-02 workflow**.
+- Authenticated browser acceptance: **UNKNOWN**.
+- Desktop/mobile visual acceptance: **UNKNOWN**.
+- Preview verification: **UNKNOWN**.
+- Production verification: **NOT PERFORMED**.
+- Human acceptance of the complete Engineering Lab MVP: **PENDING**.
+
+The runtime probe is read-only and does not prove a new deployment or browser acceptance. The authenticated-browser dependency on approved Firebase web configuration and disposable identity inputs is a **historical blocker from the prior evidence section**, not a fresh successful or failed browser test in this move.
+
+### Blocker, recovery and next action
+
+No blocker prevented this bounded read-only UI integration. The remaining acceptance dependency is completion of the CP10-B gate and provision/availability of the approved authenticated-browser test configuration and disposable identity. Next: inspect CP10-B's final output, then CP10 API/browser-route results; keep PR #618 draft and request human review. No backend/approval/identity/provenance/WorkEvent/workspace/K15/K3 boundary was changed.

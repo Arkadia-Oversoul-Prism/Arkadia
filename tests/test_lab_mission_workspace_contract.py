@@ -567,8 +567,8 @@ def test_mission_control_reads_server_evidence_and_artifacts_with_truthful_state
     contract = _read(CONTRACT)
 
     assert "interface LabSessionView" in contract
-    assert "evidence?: Array<Record<string, unknown>>" in contract
-    assert "artifacts?: Array<Record<string, unknown>>" in contract
+    assert "evidence?: LabEvidenceRecord[]" in contract
+    assert "artifacts?: LabArtifactRecord[]" in contract
     assert "Array.isArray(view.evidence)" in workspace
     assert "Array.isArray(view.artifacts)" in workspace
     assert "The session view did not return both evidence and artifact collections." in workspace
@@ -691,3 +691,53 @@ def test_session_state_labels_match_the_canonical_checkpoint_vocabulary():
     assert "VERIFIED" not in ui_states
     assert 'state === "AUTHORIZED" || state === "COMPLETED"' in workspace
     assert 'state === "VERIFIED"' not in workspace
+
+
+
+def test_active_mission_workspace_mounts_traceable_review_from_the_canonical_session_view():
+    """The active mission must expose the existing run/evidence trace, not only the
+    historical read-only session list hidden under diagnostics.
+
+    The trace is available only from a complete server-returned session view.
+    Missing/malformed collections remain UNAVAILABLE; an empty view is distinct
+    from a failed or unavailable read. The component is a pure projection and
+    adds no request, endpoint, store, or authority path.
+    """
+    workspace = _read(WORKSPACE)
+    contract = _read(CONTRACT)
+
+    assert 'import { LabRunTrace } from "./LabRunTrace";' in workspace
+    assert 'import type { LabArtifactRecord, LabEvidenceRecord } from "./labRunTrace";' in workspace
+    assert 'const [traceView, setTraceView] = useState<LabSessionView | null>(null);' in workspace
+    assert 'const [traceState, setTraceState] = useState<EvidencePanelState>("IDLE");' in workspace
+    assert "runs?: LabRunRecord[];" in contract
+    assert "evidence?: LabEvidenceRecord[];" in contract
+    assert "artifacts?: LabArtifactRecord[];" in contract
+
+    apply_start = workspace.index("const applySessionView")
+    refresh_start = workspace.index("const refreshView", apply_start)
+    apply = workspace[apply_start:refresh_start]
+    for collection in ("runs", "events", "evidence", "artifacts"):
+        assert f"Array.isArray(view.{collection})" in apply
+    for identifier in ("run_id", "event_id", "evidence_id", "artifact_id"):
+        assert f"record.{identifier}" in apply
+    assert "setTraceView(completeView)" in apply
+    assert 'setTraceState("UNAVAILABLE")' in apply
+    assert 'setTraceState(hasTraceRecords ? "LIVE" : "EMPTY")' in apply
+
+    refresh_end = workspace.index("useEffect(", refresh_start)
+    refresh = workspace[refresh_start:refresh_end]
+    assert 'setTraceState("LOADING")' in refresh
+    assert "getSessionView(sessionId)" in refresh
+    assert "applySessionView(view)" in refresh
+
+    poll_start = workspace.index("While an execute HTTP request")
+    poll_end = workspace.index("const onResume", poll_start)
+    assert "applySessionView(view)" in workspace[poll_start:poll_end]
+
+    assert '<LabRunTrace view={traceView} />' in workspace
+    assert 'data-testid="mission-trace-review"' in workspace
+    assert "Run-to-evidence trace unavailable" in workspace
+    assert "Loading runs, work events, evidence and artifacts" in workspace
+    assert "Run-to-evidence trace read failed" in workspace
+    assert "apiRequest(" not in workspace

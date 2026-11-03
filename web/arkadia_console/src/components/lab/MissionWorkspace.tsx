@@ -54,6 +54,8 @@ import {
 } from "./missionContract";
 import { LabWorkerDispatch } from "./LabWorkerDispatch";
 import { LabBoundedTest } from "./LabBoundedTest";
+import { LabRunTrace } from "./LabRunTrace";
+import type { LabArtifactRecord, LabEvidenceRecord } from "./labRunTrace";
 
 /** Which mutating act is currently awaiting a server response.
  *  Only that act's controls are blocked; the rest of the panel stays readable.
@@ -98,15 +100,15 @@ function classifyEvidenceFailure(error: unknown): EvidencePanelState {
   return "FAILED";
 }
 
-function recordText(record: Record<string, unknown>, key: string, fallback = "—"): string {
-  const value = record[key];
+function recordText(record: object, key: string, fallback = "—"): string {
+  const value = (record as Record<string, unknown>)[key];
   if (typeof value === "string" && value.trim()) return value;
   if (typeof value === "number" || typeof value === "boolean") return String(value);
   return fallback;
 }
 
-function recordJson(record: Record<string, unknown>, key: string, fallback: string): string {
-  const value = record[key];
+function recordJson(record: object, key: string, fallback: string): string {
+  const value = (record as Record<string, unknown>)[key];
   if (value === undefined || value === null) return fallback;
   try {
     const encoded = JSON.stringify(value);
@@ -146,10 +148,13 @@ export function MissionWorkspace() {
   const [run, setRun] = useState<LabRunResult | null>(null);
   const [steps, setSteps] = useState<StepRecord[]>([]);
   const [backendEvents, setBackendEvents] = useState<LabEvent[]>([]);
-  const [sessionEvidence, setSessionEvidence] = useState<Array<Record<string, unknown>>>([]);
-  const [sessionArtifacts, setSessionArtifacts] = useState<Array<Record<string, unknown>>>([]);
+  const [sessionEvidence, setSessionEvidence] = useState<LabEvidenceRecord[]>([]);
+  const [sessionArtifacts, setSessionArtifacts] = useState<LabArtifactRecord[]>([]);
   const [evidenceState, setEvidenceState] = useState<EvidencePanelState>("IDLE");
   const [evidenceError, setEvidenceError] = useState<string | null>(null);
+  const [traceView, setTraceView] = useState<LabSessionView | null>(null);
+  const [traceState, setTraceState] = useState<EvidencePanelState>("IDLE");
+  const [traceError, setTraceError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   /** A retained session this operator could resume, if the server still serves
@@ -168,6 +173,9 @@ export function MissionWorkspace() {
   /** Apply only the canonical session-view response; evidence is never synthesized locally. */
   const applySessionView = useCallback((view: LabSessionView) => {
     if (!view.session) {
+      setTraceView(null);
+      setTraceState("UNAVAILABLE");
+      setTraceError("The session-view response did not include a session.");
       setEvidenceState("UNAVAILABLE");
       setEvidenceError("The session-view response did not include a session.");
       setBackendEvents(view.events ?? []);
@@ -177,6 +185,47 @@ export function MissionWorkspace() {
     }
     setSession(view.session);
     setBackendEvents(view.events ?? []);
+
+    // The active review trace is available only when every canonical collection
+    // is present and its records carry the identifiers the projection joins on.
+    const traceRuns = Array.isArray(view.runs) ? view.runs : null;
+    const traceEvents = Array.isArray(view.events) ? view.events : null;
+    const traceEvidence = Array.isArray(view.evidence) ? view.evidence : null;
+    const traceArtifacts = Array.isArray(view.artifacts) ? view.artifacts : null;
+    const traceCollectionsComplete =
+      traceRuns !== null &&
+      traceEvents !== null &&
+      traceEvidence !== null &&
+      traceArtifacts !== null &&
+      traceRuns.every((record) => typeof record.run_id === "string" && record.run_id.length > 0) &&
+      traceEvents.every((record) => typeof record.event_id === "string" && record.event_id.length > 0) &&
+      traceEvidence.every((record) => typeof record.evidence_id === "string" && record.evidence_id.length > 0) &&
+      traceArtifacts.every((record) => typeof record.artifact_id === "string" && record.artifact_id.length > 0);
+
+    if (!traceCollectionsComplete) {
+      setTraceView(null);
+      setTraceState("UNAVAILABLE");
+      setTraceError(
+        "The canonical session view omitted or malformed one or more collections required for run-to-evidence review.",
+      );
+    } else {
+      const completeView: LabSessionView = {
+        ...view,
+        runs: traceRuns,
+        events: traceEvents,
+        evidence: traceEvidence,
+        artifacts: traceArtifacts,
+      };
+      setTraceView(completeView);
+      const hasTraceRecords =
+        traceRuns.length > 0 ||
+        traceEvents.length > 0 ||
+        traceEvidence.length > 0 ||
+        traceArtifacts.length > 0;
+      setTraceState(hasTraceRecords ? "LIVE" : "EMPTY");
+      setTraceError(null);
+    }
+
     const hasEvidenceCollection = Array.isArray(view.evidence);
     const hasArtifactCollection = Array.isArray(view.artifacts);
     if (!hasEvidenceCollection && !hasArtifactCollection) {
@@ -184,7 +233,7 @@ export function MissionWorkspace() {
       setSessionArtifacts([]);
       setEvidenceState("UNAVAILABLE");
       setEvidenceError("The session view did not return both evidence and artifact collections.");
-      return view;
+      return;
     }
     const evidence = Array.isArray(view.evidence) ? view.evidence : [];
     const artifacts = Array.isArray(view.artifacts) ? view.artifacts : [];
@@ -197,13 +246,15 @@ export function MissionWorkspace() {
         ? "The session view omitted one or more evidence collections; only returned records are shown."
         : null,
     );
-    return view;
   }, []);
 
   /** Pull the session view so the timeline and evidence panel reflect server records. */
   const refreshView = useCallback(async (sessionId: string) => {
     setEvidenceState("LOADING");
     setEvidenceError(null);
+    setTraceState("LOADING");
+    setTraceError(null);
+    setTraceView(null);
     try {
       const view = await getSessionView(sessionId);
       applySessionView(view);
@@ -215,6 +266,9 @@ export function MissionWorkspace() {
     } catch (e) {
       setEvidenceState(classifyEvidenceFailure(e));
       setEvidenceError(describeError(e));
+      setTraceView(null);
+      setTraceState(classifyEvidenceFailure(e));
+      setTraceError(describeError(e));
       throw e;
     }
   }, [applySessionView]);
@@ -260,8 +314,7 @@ export function MissionWorkspace() {
       try {
         const view = await getSessionView(sessionId);
         if (cancelled || executePollGeneration.current !== generation) return;
-        if (view.session) setSession(view.session);
-        setBackendEvents(view.events ?? []);
+        applySessionView(view);
         const runs = view.runs ?? [];
         if (runs.length > 0) {
           const last = runs[runs.length - 1] as unknown as LabRunResult;
@@ -281,7 +334,7 @@ export function MissionWorkspace() {
       cancelled = true;
       window.clearInterval(handle);
     };
-  }, [activeAction, session?.session_id]);
+  }, [activeAction, session?.session_id, applySessionView]);
 
   const onResume = useCallback(async () => {
     if (!uid || !resumable) return;
@@ -289,6 +342,9 @@ export function MissionWorkspace() {
     setError(null);
     setEvidenceState("LOADING");
     setEvidenceError(null);
+    setTraceState("LOADING");
+    setTraceError(null);
+    setTraceView(null);
     try {
       const view = await getSessionView(resumable.session_id);
       applySessionView(view);
@@ -325,6 +381,9 @@ export function MissionWorkspace() {
       setError(detail);
       setEvidenceState(classifyEvidenceFailure(e));
       setEvidenceError(detail);
+      setTraceView(null);
+      setTraceState(classifyEvidenceFailure(e));
+      setTraceError(detail);
       forgetMissionSession(uid);
       setResumable(null);
       note("Resume failed", detail, false);
@@ -350,6 +409,9 @@ export function MissionWorkspace() {
     setSessionArtifacts([]);
     setEvidenceState("IDLE");
     setEvidenceError(null);
+    setTraceView(null);
+    setTraceState("IDLE");
+    setTraceError(null);
     setError(null);
   }, [uid]);
 
@@ -748,6 +810,41 @@ export function MissionWorkspace() {
         />
       ) : null}
 
+
+      {session ? (
+        <div data-testid="mission-trace-review">
+          {traceState === "IDLE" ? (
+            <Panel>
+              <p className="text-xs text-white/40">Run-to-evidence trace has not been loaded for this session.</p>
+            </Panel>
+          ) : null}
+          {traceState === "LOADING" ? (
+            <Panel>
+              <p className="text-xs text-white/40" aria-live="polite">
+                Loading runs, work events, evidence and artifacts from the canonical session view…
+              </p>
+            </Panel>
+          ) : null}
+          {traceState === "UNAVAILABLE" ? (
+            <Panel>
+              <p className="text-xs text-amber-200/80">
+                Run-to-evidence trace unavailable. The canonical session view did not supply every required collection;
+                no local substitute is shown.{traceError ? ` ${traceError}` : ""}
+              </p>
+            </Panel>
+          ) : null}
+          {traceState === "FAILED" ? (
+            <Panel>
+              <p className="text-xs text-red-300">
+                Run-to-evidence trace read failed: {traceError ?? "failure detail unavailable"}. No local substitute is shown.
+              </p>
+            </Panel>
+          ) : null}
+          {(traceState === "LIVE" || traceState === "EMPTY") && traceView ? (
+            <LabRunTrace view={traceView} />
+          ) : null}
+        </div>
+      ) : null}
 
       {steps.length > 0 ? (
         <Panel>

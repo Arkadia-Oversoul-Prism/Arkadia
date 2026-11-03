@@ -19,6 +19,7 @@
  */
 import { apiRequest } from "../../lib/apiClient";
 import { endpoints, labSession } from "../../lib/endpoints";
+import type { LabArtifactRecord, LabEvidenceRecord, LabRunRecord } from "./labRunTrace";
 
 /**
  * A mutating sub-resource of a declared Lab session collection.
@@ -328,10 +329,10 @@ export function getGatewayView(): Promise<LabGatewayView> {
 export interface LabSessionView {
   session: LabSession;
   agent?: LabAgent;
-  runs?: Array<Record<string, unknown>>;
+  runs?: LabRunRecord[];
   events?: LabEvent[];
-  evidence?: Array<Record<string, unknown>>;
-  artifacts?: Array<Record<string, unknown>>;
+  evidence?: LabEvidenceRecord[];
+  artifacts?: LabArtifactRecord[];
   loop?: string[];
   reached_review_boundary?: boolean;
   human_decision_required?: boolean;
