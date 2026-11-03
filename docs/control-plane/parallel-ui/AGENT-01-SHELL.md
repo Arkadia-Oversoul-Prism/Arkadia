@@ -201,3 +201,50 @@ Lane 1 at zero open PRs is a **deficit**, not a resting state: the next action i
 lane 1's next bounded draft PR from freshly fetched `main`, inside the lane's owned paths
 (`SHARED-CONTRACTS.md` §1). Merge, production deployment and acceptance remain human-only.
 
+## Status — 2026-11-03 (LANE 1, active: #614; supersedes the idle declaration above)
+
+**Active branch:** `feat/prism-l1-nexus-subview-disposition-01`
+**Active PR:** [#614](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/614) — draft, opened
+from base `f2a7158f11ade7edeaaa297cef2769a82c6f7ebc`; its opening head was
+`eb6087119522c72578a7b2f2e7d847c424feb420`. The tip moves as the slice is appended to, so this
+names the opening head rather than claiming a current one — read the live head from the PR.
+
+The idle declaration above is superseded by this one, which is the declaration the guard reads
+(last-wins). Lane 1 again holds **one** open draft PR, so it is no longer a deficit.
+
+This is the **continuation** the idle block called for — lane 1's next bounded slice, opened from
+freshly fetched `main` under `11 — LANE NEW-PR AUTHORIZATION`. It is not a continuation of #610:
+that PR merged as `6b28ddba` and its subject (route-map record currency) is closed.
+
+**Objective.** The four archived hub sub-views recorded as gaps in
+`tests/test_console_legacy_route_coverage.py::LEGACY_GAP_DISPOSITIONS` (`/nexus/ims`,
+`/nexus/grove`, `/nexus/larder`, `/nexus/distribution`) each said only *"a NovaNet/nexus sub-view
+whose backend contract is UNKNOWN"*. That is true and incomplete: the `/nexus` alias branch carries
+a single remainder segment, so each path resolves to its NovaNet section and renders that surface's
+own `NotYetWired` state. Measured at `main` `f2a7158f`: `resolvePath('/nexus/ims')` → `/novanet/ims`
+while the ledger named no canonical path, and **no existing guard fired** because both halves were
+true. A reader could not distinguish a reconciled sub-view from a discarded link.
+
+**Bounded scope.** `tests/test_console_legacy_route_coverage.py` only — lane-1 owned
+(`SHARED-CONTRACTS.md` §1; `scripts/lane_state_refresh.py` lane 1 `paths`). No route, alias,
+surface, or backend contract changed; the record now matches the router. The disposition entries
+name the canonical path, and `_nexus_subview_dispositions()` compares the record against the
+resolver's own answer so the ledger cannot drift from the router. The canonical path is matched as
+a whole path token, not a substring — the first cut accepted `/novanet/distribution-elsewhere` and
+its own negative control caught it.
+
+**Evidence bound to `eb608711`.** Targeted `14 passed` (was 12); a **live** negative control
+(revert the ledger to the pre-repair strings) yields `2 failed, 12 passed`, and the file was
+restored byte-identically; the gate that executes this guard
+(`pytest $(python scripts/console_contract_domain.py)`) reports `1046 passed`; architecture +
+console wiring `41 passed`; adjacent lane-1 guards `83 passed`; `scripts/lane_state.py --check`
+exit 0.
+
+**Snapshot.** Re-derived with
+`scripts/lane_state_refresh.py --write --base-main f2a7158f11ade7edeaaa297cef2769a82c6f7ebc`,
+which returns lane 1 `doc_guard: "current"` with `active_pr: 614`. The snapshot is derived, not
+hand-edited.
+
+Merge, production deployment and acceptance remain human-only. Lane 1 opens its next bounded PR
+only after #614 merges.
+

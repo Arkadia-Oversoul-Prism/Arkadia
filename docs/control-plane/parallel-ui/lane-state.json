@@ -1,16 +1,25 @@
 {
  "schema": "arkadia.lane-state/1.2",
- "observed_at": "2026-11-03T00:18:03Z",
- "base_main": "e67c1faf0a12a8ba232cfc4f34a39944c29b3553",
+ "observed_at": "2026-11-03T02:36:40Z",
+ "base_main": "f2a7158f11ade7edeaaa297cef2769a82c6f7ebc",
  "source": "GitHub REST reads API (Arkadia-Oversoul-Prism/Arkadia), read-only, derived by scripts/lane_state_refresh.py",
  "note": "Machine-readable mirror of the four Prism UI lane threads, DERIVED from live PR state rather than hand-transcribed. Lane assignment is by exclusive path ownership (SHARED-CONTRACTS.md section 1); a PR touching more than one lane's owned paths appears in each. scripts/lane_state.py judges the docs against this file; --verify-live additionally requires every claimed-open PR to be authoritatively open. Refresh with scripts/lane_state_refresh.py --write.",
  "lanes": {
   "1": {
    "doc": "AGENT-01-SHELL.md",
    "title": "Shell / navigation / design system / integration seam",
-   "active_pr": null,
-   "active_branch": null,
-   "open_prs": [],
+   "active_pr": 614,
+   "active_branch": "feat/prism-l1-nexus-subview-disposition-01",
+   "open_prs": [
+    {
+     "number": 614,
+     "branch": "feat/prism-l1-nexus-subview-disposition-01",
+     "head_sha": "eb6087119522c72578a7b2f2e7d847c424feb420",
+     "draft": true,
+     "updated_at": "2026-11-03T02:36:03Z",
+     "title": "Lane 1: record where the /nexus sub-view gaps resolve, and guard the record"
+    }
+   ],
    "merged_prs": [
     {
      "number": 423,
@@ -41,7 +50,7 @@
      "merge_commit_sha": "6b28ddba0f573fda190d77f14d8c740a98581515"
     }
    ],
-   "doc_guard": "idle"
+   "doc_guard": "current"
   },
   "2": {
    "doc": "AGENT-02-NOVANET-OPPORTUNITY.md",
