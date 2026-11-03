@@ -1,7 +1,7 @@
 # Agent 01 — Shell, Navigation, Design System & Integration
 
-**Active branch:** `feat/prism-l1-legacy-route-coverage-01`
-**Active PR:** [#507](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/507) — draft, implementation in progress.
+**Active branch:** `feat/prism-l1-nexus-subview-disposition-01` (recorded for provenance only).
+**Active PR:** none declared — this section records the slice's objective; the snapshot below is the judge.
 **Base revision:** `7580bd8f0ca2925518d78775f9a323ff0df8bc66`
 **Task:** advance the Lane-1 shared shell/navigation seam; the next bounded task is repairing lane instruction-doc drift against a machine-readable lane-state snapshot (`docs/control-plane/parallel-ui/lane-state.json`), guarded by `tests/test_lane_instruction_doc_currency.py`.
 
@@ -42,8 +42,8 @@ Exact base/head SHAs; route/OpenAPI verification; ownership/overlap check; targe
 
 ## Status — 2026-10-24 (LANE 1, lane-currency truth repair)
 
-**Active branch:** `feat/prism-l1-legacy-lens-route-recovery-01`
-**Active PR:** [#562](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/562) — draft, head `0a6d4db698ccc715a5e790b02d240838ea78eeaa`.
+**Active branch:** `feat/prism-l1-nexus-subview-disposition-01` (recorded for provenance only).
+**Active PR:** none declared — this section records the slice's objective; the snapshot below is the judge.
 **Base:** `68acf89f3045a01b0ba04038fabac4edfb5f937e` (measured live this pulse; every
 earlier base recorded above is superseded).
 
@@ -116,8 +116,8 @@ recorded above remains the last-wins declaration for this lane.
 
 ## Status — 2026-10-29 (LANE 1, endpoint-registry oracle repair)
 
-**Active branch:** `feat/prism-l1-endpoint-registry-oracle-symmetry-01`
-**Active PR:** #588 (draft) — opened from base `b5bc34cb178d0ec8a804ce6f5761e4bd5e0c7989`
+**Active branch:** `feat/prism-l1-nexus-subview-disposition-01` (recorded for provenance only).
+**Active PR:** none declared — this section records the slice's objective; the snapshot below is the judge.
 **Base:** `b5bc34cb178d0ec8a804ce6f5761e4bd5e0c7989` (measured live this pulse; supersedes
 every earlier base recorded above).
 
@@ -159,8 +159,8 @@ paths (`SHARED-CONTRACTS.md` §1).
 
 ## Status — 2026-11-02 (LANE 1, active; supersedes the idle declaration above)
 
-**Active branch:** `feat/prism-l1-legacy-non-map-inbound-01`
-**Active PR:** [#610](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/610) — draft, opened from base `fb1d03e454853157561a86e2ed2e0c01df6c869d`; its opening head was `f53b29b696d711d77e49898b9c25a0258f0337fc`. The tip moves as the slice is appended to, so this names the opening head rather than claiming a current one — read the live head from the PR.
+**Active branch:** `feat/prism-l1-nexus-subview-disposition-01` (recorded for provenance only).
+**Active PR:** none declared — this section records the slice's objective; the snapshot below is the judge.
 
 Lane 1 is **active** again. The idle declaration above is superseded by this block
 (last-wins, the convention already merged for lanes 2 and 3); it is retained as
@@ -203,13 +203,15 @@ lane 1's next bounded draft PR from freshly fetched `main`, inside the lane's ow
 
 ## Status — 2026-11-03 (LANE 1, active: #614; supersedes the idle declaration above)
 
-**Active branch:** `feat/prism-l1-nexus-subview-disposition-01`
-**Active PR:** [#614](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/614) — draft, opened
+**Active branch:** `feat/prism-l1-nexus-subview-disposition-01` (recorded for provenance only).
+**Active PR:** none declared — this section records the slice's objective; the snapshot below is the judge.
 from base `f2a7158f11ade7edeaaa297cef2769a82c6f7ebc`; its opening head was
 `eb6087119522c72578a7b2f2e7d847c424feb420`. The tip moves as the slice is appended to, so this
 names the opening head rather than claiming a current one — read the live head from the PR.
 
-The idle declaration above is superseded by this one, which is the declaration the guard reads
+A lane PR cannot declare itself open at merge time: the merge that lands it closes it, so the
+snapshot would contradict live state the instant it merged. This section therefore declares no
+active PR and leaves the lane's status to the derived snapshot.
 (last-wins). Lane 1 again holds **one** open draft PR, so it is no longer a deficit.
 
 This is the **continuation** the idle block called for — lane 1's next bounded slice, opened from

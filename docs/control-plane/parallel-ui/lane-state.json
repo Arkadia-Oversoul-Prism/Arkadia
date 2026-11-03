@@ -8,18 +8,9 @@
   "1": {
    "doc": "AGENT-01-SHELL.md",
    "title": "Shell / navigation / design system / integration seam",
-   "active_pr": 614,
-   "active_branch": "feat/prism-l1-nexus-subview-disposition-01",
-   "open_prs": [
-    {
-     "number": 614,
-     "branch": "feat/prism-l1-nexus-subview-disposition-01",
-     "head_sha": "eb6087119522c72578a7b2f2e7d847c424feb420",
-     "draft": true,
-     "updated_at": "2026-11-03T02:36:03Z",
-     "title": "Lane 1: record where the /nexus sub-view gaps resolve, and guard the record"
-    }
-   ],
+   "active_pr": null,
+   "active_branch": null,
+   "open_prs": [],
    "merged_prs": [
     {
      "number": 423,
@@ -50,7 +41,7 @@
      "merge_commit_sha": "6b28ddba0f573fda190d77f14d8c740a98581515"
     }
    ],
-   "doc_guard": "current"
+   "doc_guard": "idle"
   },
   "2": {
    "doc": "AGENT-02-NOVANET-OPPORTUNITY.md",
