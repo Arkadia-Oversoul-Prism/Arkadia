@@ -508,7 +508,8 @@ def test_bounded_test_uses_the_execute_route_and_does_not_send_a_command():
     assert "namedOperations={null}" in mount.group(0), (
         "the client must not reconstruct authorization terms the server does not return"
     )
-    assert "onSettled={() => refreshView(session.session_id)}" in mount.group(0)
+    assert "activeSessionIdRef.current === session.session_id" in mount.group(0)
+    assert "refreshView(session.session_id)" in mount.group(0)
 
 
 def test_resume_restores_server_intent_and_scoped_local_target_hint():
@@ -639,7 +640,10 @@ def test_worker_dispatch_reconciles_canonical_session_view_after_settlement():
 
     assert "onSettled: () => Promise<void>" in dispatch
     assert "await onSettled();" in dispatch
-    assert "onSettled={() => refreshView(session.session_id)}" in workspace
+    dispatch_mount = re.search(r"<LabWorkerDispatch\b[\s\S]*?/>", workspace)
+    assert dispatch_mount
+    assert "activeSessionIdRef.current === session.session_id" in dispatch_mount.group(0)
+    assert "refreshView(session.session_id)" in dispatch_mount.group(0)
 
     refresh_start = workspace.index("const refreshView = useCallback")
     refresh_end = workspace.index("}, [applySessionView]);", refresh_start)
