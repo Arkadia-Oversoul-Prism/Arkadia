@@ -757,12 +757,12 @@ def test_operation_panels_are_scoped_to_the_active_mission():
     setter = workspace[setter_start:setter_end]
     assert "activeSessionIdRef.current = next?.session_id ?? null;" in setter
     assert "setSession(next);" in setter
-    assert len(re.findall(r"\\bsetSession\\(", workspace)) == 1, (
+    assert len(re.findall(r"\bsetSession\(", workspace)) == 1, (
         "all session changes must pass through the ref-synchronizing setter"
     )
 
     for component in ("LabWorkerDispatch", "LabBoundedTest"):
-        mount = re.search(rf"<{component}\\b[\\s\\S]*?/>", workspace)
+        mount = re.search(rf"<{component}\b[\s\S]*?/>", workspace)
         assert mount, f"{component} must remain mounted in Mission Control"
         assert "key={session.session_id}" in mount.group(0), (
             f"{component} local results must reset when the active session changes"
