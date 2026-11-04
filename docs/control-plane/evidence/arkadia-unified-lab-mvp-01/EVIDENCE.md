@@ -1147,7 +1147,7 @@ This is a source-established lifecycle defect; no authenticated browser reproduc
 ### Changed paths and revisions
 
 - `web/arkadia_console/src/components/lab/MissionWorkspace.tsx` — commit `fbfff2d8e224bbc0f4c78bbaebde1718d2a705f8`.
-- `tests/test_lab_mission_workspace_contract.py` — commit `e55b3bfb71121860b4031bb8c25be55d239bc8fb`.
+- `tests/test_lab_mission_workspace_contract.py` — initial test commit `e55b3bfb71121860b4031bb8c25be55d239bc8fb`, matcher correction `2c1e9be812d3860026f6f255aa75924f9b85a8a6`, final source/test head `775ac93dd6d13b417d78a6192373a4d6788ba49e`.
 - This evidence record is updated in the following evidence-only commit.
 
 ### Verification and limitations
@@ -1160,4 +1160,22 @@ This is a source-established lifecycle defect; no authenticated browser reproduc
 ### Next action
 
 Open one focused draft PR from the current `main` base, inspect the complete diff, and use its current-head checks to establish the regression test and build result. Do not overlap #620 or the other lane PRs.
+
+### Verification update — 2026-11-04T08:55Z
+
+**PR:** [#622 — keep operation results scoped to the active mission](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/622) — OPEN, DRAFT, not merged.  
+**Verified source/test head:** `775ac93dd6d13b417d78a6192373a4d6788ba49e` (four commits ahead of `main` `46d85e2d74df4f5016f54a4ee9c3d994a5bb0c03`, zero behind).
+
+| Evidence | Result |
+|---|---|
+| Prism Console Contract [run 41803027480](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41803027480) | **1,050 passed in 32.05s**; CI-wiring guard **30 passed in 3.66s**. Includes the new session-scoping contract. |
+| N-ATLAS Developer Lab [run 41803027659](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41803027659) | Frontend typecheck/build, backend, canonical Render image build and N-ATLAS self-host image build/smoke test all **success**. |
+| Canonical Render Runtime Probe [run 41803027552](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41803027552) | **Success**, read-only probe; not deployment or browser acceptance. |
+| Security secret scan [run 41803027597](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41803027597) | **Success**. |
+| N-ATLAS external beta validation [run 41803027635](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41803027635) | **Failure outside this UI diff**: English beta passed; Hausa beta produced `RUN_FAILED` because the external runtime returned no usable inference (empty error list); evidence bundling then failed because the Hausa artifact status was FAILED. No retry performed. |
+| SG-02-FE.2-V [run 41803027501](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41803027501) | CP10-A and SolSpire integration steps passed; CP10-B broader backend regression still **in progress** at this observation. API and browser steps have not yet completed. |
+
+At this observation the PR head had **12 successful checks, 2 failed external-beta checks, 1 skipped native-golden job, and 1 in-progress SG-02 validation job**. The external-beta failures are not evidence of a failure in the changed MissionWorkspace paths, but they remain visible and are not called green.
+
+Authenticated browser acceptance, responsive desktop/mobile visual acceptance, preview verification and production verification remain **UNKNOWN / NOT PERFORMED**. No production deployment or merge.
 
