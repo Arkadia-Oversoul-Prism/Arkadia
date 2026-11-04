@@ -741,3 +741,33 @@ def test_active_mission_workspace_mounts_traceable_review_from_the_canonical_ses
     assert "Loading runs, work events, evidence and artifacts" in workspace
     assert "Run-to-evidence trace read failed" in workspace
     assert "apiRequest(" not in workspace
+
+def test_operation_panels_are_scoped_to_the_active_mission():
+    """A result from one session must not appear under another mission.
+
+    The panel instances are keyed by canonical session id, and late settlement
+    from an unmounted panel may refresh only the session that is still active.
+    Every session update also synchronizes the ref used by that guard.
+    """
+    workspace = _read(WORKSPACE)
+
+    assert "const activeSessionIdRef = useRef<string | null>(null);" in workspace
+    setter_start = workspace.index("const setActiveSession = useCallback(")
+    setter_end = workspace.index("}, []);", setter_start) + len("}, []);")
+    setter = workspace[setter_start:setter_end]
+    assert "activeSessionIdRef.current = next?.session_id ?? null;" in setter
+    assert "setSession(next);" in setter
+    assert len(re.findall(r"\\bsetSession\\(", workspace)) == 1, (
+        "all session changes must pass through the ref-synchronizing setter"
+    )
+
+    for component in ("LabWorkerDispatch", "LabBoundedTest"):
+        mount = re.search(rf"<{component}\\b[\\s\\S]*?/>", workspace)
+        assert mount, f"{component} must remain mounted in Mission Control"
+        assert "key={session.session_id}" in mount.group(0), (
+            f"{component} local results must reset when the active session changes"
+        )
+        assert "activeSessionIdRef.current === session.session_id" in mount.group(0), (
+            f"{component} late settlement must not refresh a superseded session"
+        )
+
