@@ -1116,3 +1116,86 @@ The runtime probe is read-only and does not prove a new deployment or browser ac
 ### Blocker, recovery and next action
 
 No blocker prevented this bounded read-only UI integration. The remaining acceptance dependency is completion of the CP10-B gate and provision/availability of the approved authenticated-browser test configuration and disposable identity. Next: inspect CP10-B's final output, then CP10 API/browser-route results; keep PR #618 draft and request human review. No backend/approval/identity/provenance/WorkEvent/workspace/K15/K3 boundary was changed.
+
+## 18. DEA-01 session-scoped operation panels — 2026-11-04
+
+**Move ID:** `DEA-01-SESSION-SCOPED-OPERATION-STATE-01`  
+**Status at record time:** IMPLEMENTED IN BRANCH · TARGETED VERIFICATION PENDING · PR NOT YET OPEN · NOT MERGED · NOT DEPLOYED.
+
+### Fresh repository reconstruction
+
+- Current `main`: `46d85e2d74df4f5016f54a4ee9c3d994a5bb0c03` (observed from the live branch ref and commit list).
+- Previous move PR #618 is now **MERGED** at that SHA (2026-11-03T10:20:46Z); its former open/draft status in section 17 is historical and superseded.
+- Open PRs at inspection: #619 (Lane 1), #620 (Lane 4 trace-linkage identity), and #621 (Lane 3 graph-health). #620 changes `LabRunTrace.tsx` and its own guard, not the MissionWorkspace/panel lifecycle paths changed here.
+- Existing mission evidence record reused; no new tracker or database created.
+
+### Defect
+
+`MissionWorkspace` mounted `LabWorkerDispatch` and `LabBoundedTest` without session keys. Both children own session-specific result/error state. When the active session changed, React could preserve the same child instances and therefore retain the previous session's dispatch/test result under the new mission.
+
+Their `onSettled` callbacks also captured the session id from the render that created them. A late response from a superseded panel could call `refreshView(oldSessionId)`; the canonical response then updates the parent active session, potentially replacing the operator's newer mission with the older one.
+
+This is a source-established lifecycle defect; no authenticated browser reproduction is claimed.
+
+### Bounded repair
+
+- Added a ref-synchronized `setActiveSession` wrapper and routed every `setSession` update through it.
+- Keyed both operation panels by `session.session_id`, so local results and request state are reset when the active mission changes.
+- Guarded each settlement callback against the current session id; a late response from an old panel cannot refresh/reselect its superseded session.
+- Preserved existing execute/dispatch routes, authorization, approval, persistence, WorkEvent, provenance and canonical API boundaries. No backend change.
+
+### Changed paths and revisions
+
+- `web/arkadia_console/src/components/lab/MissionWorkspace.tsx` — commit `fbfff2d8e224bbc0f4c78bbaebde1718d2a705f8`.
+- `tests/test_lab_mission_workspace_contract.py` — initial test commit `e55b3bfb71121860b4031bb8c25be55d239bc8fb`, matcher correction `2c1e9be812d3860026f6f255aa75924f9b85a8a6`, final source/test head `775ac93dd6d13b417d78a6192373a4d6788ba49e`.
+- This evidence record is updated in the following evidence-only commit.
+
+### Verification and limitations
+
+- A regression contract was added: `test_operation_panels_are_scoped_to_the_active_mission`.
+- Targeted pytest, console-contract CI, frontend typecheck/build, PR checks and preview are **PENDING** at the time this section is written; no pass is claimed yet.
+- Authenticated browser reproduction, desktop/mobile visual verification, preview verification and production verification remain **UNKNOWN / NOT PERFORMED**.
+- No merge, production deployment, credentials/configuration, protected-boundary or Notion change.
+
+### Next action
+
+Open one focused draft PR from the current `main` base, inspect the complete diff, and use its current-head checks to establish the regression test and build result. Do not overlap #620 or the other lane PRs.
+
+### Verification update — 2026-11-04T08:55Z
+
+**PR:** [#622 — keep operation results scoped to the active mission](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/622) — OPEN, DRAFT, not merged.  
+**Verified source/test head:** `775ac93dd6d13b417d78a6192373a4d6788ba49e` (four commits ahead of `main` `46d85e2d74df4f5016f54a4ee9c3d994a5bb0c03`, zero behind).
+
+| Evidence | Result |
+|---|---|
+| Prism Console Contract [run 41803027480](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41803027480) | **1,050 passed in 32.05s**; CI-wiring guard **30 passed in 3.66s**. Includes the new session-scoping contract. |
+| N-ATLAS Developer Lab [run 41803027659](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41803027659) | Frontend typecheck/build, backend, canonical Render image build and N-ATLAS self-host image build/smoke test all **success**. |
+| Canonical Render Runtime Probe [run 41803027552](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41803027552) | **Success**, read-only probe; not deployment or browser acceptance. |
+| Security secret scan [run 41803027597](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41803027597) | **Success**. |
+| N-ATLAS external beta validation [run 41803027635](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41803027635) | **Failure outside this UI diff**: English beta passed; Hausa beta produced `RUN_FAILED` because the external runtime returned no usable inference (empty error list); evidence bundling then failed because the Hausa artifact status was FAILED. No retry performed. |
+| SG-02-FE.2-V [run 41803027501](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41803027501) | CP10-A and SolSpire integration steps passed; CP10-B broader backend regression still **in progress** at this observation. API and browser steps have not yet completed. |
+
+At this observation the PR head had **12 successful checks, 2 failed external-beta checks, 1 skipped native-golden job, and 1 in-progress SG-02 validation job**. The external-beta failures are not evidence of a failure in the changed MissionWorkspace paths, but they remain visible and are not called green.
+
+Authenticated browser acceptance, responsive desktop/mobile visual acceptance, preview verification and production verification remain **UNKNOWN / NOT PERFORMED**. No production deployment or merge.
+
+### Broader acceptance evidence — 2026-11-04T08:57Z
+
+The completed SG-02 run on source/test head `2c1e9be812d3860026f6f255aa75924f9b85a8a6` is [run 41802738986](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41802738986). The MissionWorkspace source is unchanged through the later source/test head `775ac93`; the later commits corrected only test assertions and updated this record.
+
+- **CP10-B broad backend suite:** raw pytest result **10 failed, 3,843 passed, 17 skipped, 3 warnings, 1 collection error** in 284.10s. The workflow uses continue-on-error, so its overall success is not a green backend suite.
+- **Focused Engineering Lab API contract:** **2 failed, 9 passed**. The two assertions expect `require_auth` rather than the current `require_lab_auth`, and an older mutation-endpoint inventory that omits the served `/api/lab/engineering/n-atlas/run` and `/api/lab/engineering/n-atlas/test-session` routes. No API/authorization boundary was changed in this PR.
+- **CP10-A Lab tests:** passed.
+- **SolSpire isolated runtime/integration contracts:** **23 passed**.
+- **CP10 API verification:** step succeeded.
+- **Unauthenticated browser route:** `/engineering-lab` returned HTTP **200**; `consoleErrors=[]`, `pageErrors=[]`, `failedRequests=[]`.
+- **Authenticated Engineering Lab browser lens:** **DEFERRED / UNKNOWN**, not PASS. `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_APP_ID` and disposable identity inputs were blank.
+- **CP10 mutation boundary:** PASS. **Runtime artifact secret scan:** PASS.
+- Desktop/mobile visual acceptance and preview verification remain UNKNOWN; production verification was not performed.
+
+### Current-head CI recovery observation — 2026-11-04T08:57Z
+
+The evidence-only current PR head is `e3dad779d6a1acdf2de1f4b37f5603fcc84439a8`. Its latest check snapshot has **15/16 checks successful, zero failed, one SG-02 validate job still in progress**.
+
+The fresh N-ATLAS external beta workflow [run 41803361026](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41803361026) completed successfully: English beta, Hausa beta, native Arkadia golden workflow, and evidence bundle all passed. This later run supersedes the earlier provider-empty failure on source/test head `775ac93`; no manual rerun of the failed job was issued.
+

@@ -145,6 +145,12 @@ export function MissionWorkspace() {
 
   const [agentId, setAgentId] = useState<string | null>(null);
   const [session, setSession] = useState<LabSession | null>(null);
+  // Keep operation-panel settlement tied to the currently selected mission.
+  const activeSessionIdRef = useRef<string | null>(null);
+  const setActiveSession = useCallback((next: LabSession | null) => {
+    activeSessionIdRef.current = next?.session_id ?? null;
+    setSession(next);
+  }, []);
   const [run, setRun] = useState<LabRunResult | null>(null);
   const [steps, setSteps] = useState<StepRecord[]>([]);
   const [backendEvents, setBackendEvents] = useState<LabEvent[]>([]);
@@ -183,7 +189,7 @@ export function MissionWorkspace() {
       setSessionArtifacts([]);
       return;
     }
-    setSession(view.session);
+    setActiveSession(view.session);
     setBackendEvents(view.events ?? []);
 
     // The active review trace is available only when every canonical collection
@@ -400,7 +406,7 @@ export function MissionWorkspace() {
   const reset = useCallback(() => {
     if (uid) forgetMissionSession(uid);
     setAgentId(null);
-    setSession(null);
+    setActiveSession(null);
     setRun(null);
     setResumeScopeKnown(null);
     setSteps([]);
@@ -452,7 +458,7 @@ export function MissionWorkspace() {
     setError(null);
     try {
       const created = await createSession(MISSION_WORKSPACE_REF, agentId, objective);
-      setSession(created);
+      setActiveSession(created);
       if (uid) rememberMissionSession(uid, created.session_id, created.objective || objective, targetList);
       setResumeScopeKnown(true);
       note("Mission created", `${created.session_id} · state ${created.state}`);
@@ -487,7 +493,7 @@ export function MissionWorkspace() {
     setError(null);
     try {
       const result = await authorizeSession(session.session_id, ["read", "test"], 60);
-      setSession(result.session);
+      setActiveSession(result.session);
       await refreshView(result.session.session_id);
       note(
         "Authorization recorded",
@@ -793,20 +799,30 @@ export function MissionWorkspace() {
 
       {session ? (
         <LabWorkerDispatch
+          key={session.session_id}
           sessionId={session.session_id}
           authorized={sessionAuthorized}
           objective={objective}
-          onSettled={() => refreshView(session.session_id)}
+          onSettled={() =>
+            activeSessionIdRef.current === session.session_id
+              ? refreshView(session.session_id)
+              : Promise.resolve()
+          }
         />
       ) : null}
 
       {session ? (
         <LabBoundedTest
+          key={session.session_id}
           sessionId={session.session_id}
           sessionState={session.state}
           namedOperations={null}
           objective={objective}
-          onSettled={() => refreshView(session.session_id)}
+          onSettled={() =>
+            activeSessionIdRef.current === session.session_id
+              ? refreshView(session.session_id)
+              : Promise.resolve()
+          }
         />
       ) : null}
 
