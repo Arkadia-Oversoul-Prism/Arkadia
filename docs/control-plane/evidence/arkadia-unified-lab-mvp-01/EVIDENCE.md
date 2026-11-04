@@ -1116,3 +1116,48 @@ The runtime probe is read-only and does not prove a new deployment or browser ac
 ### Blocker, recovery and next action
 
 No blocker prevented this bounded read-only UI integration. The remaining acceptance dependency is completion of the CP10-B gate and provision/availability of the approved authenticated-browser test configuration and disposable identity. Next: inspect CP10-B's final output, then CP10 API/browser-route results; keep PR #618 draft and request human review. No backend/approval/identity/provenance/WorkEvent/workspace/K15/K3 boundary was changed.
+
+## 18. DEA-01 session-scoped operation panels — 2026-11-04
+
+**Move ID:** `DEA-01-SESSION-SCOPED-OPERATION-STATE-01`  
+**Status at record time:** IMPLEMENTED IN BRANCH · TARGETED VERIFICATION PENDING · PR NOT YET OPEN · NOT MERGED · NOT DEPLOYED.
+
+### Fresh repository reconstruction
+
+- Current `main`: `46d85e2d74df4f5016f54a4ee9c3d994a5bb0c03` (observed from the live branch ref and commit list).
+- Previous move PR #618 is now **MERGED** at that SHA (2026-11-03T10:20:46Z); its former open/draft status in section 17 is historical and superseded.
+- Open PRs at inspection: #619 (Lane 1), #620 (Lane 4 trace-linkage identity), and #621 (Lane 3 graph-health). #620 changes `LabRunTrace.tsx` and its own guard, not the MissionWorkspace/panel lifecycle paths changed here.
+- Existing mission evidence record reused; no new tracker or database created.
+
+### Defect
+
+`MissionWorkspace` mounted `LabWorkerDispatch` and `LabBoundedTest` without session keys. Both children own session-specific result/error state. When the active session changed, React could preserve the same child instances and therefore retain the previous session's dispatch/test result under the new mission.
+
+Their `onSettled` callbacks also captured the session id from the render that created them. A late response from a superseded panel could call `refreshView(oldSessionId)`; the canonical response then updates the parent active session, potentially replacing the operator's newer mission with the older one.
+
+This is a source-established lifecycle defect; no authenticated browser reproduction is claimed.
+
+### Bounded repair
+
+- Added a ref-synchronized `setActiveSession` wrapper and routed every `setSession` update through it.
+- Keyed both operation panels by `session.session_id`, so local results and request state are reset when the active mission changes.
+- Guarded each settlement callback against the current session id; a late response from an old panel cannot refresh/reselect its superseded session.
+- Preserved existing execute/dispatch routes, authorization, approval, persistence, WorkEvent, provenance and canonical API boundaries. No backend change.
+
+### Changed paths and revisions
+
+- `web/arkadia_console/src/components/lab/MissionWorkspace.tsx` — commit `fbfff2d8e224bbc0f4c78bbaebde1718d2a705f8`.
+- `tests/test_lab_mission_workspace_contract.py` — commit `e55b3bfb71121860b4031bb8c25be55d239bc8fb`.
+- This evidence record is updated in the following evidence-only commit.
+
+### Verification and limitations
+
+- A regression contract was added: `test_operation_panels_are_scoped_to_the_active_mission`.
+- Targeted pytest, console-contract CI, frontend typecheck/build, PR checks and preview are **PENDING** at the time this section is written; no pass is claimed yet.
+- Authenticated browser reproduction, desktop/mobile visual verification, preview verification and production verification remain **UNKNOWN / NOT PERFORMED**.
+- No merge, production deployment, credentials/configuration, protected-boundary or Notion change.
+
+### Next action
+
+Open one focused draft PR from the current `main` base, inspect the complete diff, and use its current-head checks to establish the regression test and build result. Do not overlap #620 or the other lane PRs.
+
