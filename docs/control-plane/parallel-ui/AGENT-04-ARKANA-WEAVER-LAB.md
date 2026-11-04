@@ -165,3 +165,13 @@ cleared by the same derivation.
 Lane 4 at zero open PRs is a **deficit**, not a resting state: the next action is to open lane 4's
 next bounded draft PR from freshly fetched `main`, inside the lane's owned paths
 (`SHARED-CONTRACTS.md` §1). Merge, production deployment and acceptance remain human-only.
+
+## Active thread — 2026-11-04 (lane-currency: pointer re-established from live state)
+
+**Active branch:** `feat/prism-w4-trace-linkage-identity-01`.
+**Active PR:** [#620](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/620) — draft.
+
+The idle declaration above was true when it was written and is superseded: this lane holds a live
+PR again, and `scripts/lane_state.py` requires a lane whose snapshot entry lists open PRs to declare
+its pointer. The earlier blocks are retained as provenance. This block is the *last* declaration,
+which is the one the guard reads.

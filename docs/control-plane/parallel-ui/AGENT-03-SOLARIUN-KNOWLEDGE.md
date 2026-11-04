@@ -93,3 +93,13 @@ The forward-looking task recorded above — a bounded "load older events" contro
 The repository holds **zero open PRs** in every lane, so the idle declaration above is the
 current truth. This block adds no pointer declaration, so that idle disposition remains the
 last-wins declaration for this lane.
+
+## Active thread — 2026-11-04 (lane-currency: pointer re-established from live state)
+
+**Active branch:** `lane3/graph-health-count-read-01`.
+**Active PR:** [#621](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/621) — draft.
+
+The idle declaration above was true when it was written and is superseded: this lane holds a live
+PR again, and `scripts/lane_state.py` requires a lane whose snapshot entry lists open PRs to declare
+its pointer. The earlier blocks are retained as provenance. This block is the *last* declaration,
+which is the one the guard reads.
