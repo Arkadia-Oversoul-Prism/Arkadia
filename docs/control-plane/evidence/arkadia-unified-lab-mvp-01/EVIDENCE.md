@@ -1179,3 +1179,23 @@ At this observation the PR head had **12 successful checks, 2 failed external-be
 
 Authenticated browser acceptance, responsive desktop/mobile visual acceptance, preview verification and production verification remain **UNKNOWN / NOT PERFORMED**. No production deployment or merge.
 
+### Broader acceptance evidence — 2026-11-04T08:57Z
+
+The completed SG-02 run on source/test head `2c1e9be812d3860026f6f255aa75924f9b85a8a6` is [run 41802738986](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41802738986). The MissionWorkspace source is unchanged through the later source/test head `775ac93`; the later commits corrected only test assertions and updated this record.
+
+- **CP10-B broad backend suite:** raw pytest result **10 failed, 3,843 passed, 17 skipped, 3 warnings, 1 collection error** in 284.10s. The workflow uses continue-on-error, so its overall success is not a green backend suite.
+- **Focused Engineering Lab API contract:** **2 failed, 9 passed**. The two assertions expect `require_auth` rather than the current `require_lab_auth`, and an older mutation-endpoint inventory that omits the served `/api/lab/engineering/n-atlas/run` and `/api/lab/engineering/n-atlas/test-session` routes. No API/authorization boundary was changed in this PR.
+- **CP10-A Lab tests:** passed.
+- **SolSpire isolated runtime/integration contracts:** **23 passed**.
+- **CP10 API verification:** step succeeded.
+- **Unauthenticated browser route:** `/engineering-lab` returned HTTP **200**; `consoleErrors=[]`, `pageErrors=[]`, `failedRequests=[]`.
+- **Authenticated Engineering Lab browser lens:** **DEFERRED / UNKNOWN**, not PASS. `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_APP_ID` and disposable identity inputs were blank.
+- **CP10 mutation boundary:** PASS. **Runtime artifact secret scan:** PASS.
+- Desktop/mobile visual acceptance and preview verification remain UNKNOWN; production verification was not performed.
+
+### Current-head CI recovery observation — 2026-11-04T08:57Z
+
+The evidence-only current PR head is `e3dad779d6a1acdf2de1f4b37f5603fcc84439a8`. Its latest check snapshot has **15/16 checks successful, zero failed, one SG-02 validate job still in progress**.
+
+The fresh N-ATLAS external beta workflow [run 41803361026](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41803361026) completed successfully: English beta, Hausa beta, native Arkadia golden workflow, and evidence bundle all passed. This later run supersedes the earlier provider-empty failure on source/test head `775ac93`; no manual rerun of the failed job was issued.
+
