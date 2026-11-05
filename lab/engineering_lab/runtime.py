@@ -435,6 +435,12 @@ class EngineeringLabRuntime:
         observations: list[dict[str, Any]] = []
         artifacts: list[dict[str, Any]] = []
         for op in task.operations:
+            # Re-resolve the grant at each consequential dispatch. The pre-flight
+            # loop above proved the grant was usable when the run started; a
+            # grant revoked, expired, or consumed *during* the run must stop the
+            # remaining operations, so authorization is never a start-only check.
+            if op.kind in WRITE_OPERATIONS | TEST_OPERATIONS or op.kind == "run":
+                self._recheck_authorization_for(session, subject_ref, op.kind)
             try:
                 observed = self._run_operation(sandbox, op)
             except Exception as exc:
@@ -792,6 +798,24 @@ class EngineeringLabRuntime:
                 f"'{operation_kind}'; record an authorization that names it"
             )
         return operations
+
+    def _recheck_authorization_for(
+        self,
+        session: dict[str, Any],
+        subject_ref: str,
+        operation_kind: str,
+    ) -> None:
+        """Re-resolve the grant immediately before a consequential dispatch.
+
+        The pre-flight gate deliberately runs before a run record exists, so a
+        refusal is a refusal rather than a failed attempt in the evidence trail.
+        That alone would make authorization a start-only check: a grant revoked
+        mid-run would still let every remaining operation execute. This re-check
+        closes that window — it reads the grant's *current* state at the moment
+        of dispatch, so revocation, expiry, or consumption recognised after the
+        run began refuses the next protected operation.
+        """
+        self._require_authorization_for(session, subject_ref, operation_kind)
 
     def _run_operation(self, sandbox: Sandbox, op: BoundedOperation) -> dict[str, Any]:
         if op.kind == "read":
