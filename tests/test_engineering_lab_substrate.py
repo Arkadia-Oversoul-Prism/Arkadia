@@ -247,8 +247,13 @@ def test_full_bounded_run_reaches_review_boundary(runtime, workspace):
     session = runtime.open_session(
         subject_ref="u1", workspace_ref="ws", agent_id=agent["agent_id"], objective="probe"
     )
-    runtime.record_authorization(
-        subject_ref="u1", scope_ref=session["session_id"], operations_allowed=("read",)
+    auth = runtime.record_authorization(
+        subject_ref="u1", scope_ref=session["session_id"],
+        operations_allowed=("read", "run"),
+    )
+    # The grant must be *linked* to the session: recording it is not enough.
+    runtime._store.attach_authorization(
+        session["session_id"], "u1", auth["authorization_id"]
     )
     runtime.transition(session["session_id"], "u1", "AUTHORIZED")
 
@@ -328,8 +333,11 @@ def test_write_run_captures_artifact(runtime, workspace):
     session = runtime.open_session(
         subject_ref="u1", workspace_ref="ws", agent_id=agent["agent_id"], objective="x"
     )
-    runtime.record_authorization(
+    auth = runtime.record_authorization(
         subject_ref="u1", scope_ref=session["session_id"], operations_allowed=("write",)
+    )
+    runtime._store.attach_authorization(
+        session["session_id"], "u1", auth["authorization_id"]
     )
     runtime.transition(session["session_id"], "u1", "AUTHORIZED")
     result = runtime.execute_bounded_task(
