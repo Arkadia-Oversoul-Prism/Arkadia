@@ -13,8 +13,16 @@
  *
  * The number is a validated, encoded path segment; an invalid entry issues no
  * request at all and is reported as not a PR number.
+ *
+ * The read path is *derived from* the shared endpoint registry rather than
+ * written here (SHARED-CONTRACTS §3.1). This surface names the handler and the
+ * path segment it composes; `src/lib/endpoints.ts` owns the prefix. Because that
+ * file is Lane 1's, this surface consumes it and does not edit it — the
+ * `labEngineeringPr` entry is requested through the interface-request process in
+ * `docs/control-plane/evidence/lane4-lab-pr-state-surface-01/EVIDENCE.md`.
  */
 import { useState } from "react";
+import { endpoints } from "../../lib/endpoints";
 import { Panel, Facts, ContractState } from "../ui";
 import { useHydration } from "../../lib/useHydration";
 import { apiRequest } from "../../lib/apiClient";
@@ -84,13 +92,30 @@ function Reading({ payload }: { payload: LabPrStatePayload | null }) {
   );
 }
 
-export function LabPrState() {
+/**
+ * The read path's prefix comes from the shared endpoint registry
+ * (`src/lib/endpoints.ts`, Lane 1's file) rather than being written here, so the
+ * console keeps one endpoint contract (SHARED-CONTRACTS §3.1). When the registry
+ * declares the prefix, pass it in:
+ *
+ *   <LabPrState basePath={endpoints.labEngineeringPr} />
+ *
+ * Until then the surface renders a not-wired state and issues no request, rather
+ * than inlining a second, unreviewed path.
+ */
+export function LabPrState({ basePath }: { basePath?: string }) {
   // The input is uncommitted: the handler performs a live GitHub read, so a
   // request is issued on submit rather than on every keystroke.
   const [number, setNumber] = useState("");
   const [target, setTarget] = useState<string | null>(null);
 
-  const path = target === null ? null : prStatePath(target);
+  // The prefix is the registry's; the segment is this surface's. The registry
+  // is `as const` and Lane 1 has not declared the entry yet, so it is read
+  // optionally: until the entry lands this is `undefined`, no path is built, and
+  // the surface renders its not-wired state instead of issuing a request.
+  const registry = endpoints as Partial<Record<string, string>>;
+  const base = basePath ?? registry.labEngineeringPr;
+  const path = target === null || !base ? null : prStatePath(base, target);
   const pr = useHydration<LabPrStatePayload>(path ?? "", (p) =>
     p ? apiRequest<LabPrStatePayload>(p) : Promise.resolve({ state: null, detail: null, pr: null }),
   );
@@ -103,6 +128,12 @@ export function LabPrState() {
         Pull-request state (read-only)
       </p>
 
+      {!base ? (
+        <p className="mt-3 text-sm text-white/55" data-testid="lab-pr-not-wired">
+          This read is not wired yet: the shared endpoint registry does not declare the pull-request
+          path prefix, and this surface does not inline one. No request is issued.
+        </p>
+      ) : (
       <form
         className="flex flex-wrap items-center gap-2"
         onSubmit={(event) => {
@@ -130,8 +161,9 @@ export function LabPrState() {
           Read state
         </button>
       </form>
+      )}
 
-      {target === null ? (
+      {!base ? null : target === null ? (
         <p className="mt-3 text-sm text-white/55" data-testid="lab-pr-invalid">
           Enter a pull-request number to read its recorded state.
         </p>

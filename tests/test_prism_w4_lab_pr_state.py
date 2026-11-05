@@ -58,6 +58,7 @@ def run_projection(payload) -> dict:
     program = (
         f"const m = await import({json.dumps(PROJECTION.as_uri())});\n"
         "const payload = JSON.parse(process.argv[1]);\n"
+        "const BASE = '/api/lab/engineering/pr';\n"
         "const r = m.readPrState(payload);\n"
         "process.stdout.write(JSON.stringify({\n"
         "  reading: r,\n"
@@ -65,12 +66,13 @@ def run_projection(payload) -> dict:
         "  lifecycle: m.lifecyclePhrase(r),\n"
         "  mergeable: m.reported(r.mergeableState),\n"
         "  head: m.reported(r.head),\n"
-        "  path623: m.prStatePath('623'),\n"
-        "  pathBlank: m.prStatePath('  '),\n"
-        "  pathZero: m.prStatePath('0'),\n"
-        "  pathNeg: m.prStatePath('-1'),\n"
-        "  pathWord: m.prStatePath('abc'),\n"
-        "  pathTrail: m.prStatePath(' 12 '),\n"
+        "  path623: m.prStatePath(BASE, '623'),\n"
+        "  pathBlank: m.prStatePath(BASE, '  '),\n"
+        "  pathZero: m.prStatePath(BASE, '0'),\n"
+        "  pathNeg: m.prStatePath(BASE, '-1'),\n"
+        "  pathWord: m.prStatePath(BASE, 'abc'),\n"
+        "  pathTrail: m.prStatePath(BASE, ' 12 '),\n"
+        "  pathSlash: m.prStatePath(BASE + '/', '7'),\n"
         "}));\n"
     )
     completed = subprocess.run(
@@ -236,10 +238,17 @@ def test_partial_record_reports_absent_fields_as_unreported():
 # ---------------------------------------------------------------------------
 
 
-def test_path_is_declared_and_encoded():
+def test_path_builder_appends_an_encoded_segment_to_the_given_base():
+    """The builder composes onto the registry's base; it does not own one.
+
+    The prefix is passed in (SHARED-CONTRACTS §3.1: one endpoint registry, owned
+    by Lane 1). This test pins the *composition* — a trailing slash on the base
+    must not produce a doubled separator.
+    """
     result = run_projection(None)
     assert result["path623"] == "/api/lab/engineering/pr/623"
     assert result["pathTrail"] == "/api/lab/engineering/pr/12"
+    assert result["pathSlash"] == "/api/lab/engineering/pr/7"
 
 
 def test_invalid_numbers_issue_no_request():
@@ -285,7 +294,46 @@ def test_surface_preserves_the_non_collapse():
 def test_surface_is_mounted_on_the_engineering_lab_page():
     page = PAGE.read_text(encoding="utf-8")
     assert "LabPrState" in page
-    assert "<LabPrState />" in page
+    assert "<LabPrState" in page
+
+
+def test_neither_owned_file_inlines_the_endpoint_path():
+    """One endpoint registry (§3.1): Lane 4 must not declare a second path.
+
+    `src/lib/endpoints.ts` is Lane 1's file. Lane 4 supplies the surface and the
+    projection; the prefix is a parameter. A literal here would be a second,
+    unreviewed endpoint contract — the defect
+    `test_console_endpoint_registry_contract.py` reports as
+    "page-local endpoint path(s)".
+    """
+    for path in (SURFACE, PROJECTION):
+        code = [
+            line
+            for line in path.read_text(encoding="utf-8").splitlines()
+            # Prose about the handler is provenance; a path used as a *value* is
+            # the second contract. The authoritative detector is
+            # test_console_endpoint_registry_contract.py, which reads the
+            # useHydration argument itself; this is the lane-local echo.
+            if not line.lstrip().startswith(("*", "/*", "//"))
+        ]
+        assert "/api/lab/engineering/pr" not in "\n".join(code), (
+            f"{path.name} inlines the endpoint path; it must take the registry's "
+            "base as a parameter instead"
+        )
+
+
+def test_surface_takes_its_prefix_from_the_shared_registry():
+    """The prefix's owner is `src/lib/endpoints.ts` (Lane 1), not this lane.
+
+    Asserting the import is what makes the previous test meaningful: a surface
+    that inlined nothing *and* read nothing from the registry would be unwired
+    by omission rather than by contract.
+    """
+    text = SURFACE.read_text(encoding="utf-8")
+    assert 'from "../../lib/endpoints"' in text
+    # The entry name is the contract: an import that is not *read* would leave
+    # the surface unwired while looking wired.
+    assert "registry.labEngineeringPr" in text
 
 
 def test_surface_does_not_fire_a_request_per_keystroke():

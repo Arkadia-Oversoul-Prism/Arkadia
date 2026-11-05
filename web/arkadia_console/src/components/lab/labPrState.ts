@@ -135,7 +135,6 @@ export function isValidPrNumber(value: string): boolean {
 // Path — declared route from `api/lab_routes.py::pr_state`.
 // ---------------------------------------------------------------------------
 
-const BASE = "/api/lab/engineering/pr";
 
 /**
  * Build the read path for a PR number.
@@ -144,8 +143,8 @@ const BASE = "/api/lab/engineering/pr";
  * input yields `null` and the surface renders "not a PR number" instead of
  * issuing a request the handler would answer `422` for.
  */
-export function prStatePath(number: string): string | null {
+export function prStatePath(base: string, number: string): string | null {
   const trimmed = number.trim();
   if (!isValidPrNumber(trimmed)) return null;
-  return `${BASE}/${encodeURIComponent(trimmed)}`;
+  return `${base.replace(/\/$/, "")}/${encodeURIComponent(trimmed)}`;
 }

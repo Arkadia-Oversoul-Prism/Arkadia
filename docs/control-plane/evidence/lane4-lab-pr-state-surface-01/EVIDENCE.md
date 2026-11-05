@@ -110,3 +110,79 @@ a guard.
 `IMPLEMENTED` and locally `VERIFIED`. This is a **draft** PR. It is not a merge,
 deployment, or acceptance claim; merge authority is reserved to the human
 sovereign.
+
+---
+
+## §3.1 defect — the surface inlined its own endpoint path (repaired)
+
+The first head (`642d79d1`) inlined the prefix:
+
+```ts
+const BASE = "/api/lab/engineering/pr";
+```
+
+`console-contract` failed on exactly this. The job's failing assertion is
+`test_console_endpoint_registry_contract.py::test_every_page_read_uses_the_registry_not_an_inline_path`
+(run `41968228008`, job `127050130430`), which reported:
+
+```
+page-local endpoint path(s): ['components/lab/LabPrState.tsx: useHydration path argument \'path ?? ""\'']
+```
+
+That is a correct report, not a false positive: the gate's contract is that a
+read path is **derived from** `src/lib/endpoints.ts`, and a page-local prefix is
+a second, unreviewed endpoint contract (SHARED-CONTRACTS §3.1).
+
+### Why this is a Lane 1 interface request, not a Lane 4 edit
+
+`web/arkadia_console/src/lib/endpoints.ts` is Lane 1's exclusive file (§1), and
+§4 requires a feature agent whose slice depends on a shared change to **pause the
+dependent slice and record the blocker** rather than edit another lane's file.
+Lane 1's registry declares eight Lab engineering endpoints
+(`labSessions`, `labAgents`, `labArtifacts`, `labAutomations`, `labGateway`,
+`labNAtlasCatalog`, `labRepository`, `labEngineeringOverview`) and **no**
+`labEngineeringPr` entry. So the repair is bounded to the two Lane 4 files:
+
+- `labPrState.ts` — `prStatePath(base, number)` composes onto a caller-supplied
+  base instead of owning a constant. The trailing-slash case is covered.
+- `LabPrState.tsx` — reads the prefix from the registry
+  (`basePath ?? registry.labEngineeringPr`) and holds no literal. The registry is
+  `as const` and the entry is not yet declared, so the lookup is typed optional;
+  with the entry absent the surface renders a **non-interactive not-wired state**
+  (`lab-pr-not-wired`) and issues no request (§3.6), instead of a control that
+  cannot work.
+
+**Interface request to Lane 1 (not performed here):** declare
+
+```ts
+labEngineeringPr: "/api/lab/engineering/pr",
+```
+
+in `src/lib/endpoints.ts`. The handler is served (`GET
+/api/lab/engineering/pr/{number}`), so the entry would satisfy
+`test_every_declared_endpoint_is_served_by_the_canonical_app`. Until it lands the
+surface is honestly blocked rather than wired by a second path.
+
+### Proof
+
+| Check | Result |
+|---|---|
+| `test_console_endpoint_registry_contract.py::test_every_page_read_uses_the_registry_not_an_inline_path` | **1 passed** (was failing) |
+| `tests/test_prism_w4_lab_pr_state.py` | **17 passed** |
+| `tests/test_console_endpoint_registry_contract.py` | **passed** |
+| `tests/architecture` | **11 passed** |
+| `tests/test_prism_console_ci_wiring.py` | **30 passed** |
+| `tsc --noEmit` | exit 0 |
+| `pnpm build` | ✓ built |
+| CP10 mutation boundary | PASS |
+| `git check-ignore web/arkadia_console/dist` | ignored |
+
+Negative controls (both bite, then the file was restored byte-identically):
+
+- **A — inline the path:** `useHydration<…>("/api/lab/engineering/pr/" + target, …)`
+  → `2 failed` (this lane's guard *and* the authoritative registry guard).
+- **B — import the registry but do not read it:** `const base = basePath;`
+  → `1 failed` (`test_surface_takes_its_prefix_from_the_shared_registry`). The
+  first cut of that assertion was silent on this shape — a guard that cannot
+  redden on the defect it names is not a guard, so it now asserts the entry is
+  read, not merely imported.
