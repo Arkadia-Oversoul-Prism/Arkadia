@@ -776,8 +776,6 @@ def test_operation_panels_are_scoped_to_the_active_mission():
         )
 
 
-
-
 def test_session_view_reads_cannot_reselect_a_superseded_mission():
     """Refresh and execute-poll responses must remain bound to their originating session.
 
@@ -835,8 +833,20 @@ def test_session_view_reads_cannot_reselect_a_superseded_mission():
         "if (cancelled || executePollGeneration.current !== generation || !isCurrentSessionRead()) return;"
         in poll
     )
-    broken_poll = poll.replace(" || !isCurrentSessionRead()", "", 1)
-    assert (
-        "if (cancelled || executePollGeneration.current !== generation || !isCurrentSessionRead()) return;"
-        not in broken_poll
-    ), "the negative control must detect a poll without its active-session guard"
+    poll_fetch = poll.index("const view = await getSessionView(sessionId);")
+    poll_apply = poll.index("applySessionView(view);", poll_fetch)
+    poll_guard_text = "if (cancelled || executePollGeneration.current !== generation || !isCurrentSessionRead()) return;"
+    poll_guard = poll.index(poll_guard_text, poll_fetch)
+    assert poll_fetch < poll_guard < poll_apply
+
+    broken_poll = (
+        poll[:poll_guard]
+        + poll[poll_guard:].replace(
+            poll_guard_text,
+            "if (cancelled || executePollGeneration.current !== generation) return;",
+            1,
+        )
+    )
+    assert poll_guard_text not in broken_poll[poll_fetch:poll_apply], (
+        "the negative control must detect a poll without its post-fetch active-session guard"
+    )
