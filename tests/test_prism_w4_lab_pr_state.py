@@ -58,7 +58,7 @@ def run_projection(payload) -> dict:
     program = (
         f"const m = await import({json.dumps(PROJECTION.as_uri())});\n"
         "const payload = JSON.parse(process.argv[1]);\n"
-        "const TEMPLATE = '/api/lab/engineering/pr';\n"
+        "const TEMPLATE = '/api/lab/engineering/pr/{number}';\n"
         "const r = m.readPrState(payload);\n"
         "process.stdout.write(JSON.stringify({\n"
         "  reading: r,\n"
