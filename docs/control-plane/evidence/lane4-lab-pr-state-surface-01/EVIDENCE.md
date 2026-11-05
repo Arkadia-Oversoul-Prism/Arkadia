@@ -212,3 +212,31 @@ Lane 1 has added that entry and a contract test in its existing PR #623. This PR
 The canonical Engineering Lab MVP evidence record is updated in `docs/control-plane/evidence/arkadia-unified-lab-mvp-01/EVIDENCE.md`. The evidence-only follow-up is separate from the verified source/test head.
 
 No backend, authorization, identity, approval, WorkEvent, persistence or production configuration change.
+
+## SG-02 full integration gate result — source/test head `203aab3b`
+
+SG-02 [run 41997004499](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41997004499) completed with an outer workflow conclusion of **success**, but its raw CP10-B regression step was not green. The workflow is configured to continue through later API/browser/security gates after that step fails; do not treat the outer conclusion as a green backend suite.
+
+- CP10-A Lab tests: **30 passed**.
+- SolSpire isolated runtime/integration: **23 passed**.
+- CP10 API verification: success.
+- Unauthenticated browser route verification: success; `consoleErrors=[]`, `pageErrors=[]`, `failedRequests=[]`.
+- Authenticated Engineering Lab lens: **DEFERRED**, not PASS. The log states Firebase web config was not supplied; the disposable identity was not provisioned and cleanup was skipped.
+- CP10 security artifact scan and mutation boundary: success; evidence summary uploaded.
+- CP10-B raw broader backend regression: **8 failed, 3,899 passed, 17 skipped, 3 warnings, 1 error** in 200.70s.
+
+Exact CP10-B failures observed:
+
+1. `tests/test_engineering_lab_api.py::test_lab_router_is_read_only_and_authenticated` — test expects `require_auth` directly in router dependencies; the router declares `require_lab_auth`.
+2. `tests/test_engineering_lab_api.py::test_lab_mutation_endpoints_are_exactly_the_lab_state_set` — the observed mutating route set also includes `/api/lab/engineering/n-atlas/run` and `/api/lab/engineering/n-atlas/test-session`.
+3. `tests/test_ais_w2_living_gate_grove_handoff.py::test_no_firebase_persistence_in_gate`.
+4. `tests/test_identity_spine_w1.py::test_node_entry_is_ais_signup_not_a_separate_diagnostic_route`.
+5. `tests/test_m02_reasomate_truth.py::test_oracle_runtime_uses_the_shared_session_key`.
+6. `tests/test_solspire_r1_governance_convergence.py::test_r1_solspire_builders_delegate_to_weaver`.
+7. `tests/test_solspire_r1_governance_convergence.py::test_r1_weaver_governance_is_canonical`.
+8. `tests/test_solspire_r3_execution_runtime.py::test_runtime_is_explicitly_non_governed_and_blocks_mutation_tools`.
+9. Collection error: `tests/test_autonomy.py`.
+
+The two Engineering Lab failures are in unchanged backend tests/routes; neither PR #624 nor #623 modifies those paths. No base-main CP10-B run was available, so regression status is **UNKNOWN** rather than asserted pre-existing. No test or backend/auth change was made in this move.
+
+**Acceptance consequence:** unauthenticated route smoke is verified, but authenticated browser acceptance, full backend regression, responsive desktop/mobile acceptance, preview verification and production verification remain unaccepted/unknown.
