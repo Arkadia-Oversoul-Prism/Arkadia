@@ -748,3 +748,17 @@ def test_advertised_contract_strings_are_recorded():
     assert invented not in RECORDED_ADVERTISED_DRIFT, (
         "the invented control route must not be pre-recorded, or the control is vacuous"
     )
+
+
+def test_lab_pr_state_route_is_registered_from_the_served_handler():
+    """The read-only Lab PR-state handler is part of the canonical endpoint map.
+
+    The exact route template is measured from ``api.lab_routes.pr_state`` via
+    ``api.main:app``; the console must not invent a page-local prefix.
+    """
+    declared = _declared_endpoints(ENDPOINTS_PATH.read_text(encoding="utf-8"))
+    expected = "/api/lab/engineering/pr/{number}"
+    served = _served_paths()
+    assert declared.get("labEngineeringPr") == expected
+    assert expected in served, "the PR-state template must be served by the canonical app"
+    assert _unserved({"labEngineeringPr": expected}, served) == []
