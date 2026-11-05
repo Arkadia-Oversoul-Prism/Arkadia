@@ -58,7 +58,7 @@ def run_projection(payload) -> dict:
     program = (
         f"const m = await import({json.dumps(PROJECTION.as_uri())});\n"
         "const payload = JSON.parse(process.argv[1]);\n"
-        "const BASE = '/api/lab/engineering/pr';\n"
+        "const TEMPLATE = '/api/lab/engineering/pr';\n"
         "const r = m.readPrState(payload);\n"
         "process.stdout.write(JSON.stringify({\n"
         "  reading: r,\n"
@@ -66,13 +66,14 @@ def run_projection(payload) -> dict:
         "  lifecycle: m.lifecyclePhrase(r),\n"
         "  mergeable: m.reported(r.mergeableState),\n"
         "  head: m.reported(r.head),\n"
-        "  path623: m.prStatePath(BASE, '623'),\n"
-        "  pathBlank: m.prStatePath(BASE, '  '),\n"
-        "  pathZero: m.prStatePath(BASE, '0'),\n"
-        "  pathNeg: m.prStatePath(BASE, '-1'),\n"
-        "  pathWord: m.prStatePath(BASE, 'abc'),\n"
-        "  pathTrail: m.prStatePath(BASE, ' 12 '),\n"
-        "  pathSlash: m.prStatePath(BASE + '/', '7'),\n"
+        "  path623: m.prStatePath(TEMPLATE, '623'),\n"
+        "  pathBlank: m.prStatePath(TEMPLATE, '  '),\n"
+        "  pathZero: m.prStatePath(TEMPLATE, '0'),\n"
+        "  pathNeg: m.prStatePath(TEMPLATE, '-1'),\n"
+        "  pathWord: m.prStatePath(TEMPLATE, 'abc'),\n"
+        "  pathTrail: m.prStatePath(TEMPLATE, ' 12 '),\n"
+        "  pathSlash: m.prStatePath(TEMPLATE + '/', '7'),\n"
+        "  pathPrefix: m.prStatePath('/api/lab/engineering/pr', '7'),\n"
         "}));\n"
     )
     completed = subprocess.run(
@@ -238,17 +239,16 @@ def test_partial_record_reports_absent_fields_as_unreported():
 # ---------------------------------------------------------------------------
 
 
-def test_path_builder_appends_an_encoded_segment_to_the_given_base():
-    """The builder composes onto the registry's base; it does not own one.
-
-    The prefix is passed in (SHARED-CONTRACTS §3.1: one endpoint registry, owned
-    by Lane 1). This test pins the *composition* — a trailing slash on the base
-    must not produce a doubled separator.
+def test_path_builder_substitutes_an_encoded_segment_in_the_registry_template():
+    """The builder substitutes the validated parameter into the exact route template
+    declared in the shared registry (SHARED-CONTRACTS §3.1). It refuses a bare
+    prefix or trailing path segment instead of guessing.
     """
     result = run_projection(None)
     assert result["path623"] == "/api/lab/engineering/pr/623"
     assert result["pathTrail"] == "/api/lab/engineering/pr/12"
-    assert result["pathSlash"] == "/api/lab/engineering/pr/7"
+    assert result["pathSlash"] is None
+    assert result["pathPrefix"] is None
 
 
 def test_invalid_numbers_issue_no_request():
@@ -322,8 +322,8 @@ def test_neither_owned_file_inlines_the_endpoint_path():
         )
 
 
-def test_surface_takes_its_prefix_from_the_shared_registry():
-    """The prefix's owner is `src/lib/endpoints.ts` (Lane 1), not this lane.
+def test_surface_takes_its_route_template_from_the_shared_registry():
+    """The route template's owner is `src/lib/endpoints.ts` (Lane 1), not this lane.
 
     Asserting the import is what makes the previous test meaningful: a surface
     that inlined nothing *and* read nothing from the registry would be unwired
