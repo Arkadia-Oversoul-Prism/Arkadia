@@ -6,8 +6,9 @@ Governing docs: `docs/control-plane/overnight/PRISM-UI-RECONCILIATION.md`,
 
 - Lane branch: `feat/prism-l1-standalone-surface-boundary-01` (new bounded PR).
 - Base: `origin/main` = `4ff76c152f057795bf57c3abeb8de9b0e772f67b`.
-- Scope: 2 files — `web/arkadia_console/src/App.tsx`,
-  `tests/test_console_surface_error_boundary.py` (11 nodes, was 10).
+- Scope: 4 implementation paths plus this evidence record — `web/arkadia_console/src/App.tsx`,
+  `tests/test_console_surface_error_boundary.py`, `web/arkadia_console/src/lib/endpoints.ts`,
+  and `tests/test_console_endpoint_registry_contract.py`.
 
 ## 1. The defect, as the repository recorded it
 
