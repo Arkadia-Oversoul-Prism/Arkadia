@@ -147,26 +147,31 @@ export function HomePage({ onNavigate }: { onNavigate: (id: SurfaceId, section?:
       title="ARKADIA"
       subtitle="One coherent application over the canonical backend. Identity, workspace, and governed execution share a single spine."
     >
-      <Panel className="mb-6 border-emerald/25">
-        <p className="mb-1 font-mono text-[11px] uppercase tracking-widest text-white/40">
-          {isAuthenticated ? "Entry · signed in" : "Entry · not signed in"}
-        </p>
-        <p className="text-sm text-white/60">{entry.primary.body}</p>
-        <div className="mt-4 flex flex-wrap gap-3">
-          <button
-            onClick={() => onNavigate(entry.primary.id)}
-            data-testid="home-entry-primary"
-            className="rounded-lg border border-emerald/50 bg-emerald/10 px-4 py-2 font-mono text-[11px] uppercase tracking-widest text-emerald transition hover:bg-emerald/20"
-          >
-            {entry.primary.label}
-          </button>
-          <button
-            onClick={() => onNavigate(entry.secondary.id)}
-            data-testid="home-entry-secondary"
-            className="rounded-lg border border-line bg-panel/60 px-4 py-2 font-mono text-[11px] uppercase tracking-widest text-white/70 transition hover:border-gold/40 hover:text-white"
-          >
-            {entry.secondary.label}
-          </button>
+      <Panel className="mb-6 overflow-hidden" tone="gold">
+        <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
+          <span className="cg-orb cg-orb-float h-16 w-16 flex-none" aria-hidden="true" />
+          <div className="min-w-0 flex-1">
+            <p className="cg-eyebrow mb-1.5">
+              {isAuthenticated ? "Entry · signed in" : "Entry · not signed in"}
+            </p>
+            <p className="text-[13.5px] leading-relaxed text-white/60">{entry.primary.body}</p>
+            <div className="mt-4 flex flex-wrap gap-2.5">
+              <button
+                onClick={() => onNavigate(entry.primary.id)}
+                data-testid="home-entry-primary"
+                className="cg-btn cg-btn-primary"
+              >
+                {entry.primary.label}
+              </button>
+              <button
+                onClick={() => onNavigate(entry.secondary.id)}
+                data-testid="home-entry-secondary"
+                className="cg-btn"
+              >
+                {entry.secondary.label}
+              </button>
+            </div>
+          </div>
         </div>
       </Panel>
 
@@ -175,7 +180,7 @@ export function HomePage({ onNavigate }: { onNavigate: (id: SurfaceId, section?:
       ) : (
         <Panel className="mb-8 border-dashed border-line" data-testid="home-first-use">
           <p className="font-mono text-[11px] uppercase tracking-widest text-white/40">First use</p>
-          <p className="mt-2 text-sm text-white/60">
+          <p className="mt-2 text-[13px] leading-relaxed text-white/65">
             Sign in to open your workspace overview — recent projects, current work, and shortcuts into
             Arkana, the Engineering Lab, Weaver, and the Knowledge OS. The public surfaces below need no
             identity.

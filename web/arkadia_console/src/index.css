@@ -2,8 +2,57 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─────────────────────────────────────────────────────────────────────────
+ * CRYSTAL GLASS — the Arkadia One design system (AO-001 beta).
+ *
+ * One token layer, one surface language, one motion vocabulary. Every value
+ * below is a token; surfaces consume tokens and never declare their own
+ * colours (pinned by tests/test_console_shell_nav_contract.py).
+ *
+ * The system is deliberately restrained: obsidian and cosmic-black bases,
+ * champagne-gold and teal illumination, cyan highlights, and translucent
+ * panels that keep text contrast high. Glass is a *depth* device, not a
+ * transparency trick — every panel keeps an opaque-enough base so body copy
+ * stays legible at WCAG AA on any backdrop.
+ * ───────────────────────────────────────────────────────────────────────── */
+
 :root {
   color-scheme: dark;
+
+  /* Base surfaces, darkest to lightest. */
+  --cg-obsidian: #05060b;
+  --cg-cosmic: #0a0c16;
+  --cg-crystal: #12162a;
+
+  /* Illumination. */
+  --cg-gold: #e0b64a;
+  --cg-champagne: #f5d98a;
+  --cg-teal: #2fd9c0;
+  --cg-cyan: #7fe3f0;
+
+  /* Text ramp — every step is checked against the panel base for contrast. */
+  --cg-text: #eef1f7;
+  --cg-text-soft: #c3cad9;
+  --cg-mist: #b6c0d4;
+  --cg-dim: #8d98ae;
+
+  /* Glass construction. */
+  --cg-glass-bg: rgba(18, 22, 42, 0.62);
+  --cg-glass-bg-strong: rgba(18, 22, 42, 0.82);
+  --cg-glass-border: rgba(255, 255, 255, 0.09);
+  --cg-glass-border-lit: rgba(228, 199, 123, 0.26);
+  --cg-glass-blur: 18px;
+
+  /* Depth. */
+  --cg-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.06) inset,
+    0 18px 48px -12px rgba(0, 0, 0, 0.72), 0 2px 8px -2px rgba(0, 0, 0, 0.5);
+  --cg-shadow-lg: 0 1px 0 0 rgba(255, 255, 255, 0.08) inset,
+    0 32px 80px -20px rgba(0, 0, 0, 0.8), 0 4px 16px -4px rgba(0, 0, 0, 0.55);
+
+  /* Motion. */
+  --cg-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --cg-fast: 140ms;
+  --cg-base: 220ms;
 }
 
 html,
@@ -15,29 +64,431 @@ body,
 body {
   margin: 0;
   background-color: #080a11;
-  color: #e8e8e8;
+  color: var(--cg-text);
   font-family: Inter, "DM Sans", system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-/* The single shared aurora field behind every surface. */
+/* The single shared aurora field behind every surface.
+ *
+ * Three ambient light sources over the obsidian base: teal from the upper
+ * left, champagne from the upper right, cyan from below. Fixed and
+ * pointer-transparent, so it costs one composited layer and never intercepts
+ * input. Kept deliberately low-alpha — the field is atmosphere, not content. */
 .aurora-bg {
   position: fixed;
   inset: 0;
   z-index: 0;
   background:
-    radial-gradient(60% 50% at 20% 10%, rgba(0, 212, 170, 0.08), transparent 70%),
-    radial-gradient(50% 45% at 85% 15%, rgba(176, 141, 232, 0.09), transparent 70%),
-    radial-gradient(55% 50% at 50% 100%, rgba(106, 159, 216, 0.07), transparent 70%);
+    radial-gradient(58% 48% at 18% 8%, rgba(47, 217, 192, 0.16), transparent 66%),
+    radial-gradient(48% 42% at 86% 12%, rgba(228, 199, 123, 0.15), transparent 66%),
+    radial-gradient(52% 46% at 50% 102%, rgba(127, 227, 240, 0.11), transparent 70%),
+    radial-gradient(38% 34% at 62% 46%, rgba(176, 141, 232, 0.07), transparent 72%),
+    linear-gradient(180deg, #05060b 0%, #080a11 45%, #05060b 100%);
   pointer-events: none;
+}
+
+/* A faint crystalline lattice over the field. Two crossing hairline gradients
+ * at very low alpha read as depth without becoming a visible grid. */
+.aurora-bg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(115deg, rgba(255, 255, 255, 0.022) 1px, transparent 1px),
+    linear-gradient(65deg, rgba(255, 255, 255, 0.016) 1px, transparent 1px);
+  background-size: 168px 168px, 168px 168px;
+  mask-image: radial-gradient(70% 60% at 50% 30%, #000 0%, transparent 100%);
+  -webkit-mask-image: radial-gradient(70% 60% at 50% 30%, #000 0%, transparent 100%);
 }
 
 .page-column {
   width: 100%;
-  max-width: 960px;
+  max-width: 1180px;
   margin: 0 auto;
-  padding-left: 16px;
-  padding-right: 16px;
+  padding-left: 20px;
+  padding-right: 20px;
+}
+
+@media (min-width: 768px) {
+  .page-column {
+    padding-left: 32px;
+    padding-right: 32px;
+  }
+}
+
+/* ── Glass primitives ──────────────────────────────────────────────────── */
+
+/* The canonical panel. A translucent crystal slab: layered background, a lit
+ * top edge, a hairline border, and a soft ambient shadow. */
+.cg-panel {
+  position: relative;
+  border: 1px solid transparent;
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.075) 0%, rgba(255, 255, 255, 0.012) 38%, rgba(255, 255, 255, 0) 100%) padding-box,
+    linear-gradient(160deg, rgba(30, 36, 62, 0.72) 0%, rgba(14, 17, 32, 0.66) 100%) padding-box,
+    linear-gradient(150deg, rgba(224, 182, 74, 0.34) 0%, rgba(255, 255, 255, 0.1) 34%, rgba(47, 217, 192, 0.16) 100%) border-box;
+  box-shadow:
+    0 1px 0 0 rgba(255, 255, 255, 0.1) inset,
+    0 0 0 1px rgba(0, 0, 0, 0.35),
+    0 24px 60px -16px rgba(0, 0, 0, 0.85),
+    0 2px 10px -2px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(22px) saturate(1.35);
+  -webkit-backdrop-filter: blur(22px) saturate(1.35);
+}
+
+/* A single specular highlight along the top edge — the "crystal" read. */
+.cg-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  border-radius: 18px 18px 0 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.22) 18%,
+    rgba(228, 199, 123, 0.55) 50%,
+    rgba(255, 255, 255, 0.22) 82%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+
+.cg-panel-lit {
+  border-color: var(--cg-glass-border-lit);
+  box-shadow: var(--cg-shadow), 0 0 40px -14px rgba(228, 199, 123, 0.3);
+}
+
+.cg-panel-teal {
+  border-color: rgba(47, 217, 192, 0.24);
+  box-shadow: var(--cg-shadow), 0 0 40px -14px rgba(47, 217, 192, 0.28);
+}
+
+/* Interactive glass: lifts and warms on hover, never moves layout. */
+.cg-interactive {
+  transition:
+    transform var(--cg-base) var(--cg-ease),
+    border-color var(--cg-base) var(--cg-ease),
+    box-shadow var(--cg-base) var(--cg-ease),
+    background-color var(--cg-base) var(--cg-ease);
+  will-change: transform;
+}
+
+.cg-interactive:hover {
+  transform: translateY(-2px);
+  border-color: rgba(228, 199, 123, 0.34);
+  box-shadow: var(--cg-shadow-lg), 0 0 44px -16px rgba(228, 199, 123, 0.34);
+}
+
+.cg-interactive:active {
+  transform: translateY(0);
+}
+
+/* ── Buttons ───────────────────────────────────────────────────────────── */
+
+.cg-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 16px;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  border-radius: 10px;
+  border: 1px solid var(--cg-glass-border);
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--cg-text-soft);
+  cursor: pointer;
+  transition:
+    background-color var(--cg-fast) var(--cg-ease),
+    border-color var(--cg-fast) var(--cg-ease),
+    color var(--cg-fast) var(--cg-ease),
+    box-shadow var(--cg-fast) var(--cg-ease);
+}
+
+.cg-btn:hover {
+  color: var(--cg-text);
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.cg-btn-primary {
+  border-color: rgba(47, 217, 192, 0.5);
+  background: linear-gradient(180deg, rgba(47, 217, 192, 0.2), rgba(47, 217, 192, 0.09));
+  color: #b9f5ea;
+  box-shadow: 0 0 28px -10px rgba(47, 217, 192, 0.5);
+}
+
+.cg-btn-primary:hover {
+  border-color: rgba(47, 217, 192, 0.75);
+  background: linear-gradient(180deg, rgba(47, 217, 192, 0.3), rgba(47, 217, 192, 0.14));
+  color: #d6fbf4;
+}
+
+.cg-btn-gold {
+  border-color: rgba(228, 199, 123, 0.45);
+  background: linear-gradient(180deg, rgba(228, 199, 123, 0.18), rgba(228, 199, 123, 0.07));
+  color: var(--cg-champagne);
+  box-shadow: 0 0 28px -10px rgba(228, 199, 123, 0.45);
+}
+
+.cg-btn-gold:hover {
+  border-color: rgba(228, 199, 123, 0.7);
+  background: linear-gradient(180deg, rgba(228, 199, 123, 0.28), rgba(228, 199, 123, 0.12));
+  color: #f3e2b4;
+}
+
+.cg-btn:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ── Typography ────────────────────────────────────────────────────────── */
+
+.cg-eyebrow {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #e8c46a;
+}
+
+.cg-title {
+  font-family: Cinzel, serif;
+  letter-spacing: 0.1em;
+  color: var(--cg-text);
+  text-shadow: 0 0 40px rgba(228, 199, 123, 0.16);
+}
+
+.cg-gold-text {
+  background: linear-gradient(180deg, #fdf0c8 0%, #e8cd85 48%, #c9a84c 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ── The crystalline orb: the one expressive object ────────────────────── */
+
+.cg-orb {
+  position: relative;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 32% 26%, rgba(255, 255, 255, 0.55), transparent 42%),
+    radial-gradient(circle at 68% 74%, rgba(47, 217, 192, 0.5), transparent 58%),
+    radial-gradient(circle at 50% 50%, rgba(224, 182, 74, 0.42), transparent 72%),
+    linear-gradient(150deg, rgba(18, 22, 42, 0.9), rgba(5, 6, 11, 0.95));
+  border: 1px solid rgba(224, 182, 74, 0.45);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.06) inset,
+    0 0 18px 2px rgba(224, 182, 74, 0.28),
+    0 0 60px -8px rgba(47, 217, 192, 0.55),
+    0 0 110px -24px rgba(224, 182, 74, 0.5);
+}
+
+.cg-orb::after {
+  content: "";
+  position: absolute;
+  inset: 14%;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: radial-gradient(circle at 40% 34%, rgba(255, 255, 255, 0.14), transparent 60%);
+}
+
+/* A slow, restrained drift. Collapsed by the reduce-motion query below. */
+@keyframes cg-float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-6px) rotate(2deg);
+  }
+}
+
+.cg-orb-float {
+  animation: cg-float 9s ease-in-out infinite;
+}
+
+@keyframes cg-sheen {
+  0% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.7;
+  }
+  100% {
+    opacity: 0.35;
+  }
+}
+
+.cg-sheen {
+  animation: cg-sheen 5s ease-in-out infinite;
+}
+
+/* ── Status dots ───────────────────────────────────────────────────────── */
+
+.cg-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.cg-dot-live {
+  background: var(--cg-teal);
+  box-shadow: 0 0 10px 1px rgba(47, 217, 192, 0.7);
+}
+
+.cg-dot-warn {
+  background: var(--cg-champagne);
+  box-shadow: 0 0 10px 1px rgba(228, 199, 123, 0.6);
+}
+
+.cg-dot-off {
+  background: #4a5468;
+}
+
+/* ── Sidebar navigation ────────────────────────────────────────────────── */
+
+.cg-nav-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--cg-mist);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color var(--cg-fast) var(--cg-ease),
+    color var(--cg-fast) var(--cg-ease),
+    border-color var(--cg-fast) var(--cg-ease);
+}
+
+.cg-nav-item:hover {
+  color: var(--cg-text);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.cg-nav-item[aria-current="page"] {
+  color: var(--cg-text);
+  border-color: rgba(228, 199, 123, 0.22);
+  background: linear-gradient(
+    90deg,
+    rgba(228, 199, 123, 0.14) 0%,
+    rgba(228, 199, 123, 0.04) 60%,
+    transparent 100%
+  );
+}
+
+/* The active marker: a lit gold bar on the leading edge. */
+.cg-nav-item[aria-current="page"]::before {
+  content: "";
+  position: absolute;
+  left: -1px;
+  top: 50%;
+  width: 2px;
+  height: 18px;
+  transform: translateY(-50%);
+  border-radius: 2px;
+  background: linear-gradient(180deg, var(--cg-champagne), var(--cg-gold));
+  box-shadow: 0 0 12px 1px rgba(228, 199, 123, 0.7);
+}
+
+.cg-nav-icon {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  flex: none;
+  color: currentColor;
+  opacity: 0.85;
+}
+
+.cg-nav-item[aria-current="page"] .cg-nav-icon {
+  color: var(--cg-champagne);
+  opacity: 1;
+}
+
+/* ── Inputs ────────────────────────────────────────────────────────────── */
+
+.cg-input {
+  width: 100%;
+  min-height: 40px;
+  padding: 0 13px;
+  border-radius: 10px;
+  border: 1px solid var(--cg-glass-border);
+  background: rgba(5, 6, 11, 0.55);
+  color: var(--cg-text);
+  font-size: 14px;
+  transition:
+    border-color var(--cg-fast) var(--cg-ease),
+    box-shadow var(--cg-fast) var(--cg-ease);
+}
+
+.cg-input::placeholder {
+  color: var(--cg-dim);
+}
+
+.cg-input:focus {
+  border-color: rgba(47, 217, 192, 0.5);
+  box-shadow: 0 0 0 3px rgba(47, 217, 192, 0.12);
+  outline: none;
+}
+
+/* ── Dividers and rules ────────────────────────────────────────────────── */
+
+.cg-rule {
+  height: 1px;
+  border: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.1) 20%,
+    rgba(255, 255, 255, 0.1) 80%,
+    transparent
+  );
+}
+
+/* ── Scrollbars ────────────────────────────────────────────────────────── */
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.13);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.22);
 }
 
 @layer base {

@@ -1,36 +1,152 @@
 /**
  * The unified application shell: persistent navigation, workspace identity, and
  * the shared aurora field. Mounted once by `App`.
+ *
+ * Crystal Glass (AO-001 beta): a fixed obsidian sidebar with a lit active
+ * marker, a translucent header that carries the current surface and the
+ * identity state, and a central workspace that scrolls independently. The
+ * shell owns *where you are*; it never owns what a surface does.
+ *
+ * Contract invariants this file must keep (pinned by
+ * tests/test_console_shell_nav_contract.py and
+ * tests/test_console_lens_landmark_contract.py):
+ *   - the navigation model is derived from the surface table, once;
+ *   - the skip link targets a focusable `#main-content` landmark;
+ *   - a route change moves focus to that landmark;
+ *   - the document title is derived from the surface table;
+ *   - the mobile strip is a real `<nav>` with an accessible name.
  */
-import { useCallback, useEffect, useRef, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { SURFACES, SURFACE_BY_ID, type SurfaceId } from "../lib/surfaces";
 import { useAuth } from "../contexts/AuthContext";
+import { SURFACE_ICONS, IconMenu, IconClose, IconShield } from "./Icons";
 
 const NAV_SURFACES = SURFACES.filter((s) => s.nav !== false);
+
+/** The primary destinations, in product order. The surface table is the source
+ *  of truth for *what exists*; this is only the reading order of the sidebar,
+ *  and any surface not named here still renders after the named ones. */
+const NAV_ORDER: SurfaceId[] = [
+  "home",
+  "arkana",
+  "projects",
+  "engineering-lab",
+  "weaver",
+  "solariun",
+  "knowledge",
+  "novanet",
+  "solspire",
+  "settings",
+  "operator",
+  "about",
+];
+
+const ORDERED_NAV = [...NAV_SURFACES].sort((a, b) => {
+  const ai = NAV_ORDER.indexOf(a.id);
+  const bi = NAV_ORDER.indexOf(b.id);
+  return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+});
 
 function NavLink({
   active,
   label,
-  accent,
+  id,
   onClick,
 }: {
   active: boolean;
   label: string;
-  accent: string;
+  id: SurfaceId;
   onClick: () => void;
 }) {
+  const Icon = SURFACE_ICONS[id];
   return (
     <button
       onClick={onClick}
       type="button"
       aria-current={active ? "page" : undefined}
       data-testid={`nav-${label.toLowerCase().replace(/\s+/g, "-")}`}
-      className={`rounded-lg px-3 py-2 text-left font-mono text-[11px] uppercase tracking-[0.16em] transition ${
-        active ? `bg-white/5 ${accent}` : "text-white/45 hover:text-white/80"
-      }`}
+      className="cg-nav-item"
     >
-      {label}
+      <span className="cg-nav-icon">
+        <Icon />
+      </span>
+      <span className="truncate">{label}</span>
     </button>
+  );
+}
+
+/** The identity block: who is signed in, and the one control that changes it. */
+function IdentityBlock({ onNavigate }: { onNavigate: (id: SurfaceId) => void }) {
+  const { profile, isAuthenticated, identityState, signOutNow } = useAuth();
+  const initials = (profile?.display_name ?? "")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+
+  return (
+    <div className="mt-auto px-1 pt-5">
+      <div className="cg-rule mb-4" />
+      {isAuthenticated && profile ? (
+        <div className="flex items-center gap-3 px-2">
+          <span
+            className="grid h-9 w-9 flex-none place-items-center rounded-full border border-gold/30 bg-gold/10 font-mono text-[11px] tracking-wider text-champagne"
+            aria-hidden="true"
+          >
+            {initials || "·"}
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[13px] text-white/85">{profile.display_name}</p>
+            <p className="truncate font-mono text-[10px] uppercase tracking-widest text-white/35">
+              {profile.role}
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="px-2">
+          <p className="text-[13px] text-white/60">Not signed in</p>
+          <p className="mt-0.5 font-mono text-[10px] uppercase tracking-widest text-white/30">
+            public surfaces only
+          </p>
+        </div>
+      )}
+
+      <div className="mt-3 flex items-center gap-2 px-2">
+        {isAuthenticated ? (
+          <button
+            onClick={() => void signOutNow()}
+            data-testid="nav-sign-out"
+            className="font-mono text-[10px] uppercase tracking-widest text-white/40 transition hover:text-white/80"
+          >
+            Sign out
+          </button>
+        ) : (
+          <button
+            onClick={() => onNavigate("login")}
+            data-testid="nav-sign-in"
+            className="font-mono text-[10px] uppercase tracking-widest text-champagne/80 transition hover:text-champagne"
+          >
+            Sign in
+          </button>
+        )}
+        <span className="ml-auto flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-widest text-white/25">
+          <span
+            className={`cg-dot ${
+              identityState === "ready" ? "cg-dot-live" : identityState === "loading" ? "cg-dot-warn" : "cg-dot-off"
+            }`}
+          />
+          {identityState}
+        </span>
+      </div>
+
+      <p className="mt-4 flex items-start gap-2 px-2 text-[10px] leading-relaxed text-white/45">
+        <span className="mt-0.5 flex-none text-gold/50">
+          <IconShield />
+        </span>
+        Human authority remains the decision boundary.
+      </p>
+    </div>
   );
 }
 
@@ -43,9 +159,10 @@ export function Shell({
   onNavigate: (id: SurfaceId) => void;
   children: ReactNode;
 }) {
-  const { profile, isAuthenticated, identityState, signOutNow } = useAuth();
   const mainRef = useRef<HTMLElement>(null);
   const mobileNavRef = useRef<HTMLElement>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const surface = SURFACE_BY_ID[current];
 
   // A route change moves to a new surface, but the browser keeps the keyboard
   // focus (and scroll position) where the previous surface left it. Focus the
@@ -99,6 +216,23 @@ export function Shell({
     observer.observe(nav);
     return () => observer.disconnect();
   }, [revealActiveItem]);
+
+  // A route change also closes the mobile drawer: leaving it open over the new
+  // surface would hide the thing the user just asked for.
+  useEffect(() => {
+    setDrawerOpen(false);
+  }, [current]);
+
+  // Escape closes the drawer, and the body does not scroll behind it.
+  useEffect(() => {
+    if (!drawerOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setDrawerOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [drawerOpen]);
+
   // The document title is how a screen reader announces a navigation (WCAG
   // 2.4.2). One static <title> for every route leaves that announcement
   // unchanged, so the shell — the single owner of "which surface is current" —
@@ -108,7 +242,9 @@ export function Shell({
   }, [current]);
 
   return (
-    <div className="flex min-h-screen bg-ink text-white">
+    <div className="relative flex min-h-screen bg-ink text-white">
+      <div className="aurora-bg" />
+
       <a
         href="#main-content"
         data-testid="skip-to-content"
@@ -116,54 +252,100 @@ export function Shell({
       >
         Skip to content
       </a>
-      <aside className="hidden w-60 shrink-0 flex-col border-r border-line bg-panel/40 p-4 md:flex">
-        <div className="mb-6 px-2">
-          <p className="font-display text-lg tracking-[0.2em] text-gold">ARKADIA</p>
-          <p className="mt-1 font-mono text-[10px] uppercase tracking-widest text-white/35">
-            {isAuthenticated && profile ? profile.display_name : "Not signed in"}
-          </p>
-          {isAuthenticated ? (
-            <button
-              onClick={() => void signOutNow()}
-              data-testid="nav-sign-out"
-              className="mt-2 font-mono text-[10px] uppercase tracking-widest text-white/40 hover:text-white/80"
-            >
-              Sign out
-            </button>
-          ) : (
-            <button
-              onClick={() => onNavigate("login")}
-              data-testid="nav-sign-in"
-              className="mt-2 font-mono text-[10px] uppercase tracking-widest text-gold/80 hover:text-gold"
-            >
-              Sign in
-            </button>
-          )}
-        </div>
-        <nav aria-label="Primary navigation" className="flex flex-col gap-1">
-          {NAV_SURFACES.map((s) => (
-            <NavLink key={s.id} active={current === s.id} label={s.name} accent={s.accent} onClick={() => onNavigate(s.id)} />
+
+      {/* ── Desktop sidebar ─────────────────────────────────────────────── */}
+      <aside
+        className="relative z-20 hidden w-[264px] shrink-0 flex-col border-r border-white/[0.07] p-4 md:flex"
+        style={{
+          background:
+            "linear-gradient(180deg, rgba(10,12,22,0.92) 0%, rgba(5,6,11,0.96) 100%)",
+          backdropFilter: "blur(20px)",
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => onNavigate("home")}
+          data-testid="brand-home"
+          className="mb-7 flex items-center gap-3 px-2 text-left"
+        >
+          <span className="cg-orb h-9 w-9 flex-none" aria-hidden="true" />
+          <span className="min-w-0">
+            <span className="cg-title block text-[15px] leading-none">ARKADIA</span>
+            <span className="mt-1 block font-mono text-[9px] uppercase tracking-[0.22em] text-white/30">
+              One
+            </span>
+          </span>
+        </button>
+
+        <nav aria-label="Primary navigation" className="flex flex-col gap-0.5">
+          {ORDERED_NAV.map((s) => (
+            <NavLink
+              key={s.id}
+              id={s.id}
+              active={current === s.id}
+              label={s.name}
+              onClick={() => onNavigate(s.id)}
+            />
           ))}
         </nav>
-        <div className="mt-auto px-2 pt-6">
-          <p className="font-mono text-[10px] uppercase tracking-widest text-white/30">
-            identity · {identityState}
-          </p>
-          <p className="mt-1 text-[11px] text-white/30">Human authority remains the decision boundary.</p>
-        </div>
+
+        <IdentityBlock onNavigate={onNavigate} />
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      {/* ── Main column ─────────────────────────────────────────────────── */}
+      <div className="relative z-10 flex min-w-0 flex-1 flex-col">
+        {/* Header: the current surface, its boundary, and the mobile menu. */}
+        <header
+          className="sticky top-0 z-30 flex min-h-[60px] items-center gap-3 border-b border-white/[0.07] px-4 md:px-8"
+          style={{
+            background: "rgba(8,10,17,0.72)",
+            backdropFilter: "blur(20px) saturate(1.2)",
+            WebkitBackdropFilter: "blur(20px) saturate(1.2)",
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setDrawerOpen(true)}
+            aria-label="Open navigation"
+            aria-expanded={drawerOpen}
+            data-testid="mobile-menu-open"
+            className="grid h-9 w-9 place-items-center rounded-lg border border-white/10 text-white/70 md:hidden"
+          >
+            <IconMenu />
+          </button>
+
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-mono text-[9px] uppercase tracking-[0.22em] text-white/30">
+              {surface.boundary}
+            </p>
+            <h2 className="truncate text-[15px] font-medium tracking-tight text-white/90">
+              {surface.name}
+            </h2>
+          </div>
+
+          <span className="hidden items-center gap-2 rounded-full border border-white/10 px-3 py-1 font-mono text-[9px] uppercase tracking-[0.18em] text-white/40 sm:flex">
+            <span className="cg-dot cg-dot-live" />
+            canonical
+          </span>
+        </header>
+
         {/* Mobile navigation: the same surfaces, no second global nav bar. */}
         <nav
           ref={mobileNavRef}
           aria-label="Primary navigation (mobile)"
-          className="flex gap-1 overflow-x-auto border-b border-line bg-panel/40 p-2 md:hidden"
+          className="flex gap-1 overflow-x-auto border-b border-white/[0.07] bg-panel/40 p-2 md:hidden"
         >
-          {NAV_SURFACES.map((s) => (
-            <NavLink key={s.id} active={current === s.id} label={s.name} accent={s.accent} onClick={() => onNavigate(s.id)} />
+          {ORDERED_NAV.map((s) => (
+            <NavLink
+              key={s.id}
+              id={s.id}
+              active={current === s.id}
+              label={s.name}
+              onClick={() => onNavigate(s.id)}
+            />
           ))}
         </nav>
+
         <main
           id="main-content"
           ref={mainRef}
@@ -174,6 +356,51 @@ export function Shell({
           {children}
         </main>
       </div>
+
+      {/* ── Mobile drawer ───────────────────────────────────────────────── */}
+      {drawerOpen && (
+        <div className="fixed inset-0 z-50 md:hidden">
+          <button
+            type="button"
+            aria-label="Close navigation"
+            onClick={() => setDrawerOpen(false)}
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          />
+          <aside
+            className="absolute inset-y-0 left-0 flex w-[280px] max-w-[86vw] flex-col border-r border-white/10 p-4"
+            style={{
+              background: "linear-gradient(180deg, rgba(10,12,22,0.98) 0%, rgba(5,6,11,0.99) 100%)",
+            }}
+          >
+            <div className="mb-6 flex items-center justify-between px-2">
+              <div className="flex items-center gap-3">
+                <span className="cg-orb h-8 w-8 flex-none" aria-hidden="true" />
+                <span className="cg-title text-[14px]">ARKADIA</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDrawerOpen(false)}
+                aria-label="Close navigation"
+                className="grid h-8 w-8 place-items-center rounded-lg border border-white/10 text-white/60"
+              >
+                <IconClose />
+              </button>
+            </div>
+            <nav aria-label="Primary navigation (drawer)" className="flex flex-col gap-0.5 overflow-y-auto">
+              {ORDERED_NAV.map((s) => (
+                <NavLink
+                  key={s.id}
+                  id={s.id}
+                  active={current === s.id}
+                  label={s.name}
+                  onClick={() => onNavigate(s.id)}
+                />
+              ))}
+            </nav>
+            <IdentityBlock onNavigate={onNavigate} />
+          </aside>
+        </div>
+      )}
     </div>
   );
 }
