@@ -186,3 +186,21 @@ Negative controls (both bite, then the file was restored byte-identically):
   first cut of that assertion was silent on this shape — a guard that cannot
   redden on the defect it names is not a guard, so it now asserts the entry is
   read, not merely imported.
+
+## Exact route-template integration — 2026-11-05
+
+The first integration request asked Lane 1 to declare the prefix `/api/lab/engineering/pr`. The canonical endpoint registry guard requires every entry to be a served route, while this handler serves only the parameterized path. The shared entry therefore uses the exact OpenAPI template instead:
+
+`labEngineeringPr: "/api/lab/engineering/pr/{number}"`
+
+Lane 1 has added that entry and a contract test in its existing PR #623. This PR consumes the exact template:
+
+- `prStatePath(template, number)` validates the positive integer, requires exactly one terminal `{number}` placeholder, URL-encodes the value, and returns no path for a bare prefix or malformed template.
+- `LabPrState` reads `registry.labEngineeringPr` and remains non-interactive while the entry is absent; no fallback literal or request is introduced.
+- The projection tests now exercise template substitution and refusal states.
+
+**Dependency:** PR #623 must merge before the shared endpoint is present on `main`. Until both this feature and the registry entry are present in the composed application, the panel must remain `NOT WIRED`; this branch does not claim a live PR-state read.
+
+**Verification:** source/test changes committed; fresh CI for the current head is pending. Authenticated browser acceptance, desktop/mobile visual acceptance, preview verification and production verification remain separate and unclaimed.
+
+No backend, authorization, identity, approval, WorkEvent, persistence or production configuration change.
