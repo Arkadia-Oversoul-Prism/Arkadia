@@ -145,10 +145,16 @@ export function MissionWorkspace() {
 
   const [agentId, setAgentId] = useState<string | null>(null);
   const [session, setSession] = useState<LabSession | null>(null);
-  // Keep operation-panel settlement tied to the currently selected mission.
+  // Bind asynchronous session-view reads to the mission selected when they began.
+  // A reset or switch advances the generation before an older response can land.
   const activeSessionIdRef = useRef<string | null>(null);
+  const activeSessionGenerationRef = useRef(0);
   const setActiveSession = useCallback((next: LabSession | null) => {
-    activeSessionIdRef.current = next?.session_id ?? null;
+    const nextSessionId = next?.session_id ?? null;
+    if (activeSessionIdRef.current !== nextSessionId) {
+      activeSessionGenerationRef.current += 1;
+    }
+    activeSessionIdRef.current = nextSessionId;
     setSession(next);
   }, []);
   const [run, setRun] = useState<LabRunResult | null>(null);
@@ -256,6 +262,12 @@ export function MissionWorkspace() {
 
   /** Pull the session view so the timeline and evidence panel reflect server records. */
   const refreshView = useCallback(async (sessionId: string) => {
+    if (activeSessionIdRef.current !== sessionId) return;
+    const sessionGeneration = activeSessionGenerationRef.current;
+    const isCurrentSessionRead = () =>
+      activeSessionIdRef.current === sessionId &&
+      activeSessionGenerationRef.current === sessionGeneration;
+
     setEvidenceState("LOADING");
     setEvidenceError(null);
     setTraceState("LOADING");
@@ -263,6 +275,7 @@ export function MissionWorkspace() {
     setTraceView(null);
     try {
       const view = await getSessionView(sessionId);
+      if (!isCurrentSessionRead()) return;
       applySessionView(view);
       if (view.session && Array.isArray(view.runs)) {
         const runs = view.runs;
@@ -270,6 +283,7 @@ export function MissionWorkspace() {
         setRun(last);
       }
     } catch (e) {
+      if (!isCurrentSessionRead()) return;
       setEvidenceState(classifyEvidenceFailure(e));
       setEvidenceError(describeError(e));
       setTraceView(null);
@@ -312,14 +326,18 @@ export function MissionWorkspace() {
   useEffect(() => {
     if (activeAction !== "execute" || !session?.session_id) return;
     const sessionId = session.session_id;
+    const sessionGeneration = activeSessionGenerationRef.current;
+    const isCurrentSessionRead = () =>
+      activeSessionIdRef.current === sessionId &&
+      activeSessionGenerationRef.current === sessionGeneration;
     const generation = ++executePollGeneration.current;
     let cancelled = false;
 
     const tick = async () => {
-      if (cancelled || executePollGeneration.current !== generation) return;
+      if (cancelled || executePollGeneration.current !== generation || !isCurrentSessionRead()) return;
       try {
         const view = await getSessionView(sessionId);
-        if (cancelled || executePollGeneration.current !== generation) return;
+        if (cancelled || executePollGeneration.current !== generation || !isCurrentSessionRead()) return;
         applySessionView(view);
         const runs = view.runs ?? [];
         if (runs.length > 0) {

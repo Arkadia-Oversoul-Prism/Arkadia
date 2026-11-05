@@ -1161,6 +1161,57 @@ This is a source-established lifecycle defect; no authenticated browser reproduc
 
 Open one focused draft PR from the current `main` base, inspect the complete diff, and use its current-head checks to establish the regression test and build result. Do not overlap #620 or the other lane PRs.
 
+### Follow-on read-isolation repair — 2026-11-05
+
+**Move ID:** `DEA-01-SESSION-VIEW-READ-GUARD-01`  
+**PR:** [#626 — discard stale session-view reads after mission switch](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/626)  
+**Status at this observation:** IMPLEMENTED IN DRAFT PR · CURRENT-HEAD CI IN PROGRESS · NOT MERGED · NOT DEPLOYED.
+
+#### Fresh repository reconstruction
+
+- `main` verified at `4ff76c152f057795bf57c3abeb8de9b0e772f67b`; comparison of `main` to that SHA was `identical`.
+- PR #622 is **MERGED** at `c3702e737fcd21cbf1f7ed63c1a99fc59ea96cab` (2026-11-04T18:01:45Z); the prior open/draft wording in section 18 is historical.
+- Existing open drafts at inspection: #623 (Lane 1 shared endpoint/surface boundary), #624 (Lane 4 read-only Lab PR-state surface, dependent on #623's endpoint registry), and #625 (Lane 3 Knowledge OS notes-reader guard). Their feature/test paths do not overlap this move. #624 also updates this canonical evidence file; this follow-on is inserted as a separate subsection within section 18 rather than at the file tail.
+- #623 head `ca79cedc9318fc7c9e1a4aad0b40ea375129f61b`, #624 head `6530caa29654ab8576809ff64d3db59448e74a26`, and #625 head `41537651a41d9d8c00f7a2f29247344557232eca` were all open, draft and based on the same main SHA. Their listed workflow runs had completed successfully; #624 remains dependent on #623 for the shared registry entry.
+
+#### Defect
+
+The manual Refresh evidence action calls `refreshView(sessionId)` without acquiring the workspace busy lock. Reset remains enabled while that GET is pending (provided the mission has timeline entries). Before this repair, the response was applied unconditionally after `await getSessionView(sessionId)`; a late response could therefore call `applySessionView` after Reset and restore the old session. A stale read failure could likewise overwrite the reset state. The execute-poll path had the same missing active-session check after its awaited read.
+
+This is source-established from `MissionWorkspace.tsx`; no authenticated browser reproduction is claimed.
+
+#### Bounded repair
+
+- Added `activeSessionGenerationRef`, incremented whenever the active session ID changes, including reset.
+- Bound manual refresh to the active session ID and generation captured at request start.
+- Discarded stale refresh responses and stale refresh errors before they can update session, evidence or trace state.
+- Applied the same active-session/generation guard before and after execute-poll reads.
+- Preserved the existing session API, authentication, authorization, approval, persistence, WorkEvent, provenance and canonical API. No backend or protected architecture change.
+
+#### Changed files and revisions
+
+- `web/arkadia_console/src/components/lab/MissionWorkspace.tsx` — implementation commit `0b9c7128566d27636ee98c9c66f120da159f9d01`.
+- `tests/test_lab_mission_workspace_contract.py` — regression contract commit `89a9f200cc3b5a3aa629974cd425782c40eab3bd`; negative-control precision correction `1431980840b3fd6d74a9756d0589f8eea67969f0`; compatibility assertion correction and current source/test head `a526f9f73eccceaf92c23f2f5a44341eb4813414`.
+- Branch: `feat/dea-01-session-view-read-guard-01`; PR #626, 3 commits ahead and 0 behind main at creation; 2 implementation/test files before this evidence update.
+
+#### Verification and limitations
+
+- Complete source/test diff inspected: MissionWorkspace **+22/-4**; contract test **+75/-0**.
+- The new contract checks that session-generation changes invalidate old reads, that refresh/poll guards precede state application, and that negative controls detect removal of the post-fetch guards.
+- The first evidence-head check on `85d25851030cf688187c63f820397a05afa67347`, Prism Console Contract [run 42003434268](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/42003434268), produced **1,064 passed / 1 failed**. The sole failure was the pre-existing `test_operation_panels_are_scoped_to_the_active_mission` assertion pinning the old setter assignment. The generation-aware setter intentionally uses `nextSessionId`; the assertion was corrected in test-only commit `a526f9f73eccceaf92c23f2f5a44341eb4813414`. No product-source change was needed for this correction.
+- Corrected source/test head `a526f9f73eccceaf92c23f2f5a44341eb4813414`: Prism Console Contract [run 42003775183](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/42003775183) — **1,065 passed in 30.61s**; CI-wiring guard — **30 passed in 3.57s**. The new session-view guard contract is included in the derived console-contract domain.
+- N-ATLAS Developer Lab [run 42003775104](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/42003775104): backend, frontend typecheck/build, canonical Render image build, and N-ATLAS self-host image build/smoke test — **all succeeded**.
+- External beta validation [run 42003775408](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/42003775408): English, Hausa, native Arkadia golden workflow and evidence bundle — **all succeeded**.
+- Canonical Render Runtime Probe [run 42003775121](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/42003775121), security scan [42003775048](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/42003775048), boot syntax [42003775019](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/42003775019), provider forensics [42003775179](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/42003775179), economic seam [42003775218](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/42003775218), and posture currency [42003775409](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/42003775409) — **all succeeded**. Runtime probe was read-only and does not prove a deployment.
+- SG-02 [run 42003775182](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/42003775182) had CP10-A and SolSpire isolated integration steps complete successfully; CP10-B broader backend regression was still **IN PROGRESS** at this observation. CP10 API and browser steps had not started. No result is inferred from their absence.
+- Evidence/current PR head `5ee70d9097bd7d12ea63a79d435d2671962809c5` received a fresh check set: Prism Console Contract **1,065 passed**, CI-wiring **30 passed**; N-ATLAS Developer Lab, external beta, runtime probe, security, boot syntax, provider forensics, economic seam and posture currency succeeded. SG-02 [run 42004452349](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/42004452349) remained in CP10-B at last inspection; API/browser steps had not started. This evidence-only head does not change the verified source/test head `a526f9f`.
+- No local pytest execution, authenticated browser reproduction, desktop/mobile visual acceptance, preview verification or production verification is claimed.
+- Relevant #623/#624 SG-02 evidence still reports CP10-B raw failures and a collection error, with no base-main CP10-B comparison; regression attribution remains UNKNOWN and is outside this diff.
+
+#### Next action
+
+Inspect all #626 current-head workflows, capture the targeted contract/build outcomes, and update this same evidence record. Keep #626 draft. Human review/merge, authenticated browser acceptance and production verification remain separate gates.
+
 ### Verification update — 2026-11-04T08:55Z
 
 **PR:** [#622 — keep operation results scoped to the active mission](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/622) — OPEN, DRAFT, not merged.  

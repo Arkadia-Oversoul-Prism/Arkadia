@@ -759,7 +759,8 @@ def test_operation_panels_are_scoped_to_the_active_mission():
     setter_start = workspace.index("const setActiveSession = useCallback(")
     setter_end = workspace.index("}, []);", setter_start) + len("}, []);")
     setter = workspace[setter_start:setter_end]
-    assert "activeSessionIdRef.current = next?.session_id ?? null;" in setter
+    assert "const nextSessionId = next?.session_id ?? null;" in setter
+    assert "activeSessionIdRef.current = nextSessionId;" in setter
     assert "setSession(next);" in setter
     assert len(re.findall(r"\bsetSession\(", workspace)) == 1, (
         "all session changes must pass through the ref-synchronizing setter"
@@ -775,3 +776,78 @@ def test_operation_panels_are_scoped_to_the_active_mission():
             f"{component} late settlement must not refresh a superseded session"
         )
 
+
+def test_session_view_reads_cannot_reselect_a_superseded_mission():
+    """Refresh and execute-poll responses must remain bound to their originating session.
+
+    Reset is available while a manual evidence refresh is in flight. Without a
+    session-generation check, that late GET can repopulate the cleared workspace
+    with the old session. The poll path has the same response-after-switch risk.
+    """
+    workspace = _read(WORKSPACE)
+
+    assert "const activeSessionGenerationRef = useRef(0);" in workspace
+
+    setter_start = workspace.index("const setActiveSession = useCallback(")
+    setter_end = workspace.index("}, []);", setter_start) + len("}, []);")
+    setter = workspace[setter_start:setter_end]
+    assert "const nextSessionId = next?.session_id ?? null;" in setter
+    assert "if (activeSessionIdRef.current !== nextSessionId)" in setter
+    assert "activeSessionGenerationRef.current += 1;" in setter
+    assert "activeSessionIdRef.current = nextSessionId;" in setter
+
+    refresh_start = workspace.index("const refreshView = useCallback")
+    refresh_end = workspace.index("}, [applySessionView]);", refresh_start)
+    refresh = workspace[refresh_start:refresh_end]
+    assert "if (activeSessionIdRef.current !== sessionId) return;" in refresh
+    assert "const sessionGeneration = activeSessionGenerationRef.current;" in refresh
+    assert "const isCurrentSessionRead = () =>" in refresh
+    assert "activeSessionIdRef.current === sessionId" in refresh
+    assert "activeSessionGenerationRef.current === sessionGeneration" in refresh
+    fetch_at = refresh.index("const view = await getSessionView(sessionId);")
+    apply_at = refresh.index("applySessionView(view);", fetch_at)
+    guard_at = refresh.index("if (!isCurrentSessionRead()) return;", fetch_at)
+    assert fetch_at < guard_at < apply_at, "a stale response must be rejected before applying the session view"
+    catch_at = refresh.index("} catch (e) {")
+    catch = refresh[catch_at:]
+    assert "if (!isCurrentSessionRead()) return;" in catch
+    assert catch.index("if (!isCurrentSessionRead()) return;") < catch.index(
+        "setEvidenceState(classifyEvidenceFailure(e));"
+    ), "a stale failure must not overwrite the new session's state"
+
+    # Negative control: remove the post-fetch guard from the real refresh shape.
+    broken_refresh = refresh.replace("if (!isCurrentSessionRead()) return;", "", 1)
+    broken_fetch = broken_refresh.index("const view = await getSessionView(sessionId);")
+    broken_apply = broken_refresh.index("applySessionView(view);", broken_fetch)
+    broken_guard = broken_refresh.find("if (!isCurrentSessionRead()) return;", broken_fetch)
+    assert not (broken_fetch < broken_guard < broken_apply), (
+        "the negative control must detect a refresh that applies a stale response"
+    )
+
+    poll_start = workspace.index("While an execute HTTP request")
+    poll_end = workspace.index("const onResume", poll_start)
+    poll = workspace[poll_start:poll_end]
+    assert "const sessionGeneration = activeSessionGenerationRef.current;" in poll
+    assert "activeSessionIdRef.current === sessionId" in poll
+    assert "activeSessionGenerationRef.current === sessionGeneration" in poll
+    assert (
+        "if (cancelled || executePollGeneration.current !== generation || !isCurrentSessionRead()) return;"
+        in poll
+    )
+    poll_fetch = poll.index("const view = await getSessionView(sessionId);")
+    poll_apply = poll.index("applySessionView(view);", poll_fetch)
+    poll_guard_text = "if (cancelled || executePollGeneration.current !== generation || !isCurrentSessionRead()) return;"
+    poll_guard = poll.index(poll_guard_text, poll_fetch)
+    assert poll_fetch < poll_guard < poll_apply
+
+    broken_poll = (
+        poll[:poll_guard]
+        + poll[poll_guard:].replace(
+            poll_guard_text,
+            "if (cancelled || executePollGeneration.current !== generation) return;",
+            1,
+        )
+    )
+    assert poll_guard_text not in broken_poll[poll_fetch:poll_apply], (
+        "the negative control must detect a poll without its post-fetch active-session guard"
+    )
