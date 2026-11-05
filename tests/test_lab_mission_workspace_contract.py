@@ -759,7 +759,8 @@ def test_operation_panels_are_scoped_to_the_active_mission():
     setter_start = workspace.index("const setActiveSession = useCallback(")
     setter_end = workspace.index("}, []);", setter_start) + len("}, []);")
     setter = workspace[setter_start:setter_end]
-    assert "activeSessionIdRef.current = next?.session_id ?? null;" in setter
+    assert "const nextSessionId = next?.session_id ?? null;" in setter
+    assert "activeSessionIdRef.current = nextSessionId;" in setter
     assert "setSession(next);" in setter
     assert len(re.findall(r"\bsetSession\(", workspace)) == 1, (
         "all session changes must pass through the ref-synchronizing setter"
