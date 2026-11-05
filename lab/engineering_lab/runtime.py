@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field, replace
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from .contracts import (
@@ -158,12 +159,14 @@ def effective_tools(
 
         capability ceiling ∩ agent tool envelope ∩ human authorization
 
-    ``authorization_operations`` of ``None`` means no authorization was linked;
-    callers must treat that as the empty set for a consequential run.
+    ``authorization_operations`` of ``None`` means no authorization was linked.
+    Per this function's own contract that is the *empty* set, not "unrestricted":
+    a consequential run with no linked authorization yields no tools. The
+    intersection is therefore always applied, so a missing grant can never
+    widen the envelope.
     """
     allowed = _capability_operations(capabilities) & set(agent_tools)
-    if authorization_operations is not None:
-        allowed &= authorization_operations
+    allowed &= set(authorization_operations or ())
     return tuple(
         tool for op, tools in OPERATION_TOOLS.items() if op in allowed for tool in tools
     )
@@ -354,6 +357,12 @@ class EngineeringLabRuntime:
                 )
             if op.kind not in READ_OPERATIONS | WRITE_OPERATIONS | TEST_OPERATIONS:
                 raise BoundaryViolation(f"unknown operation kind '{op.kind}'")
+            # Dispatch-point scope enforcement. Every consequential operation
+            # (write, run, test) must be named by a usable, session-scoped
+            # human authorization. This runs for every operation on this path,
+            # so a missing or empty grant refuses instead of widening.
+            if op.kind in WRITE_OPERATIONS | TEST_OPERATIONS or op.kind == "run":
+                self._require_authorization_for(session, subject_ref, op.kind)
             if op.kind in TEST_OPERATIONS:
                 # P0.4 — refuse before a run record exists, so a refusal is a
                 # refusal rather than a failed attempt in the evidence trail.
@@ -426,6 +435,12 @@ class EngineeringLabRuntime:
         observations: list[dict[str, Any]] = []
         artifacts: list[dict[str, Any]] = []
         for op in task.operations:
+            # Re-resolve the grant at each consequential dispatch. The pre-flight
+            # loop above proved the grant was usable when the run started; a
+            # grant revoked, expired, or consumed *during* the run must stop the
+            # remaining operations, so authorization is never a start-only check.
+            if op.kind in WRITE_OPERATIONS | TEST_OPERATIONS or op.kind == "run":
+                self._recheck_authorization_for(session, subject_ref, op.kind)
             try:
                 observed = self._run_operation(sandbox, op)
             except Exception as exc:
@@ -533,12 +548,9 @@ class EngineeringLabRuntime:
         # authorization. CAPABILITY is not AUTHORIZATION: the session must be
         # AUTHORIZED above, its authorization record bounds the operations, and
         # the sandbox policy is the final layer. A session with no linked
-        # authorization yields no tools.
-        authorization_ops: set[str] | None = None
-        if session.get("authorization_ref"):
-            auth = self._store.get_authorization(session["authorization_ref"], subject_ref)
-            if auth:
-                authorization_ops = set(auth.get("operations_allowed", ()))
+        # authorization yields no tools. A revoked, expired or consumed grant
+        # resolves to no operations, so it also yields no tools.
+        authorization_ops = self._authorization_operations(session, subject_ref)
         effective = effective_tools(
             capabilities=capabilities,
             agent_tools=tuple(tool_access.get("tools") or ()),
@@ -709,9 +721,10 @@ class EngineeringLabRuntime:
     ) -> set[str] | None:
         """The operations the linked human authorization permits.
 
-        ``None`` means there is no usable authorization record — callers must
+        ``None`` means there is no *usable* authorization record — callers must
         treat that as the empty set for a consequential operation, never as
-        "unrestricted".
+        "unrestricted". A record that is revoked, expired, or already consumed
+        is not usable and therefore also yields ``None``.
         """
         authorization_ref = session.get("authorization_ref")
         if not authorization_ref:
@@ -719,8 +732,90 @@ class EngineeringLabRuntime:
         authorization = self._store.get_authorization(authorization_ref, subject_ref)
         if not authorization:
             return None
+        if not self._authorization_is_usable(authorization):
+            return None
         operations = authorization.get("operations_allowed") or ()
         return set(operations) or None
+
+    @staticmethod
+    def _authorization_is_usable(authorization: dict[str, Any]) -> bool:
+        """A grant is usable only while unrevoked, unexpired and unconsumed."""
+        if authorization.get("revoked_at"):
+            return False
+        if authorization.get("consumed_at"):
+            return False
+        created_at = authorization.get("created_at")
+        duration = authorization.get("duration_minutes")
+        if created_at and duration is not None:
+            try:
+                created = datetime.fromisoformat(str(created_at).replace("Z", "+00:00"))
+            except ValueError:
+                return False
+            if created.tzinfo is None:
+                created = created.replace(tzinfo=timezone.utc)
+            if datetime.now(timezone.utc) > created + timedelta(minutes=int(duration)):
+                return False
+        return True
+
+    def _require_authorization_for(
+        self,
+        session: dict[str, Any],
+        subject_ref: str,
+        operation_kind: str,
+    ) -> set[str]:
+        """Fail closed unless a usable, session-scoped grant names *operation_kind*.
+
+        This is the single dispatch-point gate. It is called for every
+        consequential operation on every execution path, so a missing, empty,
+        revoked, expired or consumed grant refuses rather than widens.
+        """
+        authorization_ref = session.get("authorization_ref")
+        if not authorization_ref:
+            raise BoundaryViolation(
+                f"operation '{operation_kind}' requires a linked human "
+                "authorization; this session has none"
+            )
+        authorization = self._store.get_authorization(authorization_ref, subject_ref)
+        if not authorization:
+            raise BoundaryViolation(
+                f"authorization '{authorization_ref}' not found for subject; "
+                f"operation '{operation_kind}' refused"
+            )
+        if not self._authorization_is_usable(authorization):
+            raise BoundaryViolation(
+                f"authorization '{authorization_ref}' is revoked, expired or "
+                f"already consumed; operation '{operation_kind}' refused"
+            )
+        if authorization.get("scope_ref") != session.get("session_id"):
+            raise BoundaryViolation(
+                f"authorization '{authorization_ref}' is not scoped to this "
+                f"session; operation '{operation_kind}' refused"
+            )
+        operations = set(authorization.get("operations_allowed") or ())
+        if operation_kind not in operations:
+            raise BoundaryViolation(
+                f"the linked human authorization does not permit "
+                f"'{operation_kind}'; record an authorization that names it"
+            )
+        return operations
+
+    def _recheck_authorization_for(
+        self,
+        session: dict[str, Any],
+        subject_ref: str,
+        operation_kind: str,
+    ) -> None:
+        """Re-resolve the grant immediately before a consequential dispatch.
+
+        The pre-flight gate deliberately runs before a run record exists, so a
+        refusal is a refusal rather than a failed attempt in the evidence trail.
+        That alone would make authorization a start-only check: a grant revoked
+        mid-run would still let every remaining operation execute. This re-check
+        closes that window — it reads the grant's *current* state at the moment
+        of dispatch, so revocation, expiry, or consumption recognised after the
+        run began refuses the next protected operation.
+        """
+        self._require_authorization_for(session, subject_ref, operation_kind)
 
     def _run_operation(self, sandbox: Sandbox, op: BoundedOperation) -> dict[str, Any]:
         if op.kind == "read":

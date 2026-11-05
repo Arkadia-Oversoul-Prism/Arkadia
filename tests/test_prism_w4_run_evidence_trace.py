@@ -61,17 +61,35 @@ def workspace(tmp_path):
 
 
 def _authorized_session(runtime, uid: str = OWNER, role: str = "BUILDER", write: bool = False):
-    from lab.engineering_lab.sandbox import SandboxPolicy  # noqa: F401  (documents the contract)
+    """Open a session carried to ``AUTHORIZED`` by a *linked* grant.
 
+    Recording an authorization is not linking one: the dispatch-point gate reads
+    ``session["authorization_ref"]``, so a grant that was only recorded leaves
+    the session with no authorization and every consequential operation is
+    refused. This helper therefore follows the same lineage the API's
+    ``authorize_session`` uses — record against the session id, attach to the
+    PROPOSED session, then transition — and grants exactly the operations the
+    caller's test needs rather than a blanket set.
+    """
     agent = runtime.register_agent(subject_ref=uid, role=role, write_allowed=write)
     session = runtime.open_session(
         subject_ref=uid, workspace_ref="ws-1", agent_id=agent["agent_id"], objective="trace probe"
     )
-    runtime.record_authorization(
-        subject_ref=uid, scope_ref=session["session_id"], operations_allowed=("read", "run")
+    operations = ["read", "run"]
+    if write:
+        # ``write`` is a consequential operation and is gated at dispatch, so a
+        # write run needs a grant that names it. Nothing here widens the gate.
+        operations.append("write")
+    authorization = runtime.record_authorization(
+        subject_ref=uid,
+        scope_ref=session["session_id"],
+        operations_allowed=tuple(operations),
+    )
+    runtime._store.attach_authorization(
+        session["session_id"], uid, authorization["authorization_id"]
     )
     runtime.transition(session["session_id"], uid, "AUTHORIZED")
-    return session
+    return runtime.get_session(session["session_id"], uid)
 
 
 def _execute_read(runtime, session, workspace, uid: str = OWNER) -> dict:

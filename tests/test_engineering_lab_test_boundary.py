@@ -98,19 +98,24 @@ def container_policy(workspace):
 
 def _authorized_session(runtime, *, operations=("read", "test"), workspace_ref="proj-1"):
     agent = runtime.register_agent(subject_ref=SUBJECT, role="BUILDER")
-    authorization = runtime.record_authorization(
-        subject_ref=SUBJECT,
-        scope_ref="tests",
-        operations_allowed=tuple(operations),
-    )
     session = runtime.open_session(
         subject_ref=SUBJECT,
         workspace_ref=workspace_ref,
         agent_id=agent["agent_id"],
         objective="run the suite",
-        authorization_ref=authorization["authorization_id"],
     )
-    return session
+    # A grant must be scoped to the exact session it authorizes, so the
+    # session is opened first and the authorization is bound to its id.
+    authorization = runtime.record_authorization(
+        subject_ref=SUBJECT,
+        scope_ref=session["session_id"],
+        operations_allowed=tuple(operations),
+    )
+    runtime._store.attach_authorization(
+        session["session_id"], SUBJECT, authorization["authorization_id"]
+    )
+    runtime.transition(session["session_id"], SUBJECT, "AUTHORIZED")
+    return runtime.get_session(session["session_id"], SUBJECT)
 
 
 def _test_task(target: str = "") -> BoundedTask:

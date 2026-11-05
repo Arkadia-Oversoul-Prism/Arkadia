@@ -264,10 +264,17 @@ async def execute_bounded(
                 raise HTTPException(status_code=409, detail="Project canvas v0.1 direct operations are read/list/test only; 'test' runs the allowlisted suite inside the container boundary and 'run' stays with the authorized Weaver loop for read-only Git observation")
             policy = _project_canvas_policy(session, user["uid"])
         elif body.sandbox_root:
-            policy = SandboxPolicy(
-                root=body.sandbox_root,
-                write_allowed=body.requires_write,
-                command_allowlist=tuple(body.command_allowlist),
+            # A caller-selected filesystem root is never honoured. The sandbox
+            # root is server-managed: a session without a project binding runs
+            # against the server's own workspace, and a write still requires a
+            # usable session-scoped authorization naming 'write'.
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "sandbox_root is server-managed; a client-supplied root is "
+                    "refused. Bind the session to a project for a project-owned "
+                    "snapshot."
+                ),
             )
         result = runtime.execute_bounded_task(
             subject_ref=user["uid"], session_id=session_id, task=task, sandbox_policy=policy

@@ -610,6 +610,61 @@ class EngineeringLabStore:
             ).fetchone()
         return json.loads(row["payload"]) if row else None
 
+    def revoke_authorization(
+        self, authorization_id: str, subject_ref: str, *, reason: str = ""
+    ) -> dict[str, Any] | None:
+        """Mark an authorization revoked. Revocation is durable and terminal."""
+        with _db() as conn:
+            row = conn.execute(
+                "SELECT payload FROM el_authorizations"
+                " WHERE authorization_id = ? AND subject_ref = ?",
+                (authorization_id, subject_ref),
+            ).fetchone()
+            if row is None:
+                return None
+            record = json.loads(row["payload"])
+            record["revoked_at"] = utc_now()
+            record["revoked_reason"] = reason
+            conn.execute(
+                "UPDATE el_authorizations SET payload = ?"
+                " WHERE authorization_id = ? AND subject_ref = ?",
+                (json.dumps(record), authorization_id, subject_ref),
+            )
+        return record
+
+    def consume_authorization(
+        self, authorization_id: str, subject_ref: str
+    ) -> dict[str, Any] | None:
+        """Atomically consume a single-use authorization.
+
+        The read-modify-write runs inside one transaction guarded by a
+        conditional UPDATE, so two concurrent callers cannot both observe
+        ``consumed_at`` as unset. Returns the consumed record, or ``None`` if
+        the authorization is absent, already consumed, or revoked.
+        """
+        with _db() as conn:
+            row = conn.execute(
+                "SELECT payload FROM el_authorizations"
+                " WHERE authorization_id = ? AND subject_ref = ?",
+                (authorization_id, subject_ref),
+            ).fetchone()
+            if row is None:
+                return None
+            record = json.loads(row["payload"])
+            if record.get("consumed_at") or record.get("revoked_at"):
+                return None
+            record["consumed_at"] = utc_now()
+            cursor = conn.execute(
+                "UPDATE el_authorizations SET payload = ?"
+                " WHERE authorization_id = ? AND subject_ref = ?"
+                " AND json_extract(payload, '$.consumed_at') IS NULL"
+                " AND json_extract(payload, '$.revoked_at') IS NULL",
+                (json.dumps(record), authorization_id, subject_ref),
+            )
+            if cursor.rowcount != 1:
+                return None
+        return record
+
     # -- helpers --------------------------------------------------------------
 
     @staticmethod
