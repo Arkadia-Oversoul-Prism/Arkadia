@@ -112,3 +112,18 @@ authority surface, or identity boundary changed. The standalone surface still
 renders outside the shell, which is its declared contract.
 
 Merge, production deployment, and acceptance remain human-only.
+
+## 6. Engineering Lab PR-state route registration — shared integration seam
+
+Lane 4's existing PR #624 surfaces the read-only `GET /api/lab/engineering/pr/{number}` handler. The handler is declared in `api/lab_routes.py::pr_state` under the `/api/lab` router, whose router-level dependency applies `require_lab_auth`. The response distinguishes `AVAILABLE` and `UNAVAILABLE`; no mutation route is involved.
+
+This PR now supplies the Lane-1-owned registry half requested in #624:
+
+- `web/arkadia_console/src/lib/endpoints.ts` declares `labEngineeringPr: "/api/lab/engineering/pr/{number}"` — the exact served route template, not an unserved prefix.
+- `tests/test_console_endpoint_registry_contract.py::test_lab_pr_state_route_is_registered_from_the_served_handler` pins the registry key and confirms the exact template is present in `api.main:app.openapi()["paths"]`.
+- The existing generic registry guard also checks that the new entry is served by the canonical app.
+- Lane 4's #624 consumes the template and substitutes a validated, encoded PR number; a bare prefix or malformed template produces no request.
+
+This reuses the existing endpoint registry and existing Lab handler. No backend route, identity, authorization, approval, persistence, WorkEvent, production configuration, or second API base was added. The route registration is committed on this Lane-1 branch so #624 can become wired after the shared entry is merged.
+
+**Verification on the new endpoint-registration head:** pending fresh CI; no pass is claimed in this section until the current head checks complete.
