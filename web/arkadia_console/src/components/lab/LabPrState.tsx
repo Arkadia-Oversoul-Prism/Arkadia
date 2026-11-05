@@ -93,7 +93,7 @@ function Reading({ payload }: { payload: LabPrStatePayload | null }) {
 }
 
 /**
- * The read path's prefix comes from the shared endpoint registry
+ * The read path's exact route template comes from the shared endpoint registry
  * (`src/lib/endpoints.ts`, Lane 1's file) rather than being written here, so the
  * console keeps one endpoint contract (SHARED-CONTRACTS §3.1). When the registry
  * declares the template, pass it in:
@@ -131,7 +131,7 @@ export function LabPrState({ pathTemplate }: { pathTemplate?: string }) {
       {!template ? (
         <p className="mt-3 text-sm text-white/55" data-testid="lab-pr-not-wired">
           This read is not wired yet: the shared endpoint registry does not declare the pull-request
-          path prefix, and this surface does not inline one. No request is issued.
+          route template, and this surface does not inline one. No request is issued.
         </p>
       ) : (
       <form
