@@ -127,4 +127,12 @@ This PR now supplies the Lane-1-owned registry half requested in #624:
 
 This reuses the existing endpoint registry and existing Lab handler. No backend route, identity, authorization, approval, persistence, WorkEvent, production configuration, or second API base was added. The route registration is committed on this Lane-1 branch so #624 can become wired after the shared entry is merged.
 
-**Verification on the new endpoint-registration head:** pending fresh CI; no pass is claimed in this section until the current head checks complete.
+**Verification on source/test head `03aed5ef4b2dc0ea8794ece4e95473621e4afa00`:**
+
+- Prism Console Contract [run 41997035224](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41997035224): **1,066 passed in 50.49s**; CI-wiring guard **30 passed in 6.17s**.
+- N-ATLAS Developer Lab [run 41997034890](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41997034890): frontend typecheck/build, backend tests, canonical Render image, and N-ATLAS self-host image/smoke all succeeded.
+- N-ATLAS external beta [run 41997034994](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41997034994) succeeded; this supersedes the earlier source-head provider `error` event with null data.
+- Canonical Render read-only runtime probe [run 41997034923](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41997034923), security scan, boot syntax, economic seam, posture currency, and provider forensics checks succeeded.
+- SG-02 [run 41997034929](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41997034929) remains in progress at CP10-B broader backend regression. API/browser/identity acceptance is not claimed on this head.
+
+The evidence-only follow-up that updates this record is separate from the verified source/test head. Merge and deployment remain human-only.
