@@ -40,6 +40,7 @@ export const endpoints = {
   labGateway: "/api/lab/engineering/gateway",
   labNAtlasCatalog: "/api/lab/engineering/n-atlas/catalog",
   labRepository: "/api/lab/engineering/repository",
+  labEngineeringPr: "/api/lab/engineering/pr/{number}",
 
   solspireProjects: "/solspire/projects",
   solspireWorkspace: "/solspire/workspace",

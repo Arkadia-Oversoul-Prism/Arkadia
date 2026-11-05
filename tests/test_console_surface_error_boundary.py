@@ -12,7 +12,8 @@ runtime: no data path, auth path, or backend contract changes.
 What is asserted:
 
   * the boundary is mounted exactly once, in the composition root, wrapping the
-    surface body inside the shell (same convention as the `<Shell>` mount
+    surface body for *every* surface — including the declared `standalone` one,
+    which returns before the shell (same convention as the `<Shell>` mount
     guard);
   * it is keyed by surface, so a caught failure cannot outlive the surface that
     produced it;
@@ -60,6 +61,26 @@ def _implements_lifecycle(boundary_source: str) -> bool:
     )
 
 
+def _guards_every_surface(app_source: str) -> bool:
+    """True when no render path reaches the surface body without the boundary.
+
+    The standalone surface returns before the shell, so a boundary mounted only
+    inside the shell block leaves it unguarded. Require a single hoisted wrapper
+    and that both return paths go through it.
+    """
+    shell_block = re.search(r"<Shell[^>]*>.*?</Shell>", app_source, re.DOTALL)
+    if not shell_block:
+        return False
+    if not re.search(
+        r"const surfaceBody = \(\s*<ErrorBoundary[\s\S]*?\{body\}\s*</ErrorBoundary>\s*\);",
+        app_source,
+    ):
+        return False
+    if "if (def.standalone) return surfaceBody;" not in app_source:
+        return False
+    return "{surfaceBody}" in shell_block.group(0)
+
+
 # ---------------------------------------------------------------------------
 # Mounting contract
 # ---------------------------------------------------------------------------
@@ -85,16 +106,16 @@ def test_boundary_is_keyed_by_surface_so_failure_cannot_outlive_it():
     )
 
 
-def test_boundary_wraps_the_surface_body_inside_the_shell():
-    shell_block = re.search(
-        r"<Shell[^>]*>.*?</Shell>",
-        APP,
-        re.DOTALL,
-    )
+def test_boundary_wraps_the_surface_body_for_every_surface():
+    """The boundary is hoisted, so the shell is what varies, not the boundary.
+
+    Asserting the boundary sits *inside* the shell block would encode the defect
+    this guard exists to catch: a standalone surface returns before the shell, so
+    a boundary mounted only inside the shell leaves that surface unguarded.
+    """
+    shell_block = re.search(r"<Shell[^>]*>.*?</Shell>", APP, re.DOTALL)
     assert shell_block, "the composition root renders no Shell"
-    block = shell_block.group(0)
-    assert "<ErrorBoundary" in block and "{body}" in block
-    assert block.index("<ErrorBoundary") < block.index("{body}") < block.index("</ErrorBoundary>")
+    assert _guards_every_surface(APP)
 
 
 # ---------------------------------------------------------------------------
@@ -153,3 +174,18 @@ def test_negative_control_detects_an_unkeyed_mount():
     unkeyed = '<ErrorBoundary surface="X" onHome={() => navigate("home")}>{body}</ErrorBoundary>'
     assert not _is_keyed_by_surface(unkeyed)
     assert _is_keyed_by_surface(APP)
+
+
+def test_negative_control_detects_the_standalone_surface_escaping_the_boundary():
+    """Feed the detector the pre-repair shape: the boundary lives only inside the
+    shell and the standalone surface returns the raw body before reaching it."""
+    pre_repair = (
+        "if (def.standalone) return body;\n"
+        "return (\n"
+        "  <Shell current={route.surface} onNavigate={handleNavigate}>\n"
+        '    <ErrorBoundary key={route.surface} surface="X" onHome={onHome}>{body}</ErrorBoundary>\n'
+        "  </Shell>\n"
+        ");\n"
+    )
+    assert not _guards_every_surface(pre_repair)
+    assert _guards_every_surface(APP)
