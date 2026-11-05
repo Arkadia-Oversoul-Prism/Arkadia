@@ -201,6 +201,14 @@ Lane 1 has added that entry and a contract test in its existing PR #623. This PR
 
 **Dependency:** PR #623 must merge before the shared endpoint is present on `main`. Until both this feature and the registry entry are present in the composed application, the panel must remain `NOT WIRED`; this branch does not claim a live PR-state read.
 
-**Verification:** source/test changes committed; fresh CI for the current head is pending. Authenticated browser acceptance, desktop/mobile visual acceptance, preview verification and production verification remain separate and unclaimed.
+**Verification on source/test head `203aab3b2ea8428ce690d8c955a85d8f36c89cd3`:**
+
+- Prism Console Contract [run 41997004606](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41997004606): **1,081 passed in 47.27s**; CI-wiring guard **30 passed in 6.30s**.
+- N-ATLAS Developer Lab [run 41997004565](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41997004565): frontend `tsc --noEmit` + Vite build succeeded (`148 modules transformed`, built in `2.43s`); backend tests, canonical Render image, and N-ATLAS self-host image/smoke all succeeded.
+- N-ATLAS external beta [run 41997004461](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41997004461), canonical Render read-only runtime probe [run 41997004557](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41997004557), security scan, boot syntax, economic seam, posture currency and provider forensics all succeeded.
+- The first template-integration console run on the preceding head failed two path-builder assertions because its fixture still supplied the bare prefix. The fixture was corrected to the exact `{number}` route template in commit `203aab3`; the current console-contract run passes.
+- SG-02 [run 41997004499](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41997004499) remains in progress at CP10-B broader backend regression. No authenticated browser, preview, desktop/mobile or production acceptance is claimed.
+
+The canonical Engineering Lab MVP evidence record is updated in `docs/control-plane/evidence/arkadia-unified-lab-mvp-01/EVIDENCE.md`. The evidence-only follow-up is separate from the verified source/test head.
 
 No backend, authorization, identity, approval, WorkEvent, persistence or production configuration change.
