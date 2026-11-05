@@ -1191,7 +1191,7 @@ This is source-established from `MissionWorkspace.tsx`; no authenticated browser
 #### Changed files and revisions
 
 - `web/arkadia_console/src/components/lab/MissionWorkspace.tsx` — implementation commit `0b9c7128566d27636ee98c9c66f120da159f9d01`.
-- `tests/test_lab_mission_workspace_contract.py` — regression contract commit `89a9f200cc3b5a3aa629974cd425782c40eab3bd`; negative-control precision correction and current source/test head `1431980840b3fd6d74a9756d0589f8eea67969f0`.
+- `tests/test_lab_mission_workspace_contract.py` — regression contract commit `89a9f200cc3b5a3aa629974cd425782c40eab3bd`; negative-control precision correction `1431980840b3fd6d74a9756d0589f8eea67969f0`; compatibility assertion correction and current source/test head `a526f9f73eccceaf92c23f2f5a44341eb4813414`.
 - Branch: `feat/dea-01-session-view-read-guard-01`; PR #626, 3 commits ahead and 0 behind main at creation; 2 implementation/test files before this evidence update.
 
 #### Verification and limitations
@@ -1204,6 +1204,7 @@ This is source-established from `MissionWorkspace.tsx`; no authenticated browser
 - External beta validation [run 42003775408](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/42003775408): English, Hausa, native Arkadia golden workflow and evidence bundle — **all succeeded**.
 - Canonical Render Runtime Probe [run 42003775121](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/42003775121), security scan [42003775048](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/42003775048), boot syntax [42003775019](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/42003775019), provider forensics [42003775179](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/42003775179), economic seam [42003775218](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/42003775218), and posture currency [42003775409](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/42003775409) — **all succeeded**. Runtime probe was read-only and does not prove a deployment.
 - SG-02 [run 42003775182](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/42003775182) had CP10-A and SolSpire isolated integration steps complete successfully; CP10-B broader backend regression was still **IN PROGRESS** at this observation. CP10 API and browser steps had not started. No result is inferred from their absence.
+- Evidence/current PR head `5ee70d9097bd7d12ea63a79d435d2671962809c5` received a fresh check set: Prism Console Contract **1,065 passed**, CI-wiring **30 passed**; N-ATLAS Developer Lab, external beta, runtime probe, security, boot syntax, provider forensics, economic seam and posture currency succeeded. SG-02 [run 42004452349](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/42004452349) remained in CP10-B at last inspection; API/browser steps had not started. This evidence-only head does not change the verified source/test head `a526f9f`.
 - No local pytest execution, authenticated browser reproduction, desktop/mobile visual acceptance, preview verification or production verification is claimed.
 - Relevant #623/#624 SG-02 evidence still reports CP10-B raw failures and a collection error, with no base-main CP10-B comparison; regression attribution remains UNKNOWN and is outside this diff.
 
