@@ -30,6 +30,16 @@ function Svg({ children }: { children: React.ReactNode }) {
   return <svg {...BASE}>{children}</svg>;
 }
 
+/** Workspace — a conversation canvas: a speech field with a rendered artifact. */
+export function IconWorkspace() {
+  return (
+    <Svg>
+      <path d="M4 5.5h16v10H9l-5 4v-14Z" />
+      <path d="M8 9.5h8M8 12.5h5" />
+    </Svg>
+  );
+}
+
 /** Home — a crystal prism: the product's own mark, abstracted. */
 export function IconHome() {
   return (
@@ -236,6 +246,7 @@ export function IconClose() {
 
 /** The surface → icon map. One table, so a new surface cannot ship iconless. */
 export const SURFACE_ICONS: Record<SurfaceId, () => JSX.Element> = {
+  workspace: IconWorkspace,
   home: IconHome,
   arkana: IconArkana,
   projects: IconProjects,

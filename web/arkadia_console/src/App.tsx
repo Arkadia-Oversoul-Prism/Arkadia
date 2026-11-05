@@ -13,6 +13,7 @@ import { Loading, Page, Panel } from "./components/ui";
 import { SURFACE_BY_ID, type SurfaceId } from "./lib/surfaces";
 import { useRouter } from "./lib/router";
 import { rememberReturnTo } from "./lib/returnTo";
+import { WorkspacePage } from "./pages/WorkspacePage";
 import { HomePage } from "./pages/HomePage";
 import { NovaNetPage } from "./pages/NovaNetPage";
 import { ArkanaPage } from "./pages/ArkanaPage";
@@ -75,6 +76,8 @@ function Surfaces() {
     if (def.requiresAuth && loading) return <Loading label="Verifying identity…" />;
     if (def.requiresAuth && !isAuthenticated) return <AuthThreshold onNavigate={handleNavigate} />;
     switch (route.surface) {
+      case "workspace":
+        return <WorkspacePage />;
       case "home":
         return <HomePage onNavigate={navigate} />;
       case "novanet":

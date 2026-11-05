@@ -27,6 +27,7 @@ const NAV_SURFACES = SURFACES.filter((s) => s.nav !== false);
  *  of truth for *what exists*; this is only the reading order of the sidebar,
  *  and any surface not named here still renders after the named ones. */
 const NAV_ORDER: SurfaceId[] = [
+  "workspace",
   "home",
   "arkana",
   "projects",

@@ -8,6 +8,7 @@
  */
 
 export type SurfaceId =
+  | "workspace"
   | "home"
   | "novanet"
   | "arkana"
@@ -55,6 +56,20 @@ export interface SurfaceDef {
 }
 
 export const SURFACES: SurfaceDef[] = [
+  {
+    id: "workspace",
+    requiresAuth: true,
+    name: "Workspace",
+    boundary: "Arkana + Solariun",
+    summary:
+      "The conversational workspace \u2014 one conversation reaching every capability, rendered into a living canvas.",
+    // The default destination. It is declared at `/workspace` rather than `/`
+    // because `/` is the home surface's own path and a second surface cannot
+    // claim it (one canonical path per surface). The router's fallback for an
+    // unrouted path is unchanged, so an unknown link still lands on Home.
+    path: "/workspace",
+    accent: "text-teal",
+  },
   {
     id: "home",
     name: "Home",
