@@ -108,18 +108,24 @@ function Surfaces() {
   // contradict. It is still this application — same bundle, same origin, same
   // backend — not a second shell.
   //
-  // It renders outside the composition root's single error boundary on that same
-  // declaration: the boundary is mounted *inside* the shell, and a second mount
-  // would nest failure states (`tests/test_console_surface_error_boundary.py`
-  // pins exactly one). Recorded as a known limitation, not an oversight — a
-  // render failure in the external tester is not caught by a boundary.
-  if (def.standalone) return body;
+  // The boundary is hoisted so it wraps the surface body for *every* surface,
+  // standalone included. A second mount on the standalone path would nest
+  // failure states (`tests/test_console_surface_error_boundary.py` pins exactly
+  // one), so the boundary is defined once and the shell is what varies: a
+  // standalone surface skips the shell, not the boundary. Before this, a render
+  // failure in the external tester tore down the whole application with no
+  // recovery control.
+  const surfaceBody = (
+    <ErrorBoundary key={route.surface} surface={SURFACE_BY_ID[route.surface].name} onHome={() => navigate("home")}>
+      {body}
+    </ErrorBoundary>
+  );
+
+  if (def.standalone) return surfaceBody;
 
   return (
     <Shell current={route.surface} onNavigate={handleNavigate}>
-      <ErrorBoundary key={route.surface} surface={SURFACE_BY_ID[route.surface].name} onHome={() => navigate("home")}>
-        {body}
-      </ErrorBoundary>
+      {surfaceBody}
     </Shell>
   );
 }
