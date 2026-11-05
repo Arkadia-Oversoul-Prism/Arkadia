@@ -12,10 +12,12 @@ export type SurfaceId =
   | "novanet"
   | "arkana"
   | "solariun"
+  | "projects"
   | "engineering-lab"
   | "solspire"
   | "knowledge"
   | "weaver"
+  | "settings"
   | "operator"
   | "n-atlas"
   | "about"
@@ -90,6 +92,15 @@ export const SURFACES: SurfaceDef[] = [
     accent: "text-violet",
   },
   {
+    id: "projects",
+    requiresAuth: true,
+    name: "Projects",
+    boundary: "ARKADIA",
+    summary: "Discovery and navigation across projects, files, tasks, and activity.",
+    path: "/projects",
+    accent: "text-emerald",
+  },
+  {
     id: "engineering-lab",
     requiresAuth: true,
     name: "Engineering Lab",
@@ -128,6 +139,15 @@ export const SURFACES: SurfaceDef[] = [
     summary: "Governed execution and orchestration. Proposal, approval, execution, verification.",
     path: "/weaver",
     accent: "text-violet",
+  },
+  {
+    id: "settings",
+    requiresAuth: true,
+    name: "Settings",
+    boundary: "ARKADIA",
+    summary: "Identity, preferences, integrations, security, and workspace configuration.",
+    path: "/settings",
+    accent: "text-gold",
   },
   {
     id: "operator",

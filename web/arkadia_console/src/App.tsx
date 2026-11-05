@@ -25,6 +25,8 @@ import { AboutPage } from "./pages/AboutPage";
 import { SignInPage } from "./pages/SignInPage";
 import { OperatorPage } from "./pages/OperatorPage";
 import { NAtlasTesterPage } from "./pages/NAtlasTesterPage";
+import { ProjectsPage } from "./pages/ProjectsPage";
+import { SettingsPage } from "./pages/SettingsPage";
 
 function AuthThreshold({ onNavigate }: { onNavigate: (id: SurfaceId, section?: string) => void }) {
   return (
@@ -87,6 +89,10 @@ function Surfaces() {
         return <SolSpirePage />;
       case "knowledge":
         return <KnowledgePage />;
+      case "projects":
+        return <ProjectsPage section={route.section} onNavigate={navigate} />;
+      case "settings":
+        return <SettingsPage />;
       case "weaver":
         return <WeaverPage />;
       case "operator":

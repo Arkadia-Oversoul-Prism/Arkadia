@@ -20,9 +20,19 @@ export function Page({ title, subtitle, children }: { title: string; subtitle?: 
   );
 }
 
-export function Panel({ children, className = "" }: { children: ReactNode; className?: string }) {
+export function Panel({
+  children,
+  className = "",
+  "data-testid": testid,
+}: {
+  children: ReactNode;
+  className?: string;
+  "data-testid"?: string;
+}) {
   return (
-    <section className={`rounded-xl border border-line bg-panel/70 p-5 ${className}`}>{children}</section>
+    <section data-testid={testid} className={`rounded-xl border border-line bg-panel/70 p-5 ${className}`}>
+      {children}
+    </section>
   );
 }
 
