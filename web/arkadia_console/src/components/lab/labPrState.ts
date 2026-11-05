@@ -143,8 +143,13 @@ export function isValidPrNumber(value: string): boolean {
  * input yields `null` and the surface renders "not a PR number" instead of
  * issuing a request the handler would answer `422` for.
  */
-export function prStatePath(base: string, number: string): string | null {
+export function prStatePath(template: string, number: string): string | null {
   const trimmed = number.trim();
   if (!isValidPrNumber(trimmed)) return null;
-  return `${base.replace(/\/$/, "")}/${encodeURIComponent(trimmed)}`;
+
+  // The registry carries the exact served route template, not an unserved prefix.
+  const marker = "{number}";
+  if (!template.endsWith(marker) || template.indexOf(marker) !== template.lastIndexOf(marker)) return null;
+
+  return template.replace(marker, encodeURIComponent(trimmed));
 }
