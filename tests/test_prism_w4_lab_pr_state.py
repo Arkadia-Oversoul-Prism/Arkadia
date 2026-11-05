@@ -301,7 +301,7 @@ def test_neither_owned_file_inlines_the_endpoint_path():
     """One endpoint registry (§3.1): Lane 4 must not declare a second path.
 
     `src/lib/endpoints.ts` is Lane 1's file. Lane 4 supplies the surface and the
-    projection; the prefix is a parameter. A literal here would be a second,
+    projection; the route template is consumed from the registry. A literal here would be a second,
     unreviewed endpoint contract — the defect
     `test_console_endpoint_registry_contract.py` reports as
     "page-local endpoint path(s)".
@@ -318,7 +318,7 @@ def test_neither_owned_file_inlines_the_endpoint_path():
         ]
         assert "/api/lab/engineering/pr" not in "\n".join(code), (
             f"{path.name} inlines the endpoint path; it must take the registry's "
-            "base as a parameter instead"
+            "route template from the registry instead"
         )
 
 
