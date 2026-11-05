@@ -1199,3 +1199,64 @@ The evidence-only current PR head is `e3dad779d6a1acdf2de1f4b37f5603fcc84439a8`.
 
 The fresh N-ATLAS external beta workflow [run 41803361026](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41803361026) completed successfully: English beta, Hausa beta, native Arkadia golden workflow, and evidence bundle all passed. This later run supersedes the earlier provider-empty failure on source/test head `775ac93`; no manual rerun of the failed job was issued.
 
+## 19. DEA-01 read-only PR-state integration — 2026-11-05
+
+**Move ID:** `DEA-01-LAB-PR-STATE-READ-01`  
+**Purpose:** expose the existing read-only Engineering Lab PR-state handler through the canonical console endpoint registry and a truthful, read-only panel. No new API, database, authority system or tracker.
+
+### Current repository baseline
+
+- `main` observed at `4ff76c152f057795bf57c3abeb8de9b0e772f67b` (commit time `2026-11-04T19:19:29Z`); its parent is merge commit `c3702e737fcd21cbf1f7ed63c1a99fc59ea96cab`, which includes PR #622.
+- Existing open work relevant to the move: #623 (Lane 1 shared integration), #624 (Lane 4 Lab PR-state panel), and #625 (Lane 3 Knowledge OS; only `tests/test_knowledge_notes_boundary.py`, non-overlapping).
+- PR #623 evidence-only head: `ca79cedc9318fc7c9e1a4aad0b40ea375129f61b`; verified source/test head: `03aed5ef4b2dc0ea8794ece4e95473621e4afa00`.
+- PR #624 evidence-only head before this canonical-record update: `41abd033679d4e52555aa0c243f17425ee07f163`; verified source/test head: `203aab3b2ea8428ce690d8c955a85d8f36c89cd3`.
+- Canonical issue: #590. No merge or deployment performed.
+
+### Bounded implementation
+
+**PR #623 — Lane 1 shared endpoint registration** (`feat/prism-l1-standalone-surface-boundary-01`, evidence head `ca79cedc9318fc7c9e1a4aad0b40ea375129f61b`; verified source/test head `03aed5ef4b2dc0ea8794ece4e95473621e4afa00`):
+- Added `labEngineeringPr: "/api/lab/engineering/pr/{number}"` to `web/arkadia_console/src/lib/endpoints.ts` (commit `c26c2a46513d7e21eb78309f2aa50e0cca370f7f`).
+- Added `test_lab_pr_state_route_is_registered_from_the_served_handler` to `tests/test_console_endpoint_registry_contract.py` (commit `85fc74da964316d70d3e36b59b134f0d5a11659e`).
+- Updated the existing Lane-1 evidence record. No new PR was created; the existing #623 carrier was updated.
+
+**PR #624 — Lane 4 read-only panel integration** (`feat/prism-lane4-lab-pr-state-01`, evidence head `09539e609b460ad4892275a350679d8ff5f838df`; verified source/test head `203aab3b2ea8428ce690d8c955a85d8f36c89cd3`):
+- Updated `prStatePath` to substitute a validated positive PR number into the exact `{number}` route template; bare prefixes and malformed templates produce no request (commit `bb2e05815850bc8af8522888035261c99fd0b86a`).
+- Updated `LabPrState` to consume the optional registry template and remain non-interactive while the shared entry is absent (commit `3e4f9c755182b620f4ad582460a997bd79fea56a`, with wording follow-up `93a10855cf465464dfa6d3bc271395a0d5c43329`).
+- Updated projection tests for template substitution and refusal states (commits `a317769004fab06a0f6fcaac46332e5fa2a98001` and `a2717dad4ba3f7e95e2550b28c6aa9dcf29085c6`).
+- Updated the Lane-4 feature evidence record. The PR remains draft.
+
+### Verification and freshness
+
+- The served handler was re-read from `api/lab_routes.py::pr_state`: `@router.get("/engineering/pr/{number}")` under the `/api/lab` router, with router-level `require_lab_auth`; it is GET-only and returns `AVAILABLE` or `UNAVAILABLE`.
+- Prior PR #624 head `b4dc1eb7` had all listed GitHub workflows successful, including the 17-test Lab projection contract, 11 architecture tests, 30 CI-wiring tests, TypeScript build, and CP10 boundary gate. That evidence predates the exact-template source/test update and is not substituted for current-head verification.
+- Prior SG-02 run `41969277323` (PR #624's prior head) reported two raw CP10-B failures: `test_lab_router_is_read_only_and_authenticated` (stale expectation for `require_auth` rather than router-level `require_lab_auth`) and `test_lab_mutation_endpoints_are_exactly_the_lab_state_set` (inventory omits the served N-ATLAS run/test-session routes). The workflow's overall success does not make those raw failures green.
+- The same SG-02 run's browser log recorded `/enterprise`, `/enterprise/projects`, and `/engineering-lab` at HTTP 200 with empty console/page errors and failed requests. The authenticated Engineering Lab lens was explicitly **DEFERRED**, because Firebase web configuration and disposable identity inputs were blank. The successful browser step is not authenticated acceptance.
+- Production read-only probe on PR #624 [run 41997004557](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41997004557), completed `2026-11-05T08:46:17Z`, captured the canonical Render origin's route inventory: 290 OpenAPI paths, 333 operations, 154 GET routes probed, 39 reachable, 99 protected, 1 classified failing, 6 resource-not-found responses where a route was present, and 9 request-shape rejections. Static/runtime route inventory matched 333/333. The probe recorded `expected_revision=null`, `observed_revision=null`, and `not_applicable_for_pull_request_probe`; it does **not** identify the production source revision or prove deployment of these PRs. Valid low-privilege identity behavior was not tested.
+### Fresh current-head verification
+
+**PR #623 — source/test head `03aed5ef`:**
+- Prism Console Contract [41997035224](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41997035224): **1,066 passed in 50.49s**; CI-wiring guard **30 passed in 6.17s**.
+- N-ATLAS Developer Lab [41997034890](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41997034890), external beta [41997034994](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41997034994), canonical Render probe [41997034923](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41997034923), security, boot syntax, economic seam, posture currency and provider-forensics checks succeeded.
+- SG-02 [41997034929](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41997034929) completed with outer workflow success, but CP10-B raw regression was **8 failed, 3,884 passed, 17 skipped, 3 warnings, 1 error**. CP10-A passed 30; SolSpire isolated integration passed 23; CP10 API and unauthenticated browser route smoke succeeded (`consoleErrors=[]`, `pageErrors=[]`, `failedRequests=[]`). The authenticated Engineering Lab lens was **DEFERRED** because Firebase web config was blank; no disposable identity was provisioned and cleanup was skipped. The same eight failures and one collection error are detailed under #624 below; they are outside #623's changed paths. No base-main CP10-B run was available, so regression status is UNKNOWN.
+
+**PR #624 — source/test head `203aab3b`:**
+- Prism Console Contract [41997004606](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41997004606): **1,081 passed in 47.27s**; CI-wiring guard **30 passed in 6.30s**.
+- N-ATLAS Developer Lab [41997004565](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41997004565): frontend `tsc --noEmit` + Vite build passed (`148 modules transformed`, `2.43s`); backend, canonical Render image and N-ATLAS self-host image/smoke passed.
+- External beta [41997004461](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41997004461), runtime probe [41997004557](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41997004557), security, boot syntax, economic seam, posture currency and provider-forensics checks succeeded.
+- SG-02 [41997004499](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41997004499) completed with outer workflow success, but CP10-B raw regression was **8 failed, 3,899 passed, 17 skipped, 3 warnings, 1 error**. CP10-A passed 30; SolSpire isolated integration passed 23; CP10 API verification and unauthenticated browser route smoke succeeded (`consoleErrors=[]`, `pageErrors=[]`, `failedRequests=[]`). The authenticated Engineering Lab lens was DEFERRED because Firebase web config was blank; no disposable identity was provisioned and cleanup was skipped.
+- The eight CP10-B failures were: Lab router auth dependency assertion; Lab mutation endpoint inventory; AIS no-Firebase-persistence gate; identity-spine node-entry copy; ReasoMate shared-session key; two SolSpire R1 governance contracts; SolSpire R3 non-governed runtime contract. One collection error occurred in `tests/test_autonomy.py`. The two Lab failures are in unchanged backend tests/routes; neither PR changes those paths. No base-main CP10-B run was available, so regression status is **UNKNOWN**.
+- Browser route smoke passed for `/enterprise`, `/enterprise/projects`, and `/engineering-lab` with `consoleErrors=[]`, `pageErrors=[]`, `failedRequests=[]`. The authenticated Engineering Lab lens was **DEFERRED**, not PASS: Firebase web configuration was blank, no disposable identity was provisioned, and cleanup was skipped. The workflow's outer success does not make CP10-B green or authenticate the browser result.
+- CP10 security artifact scan and mutation boundary passed; evidence summary uploaded.
+
+### Unknowns and blockers
+
+- Authenticated Engineering Lab browser acceptance: **UNKNOWN / DEFERRED** — Firebase web config and disposable identity inputs were not supplied to the workflow.
+- Desktop/mobile visual acceptance: **UNKNOWN**.
+- Preview deployment and preview browser verification: **UNKNOWN**.
+- Production revision identity and post-deploy acceptance: **UNKNOWN**; no production deploy was requested or performed.
+- Render service/deployment inventory read: **BLOCKED** because the Render connector returned `no workspace selected`; no workspace was selected without human confirmation.
+- Human review/merge of #623 and #624 remains required. #624 depends on the shared registry entry from #623 being present in the composed `main` tree.
+
+### Next action
+
+Present the two draft PRs for human review in dependency order: #623 (shared registry) before #624 (Lab surface). Both outer SG-02 workflows completed, but CP10-B remains non-green and authenticated browser acceptance is deferred. Keep the panel not-wired until the registry entry is on `main`. Do not merge, deploy production, or claim full MVP acceptance.

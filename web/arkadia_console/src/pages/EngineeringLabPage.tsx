@@ -8,6 +8,7 @@ import { LabAgentRegistry } from "../components/lab/LabAgentRegistry";
 import { LabModelGateway } from "../components/lab/LabModelGateway";
 import { LabAutomationGrammar } from "../components/lab/LabAutomationGrammar";
 import { LabOperationalSurfaces } from "../components/lab/LabOperationalSurfaces";
+import { LabPrState } from "../components/lab/LabPrState";
 import { scalarOverview } from "../components/lab/labOperational";
 import { ExecutionLoop } from "../components/lab/ExecutionLoop";
 import { MissionWorkspace } from "../components/lab/MissionWorkspace";
@@ -90,6 +91,9 @@ export function EngineeringLabPage() {
         <LabModelGateway />
   
         <LabAutomationGrammar />
+
+        <LabPrState />
+
   
         <LabCapabilityDisclosure />
         </div>
