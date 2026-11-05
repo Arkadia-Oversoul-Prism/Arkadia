@@ -1199,3 +1199,48 @@ The evidence-only current PR head is `e3dad779d6a1acdf2de1f4b37f5603fcc84439a8`.
 
 The fresh N-ATLAS external beta workflow [run 41803361026](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41803361026) completed successfully: English beta, Hausa beta, native Arkadia golden workflow, and evidence bundle all passed. This later run supersedes the earlier provider-empty failure on source/test head `775ac93`; no manual rerun of the failed job was issued.
 
+## 19. DEA-01 read-only PR-state integration — 2026-11-05
+
+**Move ID:** `DEA-01-LAB-PR-STATE-READ-01`  
+**Purpose:** expose the existing read-only Engineering Lab PR-state handler through the canonical console endpoint registry and a truthful, read-only panel. No new API, database, authority system or tracker.
+
+### Current repository baseline
+
+- `main` observed at `4ff76c152f057795bf57c3abeb8de9b0e772f67b`.
+- Existing open work relevant to the move: #623 (Lane 1 shared integration), #624 (Lane 4 Lab PR-state panel), and #625 (Lane 3 Knowledge OS; non-overlapping).
+- Canonical issue: #590. No merge or deployment performed.
+
+### Bounded implementation
+
+**PR #623 — Lane 1 shared endpoint registration** (`feat/prism-l1-standalone-surface-boundary-01`, head `9de5c66b8ce29a0182eac32eb8bb5337b319b944`):
+- Added `labEngineeringPr: "/api/lab/engineering/pr/{number}"` to `web/arkadia_console/src/lib/endpoints.ts` (commit `c26c2a46513d7e21eb78309f2aa50e0cca370f7f`).
+- Added `test_lab_pr_state_route_is_registered_from_the_served_handler` to `tests/test_console_endpoint_registry_contract.py` (commit `85fc74da964316d70d3e36b59b134f0d5a11659e`).
+- Updated the existing Lane-1 evidence record. No new PR was created; the existing #623 carrier was updated.
+
+**PR #624 — Lane 4 read-only panel integration** (`feat/prism-lane4-lab-pr-state-01`, head `59aac897bff985706cc5c960dd080a6666b1225a` at this record point):
+- Updated `prStatePath` to substitute a validated positive PR number into the exact `{number}` route template; bare prefixes and malformed templates produce no request (commit `bb2e05815850bc8af8522888035261c99fd0b86a`).
+- Updated `LabPrState` to consume the optional registry template and remain non-interactive while the shared entry is absent (commit `3e4f9c755182b620f4ad582460a997bd79fea56a`, with wording follow-up `93a10855cf465464dfa6d3bc271395a0d5c43329`).
+- Updated projection tests for template substitution and refusal states (commits `a317769004fab06a0f6fcaac46332e5fa2a98001` and `a2717dad4ba3f7e95e2550b28c6aa9dcf29085c6`).
+- Updated the Lane-4 feature evidence record. The PR remains draft.
+
+### Verification and freshness
+
+- The served handler was re-read from `api/lab_routes.py::pr_state`: `@router.get("/engineering/pr/{number}")` under the `/api/lab` router, with router-level `require_lab_auth`; it is GET-only and returns `AVAILABLE` or `UNAVAILABLE`.
+- Prior PR #624 head `b4dc1eb7` had all listed GitHub workflows successful, including the 17-test Lab projection contract, 11 architecture tests, 30 CI-wiring tests, TypeScript build, and CP10 boundary gate. That evidence predates the exact-template source/test update and is not substituted for current-head verification.
+- Prior SG-02 run `41969277323` (PR #624's prior head) reported two raw CP10-B failures: `test_lab_router_is_read_only_and_authenticated` (stale expectation for `require_auth` rather than router-level `require_lab_auth`) and `test_lab_mutation_endpoints_are_exactly_the_lab_state_set` (inventory omits the served N-ATLAS run/test-session routes). The workflow's overall success does not make those raw failures green.
+- The same SG-02 run's browser log recorded `/enterprise`, `/enterprise/projects`, and `/engineering-lab` at HTTP 200 with empty console/page errors and failed requests. The authenticated Engineering Lab lens was explicitly **DEFERRED**, because Firebase web configuration and disposable identity inputs were blank. The successful browser step is not authenticated acceptance.
+- Production read-only probe `41969277215` at `2026-11-05T04:40:58Z` captured the canonical Render origin's route inventory: 290 OpenAPI paths, 333 operations, 154 GET routes probed, 39 reachable, 99 protected, 1 classified failing, 6 resource-not-found responses where a route was present, and 9 request-shape rejections. Static/runtime route inventory matched 333/333. The probe recorded `expected_revision=null`, `observed_revision=null`, and `not_applicable_for_pull_request_probe`; it does **not** identify the production source revision or prove deployment of these PRs. Valid low-privilege identity behavior was not tested.
+- Current-head workflows for #623 and #624 were queued/in progress when this record was updated; their results are pending. No fresh pass is claimed yet.
+
+### Unknowns and blockers
+
+- Authenticated Engineering Lab browser acceptance: **UNKNOWN / DEFERRED** — Firebase web config and disposable identity inputs were not supplied to the workflow.
+- Desktop/mobile visual acceptance: **UNKNOWN**.
+- Preview deployment and preview browser verification: **UNKNOWN**.
+- Production revision identity and post-deploy acceptance: **UNKNOWN**; no production deploy was requested or performed.
+- Render service/deployment inventory read: **BLOCKED** because the Render connector returned `no workspace selected`; no workspace was selected without human confirmation.
+- Human review/merge of #623 and #624 remains required. #624 depends on the shared registry entry from #623 being present in the composed `main` tree.
+
+### Next action
+
+Wait for the fresh current-head checks on #623 and #624, reconcile any failures, then present both draft PRs for human review in dependency order. Keep the panel not-wired until the registry entry is on `main`. Do not merge, deploy production, or claim full MVP acceptance.
