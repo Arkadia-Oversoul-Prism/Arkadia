@@ -71,6 +71,19 @@ export interface InspectorContext {
   approvals?: Array<{ id: string; label: string; state: string }>;
   evidence?: Array<{ label: string; detail?: string }>;
   lifecycle?: Lifecycle[];
+  /**
+   * The canonical project thread this conversation is recorded against.
+   *
+   * Absent means no project is active, so there is no thread to report. When
+   * present, `state` is the truth: `attached` means the turn-append route is
+   * reachable, `unavailable` means it is not and the conversation is not being
+   * persisted. The inspector must never imply persistence it does not have.
+   */
+  thread?: {
+    state: "idle" | "attaching" | "attached" | "unavailable";
+    conversationId?: string;
+    note?: string | null;
+  };
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -171,6 +184,35 @@ export function Inspector({ context }: { context: InspectorContext }) {
           </ul>
         ) : (
           <p className="cg-inspector-empty">Nothing is waiting on a human decision.</p>
+        )}
+      </Section>
+
+      <Section title="Project thread">
+        {context.thread ? (
+          <div data-testid="workspace-thread">
+            <Facts
+              rows={[
+                { label: "State", value: context.thread.state },
+                ...(context.thread.conversationId
+                  ? [{ label: "Conversation", value: context.thread.conversationId }]
+                  : []),
+              ]}
+            />
+            {context.thread.note ? (
+              <p className="cg-inspector-note" data-testid="workspace-thread-note">
+                {context.thread.note}
+              </p>
+            ) : null}
+            <p className="cg-inspector-note">
+              Turns are recorded through the canonical project-conversation service, which composes
+              the project record, the Knowledge OS note and the project activity event. This surface
+              keeps no second store.
+            </p>
+          </div>
+        ) : (
+          <p className="cg-inspector-empty">
+            No project is active, so this conversation is not being recorded against one.
+          </p>
         )}
       </Section>
 

@@ -7,6 +7,7 @@
  * authorization boundary, not a cosmetic redirect.
  */
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { ProjectProvider } from "./lib/projectContext";
 import { Shell } from "./components/Shell";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Loading, Page, Panel } from "./components/ui";
@@ -142,7 +143,16 @@ function Surfaces() {
 export default function App() {
   return (
     <AuthProvider>
-      <Surfaces />
+      {/*
+        The project-scoped context sits above the router so every surface reads
+        one answer to "which project am I in". It is inside AuthProvider because
+        both of its reads are authenticated contracts, and outside the router
+        because a project selection must survive a navigation between Workspace,
+        Projects and the Engineering Lab — that survival is the whole point.
+      */}
+      <ProjectProvider>
+        <Surfaces />
+      </ProjectProvider>
     </AuthProvider>
   );
 }

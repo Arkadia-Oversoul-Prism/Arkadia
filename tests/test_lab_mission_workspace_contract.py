@@ -601,9 +601,18 @@ def test_session_creation_persists_current_scope_hint():
     assert "rememberMissionSession(uid, created.session_id, created.objective || objective, targetList);" in callback, (
         "session creation must persist the current parsed target list"
     )
-    assert "}, [agentId, objective, note, uid, targetList, refreshView]);" in callback, (
-        "session creation must track target-list and refresh callback dependencies"
-    )
+    # The dependency array is asserted by *membership*, not by exact literal: the
+    # contract is that these dependencies are tracked, and the callback has since
+    # gained the shared project-context dependencies (canBindProject, workspaceRef,
+    # activeProjectId) that bind a session to a project. Pinning the whole array
+    # would fail on any legitimate addition while catching no real defect.
+    deps_start = callback.index("}, [", callback.index("rememberMissionSession("))
+    deps_end = callback.index("]);", deps_start)
+    deps = callback[deps_start:deps_end]
+    for required in ("agentId", "objective", "note", "uid", "targetList", "refreshView"):
+        assert required in deps, (
+            f"session creation must track the {required} dependency"
+        )
 
 
 

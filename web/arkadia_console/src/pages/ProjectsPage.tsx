@@ -19,22 +19,20 @@
  * shape `/solariun/<lens>` uses. The address bar therefore agrees with the
  * rendered view, and a project link is deep-linkable.
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Page, Panel, Facts, ContractState, NotYetWired } from "../components/ui";
 import { ProjectRuntimeCanvas } from "../components/solariun/ProjectRuntimeCanvas";
-import { useAuth } from "../contexts/AuthContext";
 import { useHydration, type Hydration } from "../lib/useHydration";
 import { apiRequest } from "../lib/apiClient";
 import {
-  endpoints,
   solspireProject,
   solspireProjectTasks,
   solspireProjectFiles,
   solspireProjectEvents,
 } from "../lib/endpoints";
 import { asItems, readRecord, scalarRows } from "../lib/records";
+import { useProjectContext } from "../lib/projectContext";
 import type { SurfaceId } from "../lib/surfaces";
-import type { ProjectList } from "../lib/types";
 
 const UNKNOWN_CONTRACT = "UNKNOWN";
 
@@ -80,6 +78,15 @@ function RecordList({ title, read, testid }: { title: string; read: Hydration<un
 }
 
 function ProjectDetail({ projectId, onNavigate }: { projectId: string; onNavigate: (id: SurfaceId, section?: string) => void }) {
+  const { selectProject } = useProjectContext();
+
+  // Opening a project's detail *is* the act of selecting it. The selection is
+  // shared, so "Discuss in Arkana" and "Open Engineering Lab" open on the same
+  // project this page is showing rather than on whatever each surface last held.
+  useEffect(() => {
+    selectProject(projectId);
+  }, [projectId, selectProject]);
+
   const detail = useHydration<Record<string, unknown>>(solspireProject(projectId), (p) =>
     readRecord(p, (q) => apiRequest<unknown>(q)),
   );
@@ -147,18 +154,18 @@ export function ProjectsPage({
   section?: string;
   onNavigate: (id: SurfaceId, section?: string) => void;
 }) {
-  const { isAuthenticated } = useAuth();
-  const projects = useHydration<ProjectList>(endpoints.solspireProjects, (p) => apiRequest<ProjectList>(p), [
-    isAuthenticated,
-  ]);
+  // The list is the shared context's read, not a second one: the console makes
+  // one request for projects and every surface reads the same answer.
+  const { projects, projectRows, projectCount } = useProjectContext();
   const [query, setQuery] = useState("");
 
   const filtered = useMemo(() => {
-    const list = projects.data?.projects ?? [];
     const q = query.trim().toLowerCase();
-    if (!q) return list;
-    return list.filter((p) => `${p.name} ${p.status ?? ""} ${p.description ?? ""}`.toLowerCase().includes(q));
-  }, [projects.data, query]);
+    if (!q) return projectRows;
+    return projectRows.filter((p) =>
+      `${p.name} ${p.status} ${p.description ?? ""}`.toLowerCase().includes(q),
+    );
+  }, [projectRows, query]);
 
   if (section) {
     return (
@@ -189,10 +196,10 @@ export function ProjectsPage({
 
       <Panel>
         <p className="mb-3 font-mono text-[11px] uppercase tracking-widest text-white/40">
-          {projects.data ? `${filtered.length} of ${projects.data.count} projects` : "Projects"}
+          {projects.state === "ready" ? `${filtered.length} of ${projectCount} projects` : "Projects"}
         </p>
-        {projects.state === "ready" && projects.data ? (
-          projects.data.count === 0 ? (
+        {projects.state === "ready" ? (
+          projectCount === 0 ? (
             <p className="text-sm text-white/50" data-testid="projects-empty">
               No projects yet in this workspace.
             </p>
@@ -214,7 +221,7 @@ export function ProjectsPage({
                   </button>
                   {p.description && <p className="mt-1 text-xs text-white/50">{p.description}</p>}
                   <p className="mt-1 font-mono text-[10px] uppercase tracking-widest text-white/35">
-                    {p.status ?? "active"}
+                    {p.status}
                   </p>
                 </li>
               ))}

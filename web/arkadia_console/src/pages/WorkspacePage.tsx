@@ -14,17 +14,25 @@
  *   - it does not present a capability as available when its contract is
  *     unverified (the composer reads `capabilities.ts` and marks those).
  *
- * The conversation is held in component state for this prototype. Persistence
- * through the canonical project-conversation service is declared in the
- * capability registry as `unverified` and is labelled as such in the UI — it is
- * not simulated.
+ * The conversation is held in component state, and — when a project is active —
+ * each completed turn is persisted through the canonical project-conversation
+ * service (`lib/projectConversation.ts`), which composes the turn across the
+ * existing substrates. The thread is therefore attached to its project and
+ * survives a reload; the inspector reports the bridge's own Knowledge OS state
+ * rather than claiming continuity it did not get.
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { streamArkana, type ArkanaMessage } from "../lib/arkana";
 import { apiRequest, ApiError } from "../lib/apiClient";
 import { endpoints } from "../lib/endpoints";
 import { CAPABILITIES, CAPABILITY_BY_TOKEN, type Capability } from "../lib/capabilities";
-import { useHydration } from "../lib/useHydration";
+import { useProjectContext } from "../lib/projectContext";
+import { useAuth } from "../contexts/AuthContext";
+import {
+  appendProjectTurn,
+  ensureProjectConversation,
+  type ProjectConversation,
+} from "../lib/projectConversation";
 import { isKnowledgeSearchData, recordDetail, recordTitle } from "./knowledge/knowledgeContracts";
 import type { KnowledgeSearchData } from "./knowledge/knowledgeContracts";
 import MarkdownViewer from "../components/arkana/MarkdownViewer";
@@ -85,31 +93,59 @@ export function WorkspacePage() {
   const [sending, setSending] = useState(false);
   const [activity, setActivity] = useState("Ready");
   const [error, setError] = useState<string | null>(null);
-  const [projectId, setProjectId] = useState<string | null>(null);
   const nextId = useRef(0);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  // The project list is a real read of the canonical contract. It is what makes
-  // the conversation project-scoped rather than free-floating.
-  const projects = useHydration<unknown>(endpoints.solspireProjects, (path: string) =>
-    apiRequest<unknown>(path),
-  );
+  // The active project is the shared context's, not this page's. One answer to
+  // "which project am I in" is what keeps a conversation scoped to the same
+  // project as the Lab session it produces.
+  const { projects, projectRows, activeProjectId, activeProject, selectProject } = useProjectContext();
+  const { isAuthenticated } = useAuth();
 
-  const projectRows = useMemo(() => {
-    const data = projects.data as { projects?: unknown[] } | unknown[] | null;
-    if (!data) return [];
-    const list = Array.isArray(data) ? data : Array.isArray(data.projects) ? data.projects : [];
-    return list
-      .filter((row): row is Record<string, unknown> => typeof row === "object" && row !== null)
-      .map((row) => ({
-        id: String(row.project_id ?? row.id ?? ""),
-        name: String(row.name ?? row.title ?? "Untitled project"),
-        status: String(row.status ?? "unknown"),
-      }))
-      .filter((row) => row.id);
-  }, [projects.data]);
+  // The canonical project thread. `null` means no thread is attached yet;
+  // `threadState` reports why, so the inspector never implies persistence it
+  // does not have.
+  const [thread, setThread] = useState<ProjectConversation | null>(null);
+  const [threadState, setThreadState] = useState<"idle" | "attaching" | "attached" | "unavailable">(
+    "idle",
+  );
+  const [threadNote, setThreadNote] = useState<string | null>(null);
+
+  // Attach (or re-attach) the project thread whenever the active project
+  // changes. A project with no conversation gets one; a project that already
+  // has one reuses it, so the thread is findable again after a reload.
+  useEffect(() => {
+    if (!activeProjectId || !isAuthenticated) {
+      setThread(null);
+      setThreadState("idle");
+      setThreadNote(null);
+      return;
+    }
+    let cancelled = false;
+    setThreadState("attaching");
+    setThreadNote(null);
+    ensureProjectConversation(activeProjectId, `${activeProject?.name ?? "Project"} conversation`)
+      .then((conversation) => {
+        if (cancelled) return;
+        setThread(conversation);
+        setThreadState("attached");
+      })
+      .catch((caught) => {
+        if (cancelled) return;
+        setThread(null);
+        setThreadState("unavailable");
+        setThreadNote(
+          caught instanceof ApiError
+            ? `${caught.status ?? "—"} ${caught.kind}: ${caught.message}`
+            : "The project conversation service could not be reached.",
+        );
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeProjectId, activeProject?.name, isAuthenticated]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -117,6 +153,31 @@ export function WorkspacePage() {
 
   const parsed = parseToken(draft);
   const activeCapability = parsed.capability;
+
+  /**
+   * Persist one completed turn through the canonical bridge.
+   *
+   * A persistence failure is reported, never swallowed: the turn stays visible
+   * in the canvas, and the inspector says the thread did not record it. The
+   * bridge's own Knowledge OS state is surfaced verbatim.
+   */
+  async function persistTurn(role: string, content: string) {
+    if (!activeProjectId || !thread) return;
+    try {
+      const result = await appendProjectTurn(activeProjectId, thread.id, role, content);
+      setThreadNote(
+        result.knowledge.status === "ingested"
+          ? "Turn recorded in the project thread and ingested into Knowledge OS."
+          : `Turn recorded in the project thread. Knowledge OS ingestion reported: ${result.knowledge.status}.`,
+      );
+    } catch (caught) {
+      setThreadNote(
+        caught instanceof ApiError
+          ? `Turn not recorded: ${caught.status ?? "—"} ${caught.kind}: ${caught.message}`
+          : "Turn not recorded: the project conversation service could not be reached.",
+      );
+    }
+  }
 
   function stop() {
     abortRef.current?.abort();
@@ -203,7 +264,7 @@ export function WorkspacePage() {
             ),
           signal: controller.signal,
         },
-        projectId ?? undefined,
+        activeProjectId ?? undefined,
       );
 
       setTurns((prev) =>
@@ -220,6 +281,12 @@ export function WorkspacePage() {
             : turn,
         ),
       );
+
+      // The reverse edge of the journey: the turn is recorded against the
+      // project, so the thread survives a reload and a Lab outcome can return
+      // to it. Both turns are appended, in order.
+      await persistTurn("user", message);
+      await persistTurn("arkana", result.reply);
     } catch (caught) {
       if (isAbortError(caught)) {
         setTurns((prev) =>
@@ -248,7 +315,7 @@ export function WorkspacePage() {
     await runTurn(message, activeCapability, turns);
   }
 
-  const selectedProject = projectRows.find((p) => p.id === projectId);
+  const selectedProject = activeProject;
 
   const lifecycle: Lifecycle[] = [
     {
@@ -275,6 +342,13 @@ export function WorkspacePage() {
       .map((e) => ({ label: `[${e.id}] ${e.title}`, detail: e.mode })),
     authorization: null,
     lifecycle,
+    thread: activeProjectId
+      ? {
+          state: threadState,
+          conversationId: thread?.id,
+          note: threadNote,
+        }
+      : undefined,
   };
 
   const rail = (
@@ -318,10 +392,10 @@ export function WorkspacePage() {
               <li key={project.id}>
                 <button
                   type="button"
-                  className={"cg-rail-item " + (projectId === project.id ? "is-active" : "")}
-                  aria-current={projectId === project.id ? "true" : undefined}
+                  className={"cg-rail-item " + (activeProjectId === project.id ? "is-active" : "")}
+                  aria-current={activeProjectId === project.id ? "true" : undefined}
                   data-testid={`workspace-project-${project.id}`}
-                  onClick={() => setProjectId(projectId === project.id ? null : project.id)}
+                  onClick={() => selectProject(activeProjectId === project.id ? null : project.id)}
                 >
                   <span className="min-w-0 truncate">{project.name}</span>
                   <span className="cg-rail-item-state">{project.status}</span>
@@ -382,9 +456,9 @@ export function WorkspacePage() {
               No capability scoped
             </span>
           )}
-          {projectId ? (
+          {activeProjectId ? (
             <span className="cg-token-chip cg-token-chip-quiet" data-testid="workspace-project-chip">
-              project · {selectedProject?.name ?? projectId}
+              project · {selectedProject?.name ?? activeProjectId}
             </span>
           ) : null}
         </div>
