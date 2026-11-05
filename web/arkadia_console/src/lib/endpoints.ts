@@ -44,6 +44,10 @@ export const endpoints = {
 
   solspireProjects: "/solspire/projects",
   solspireWorkspace: "/solspire/workspace",
+  aisProfile: "/api/me/ais-profile",
+  sources: "/api/sources",
+  knowledgeProviders: "/api/knowledge/providers",
+  providerKeys: "/api/provider-keys",
   solspireWorkloads: "/solspire/workloads",
   solspirePulses: "/solspire/pulses",
   solspireSyntheses: "/solspire/syntheses",
@@ -66,4 +70,24 @@ export function labCanvas(artifactId: string): string {
 
 export function solspireProjectRuntime(projectId: string): string {
   return `${endpoints.solspireProjects}/${encodeURIComponent(projectId)}/runtime-context`;
+}
+
+/** The canonical path of one project record. */
+export function solspireProject(projectId: string): string {
+  return `${endpoints.solspireProjects}/${encodeURIComponent(projectId)}`;
+}
+
+/** The project's task list. */
+export function solspireProjectTasks(projectId: string): string {
+  return `${solspireProject(projectId)}/tasks`;
+}
+
+/** The project's file/artifact list. */
+export function solspireProjectFiles(projectId: string): string {
+  return `${solspireProject(projectId)}/files`;
+}
+
+/** The project's activity (event) stream. */
+export function solspireProjectEvents(projectId: string): string {
+  return `${solspireProject(projectId)}/events`;
 }

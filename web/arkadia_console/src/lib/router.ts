@@ -76,9 +76,14 @@ const PARAM_PATTERN = /^\/([^/]+)\/([^/]+)\/([^/]+)$/;
  *     the console now has both a `solariun` `knowledge` lens **and** a distinct
  *     `knowledge` surface, so choosing between them is a capability decision this
  *     alias table cannot make.
- *   - `/dashboard`/`/loops`/`/settings`/`/account`/`/personal-echofeild`/
- *     `/echofeild-matrix` — each addressed a Solariun lens (`overview`/`tasks`/
- *     `settings`/`observatory`) the console does not declare.
+ *   - `/dashboard`/`/loops`/`/personal-echofeild`/`/echofeild-matrix` — each
+ *     addressed a Solariun lens (`overview`/`tasks`/`observatory`) the console
+ *     does not declare.
+ *
+ * `/settings` and `/account` were the same case and are now **reconciled**: the
+ * console declares a canonical `settings` surface at `/settings` (identity,
+ * preferences, integrations, security, workspace configuration), so `/settings`
+ * is that surface's own path and `/account` reconciles to it as an alias.
  */
 export const PATH_ALIASES: Record<string, SurfaceId> = {
   "/nexus": "novanet",
@@ -95,6 +100,12 @@ export const PATH_ALIASES: Record<string, SurfaceId> = {
   // declared in `surfaces.ts`, and the resolver returns that path so the
   // address bar is normalised on load.
   "/n-atlas-tester": "n-atlas",
+  // `/account` addressed the archived Solariun `settings` lens. The console now
+  // declares a canonical `settings` surface at `/settings`, so `/account`
+  // reconciles to it as an alias — the same "one canonical surface, legacy
+  // inbound path kept working" rule as `/nexus`. It does not collide with a
+  // declared surface path or a backend route (verified against `app.openapi()`).
+  "/account": "settings",
 };
 
 /**

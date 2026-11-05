@@ -147,8 +147,6 @@ LEGACY_GAP_DISPOSITIONS = {
     "/codex": "names the Solariun `knowledge` lens *and* the distinct `knowledge` surface",
     "/dashboard": "addressed a Solariun `overview` lens the console does not declare",
     "/loops": "addressed a Solariun `tasks` lens the console does not declare",
-    "/settings": "addressed a Solariun `settings` lens the console does not declare",
-    "/account": "same absent Solariun `settings` lens as `/settings`",
     "/personal-echofeild": "addressed a Solariun `observatory` lens the console does not declare",
     "/echofeild-matrix": "same absent Solariun `observatory` lens as `/personal-echofeild`",
     "/sci": "the archived Spiral Command Interface has no console surface",
@@ -970,9 +968,9 @@ def test_recorded_solariun_lens_absences_agree_with_the_surface_that_declares_le
         for m in [re.search(r"Solariun\s+`([a-z-]+)`\s+lens", disposition)]
         if m
     }
-    assert len(claims) == 6, (
-        "all six explicit and alias-form Solariun lens-absence claims must be bound: "
-        f"{sorted(claims.items())}"
+    assert len(claims) == 4, (
+        "all four remaining explicit and alias-form Solariun lens-absence claims must be "
+        f"bound: {sorted(claims.items())}"
     )
     # Premise: the bound claims really are about lenses the surface does not declare,
     # so the assertion below is not trivially satisfied by an empty intersection.
