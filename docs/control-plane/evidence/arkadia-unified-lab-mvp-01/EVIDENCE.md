@@ -1208,13 +1208,13 @@ The fresh N-ATLAS external beta workflow [run 41803361026](https://github.com/Ar
 
 - `main` observed at `4ff76c152f057795bf57c3abeb8de9b0e772f67b` (commit time `2026-11-04T19:19:29Z`); its parent is merge commit `c3702e737fcd21cbf1f7ed63c1a99fc59ea96cab`, which includes PR #622.
 - Existing open work relevant to the move: #623 (Lane 1 shared integration), #624 (Lane 4 Lab PR-state panel), and #625 (Lane 3 Knowledge OS; only `tests/test_knowledge_notes_boundary.py`, non-overlapping).
-- PR #623 evidence-only head: `6ca98b5810c099bcda10d355432f4b0ae573f8b4`; verified source/test head: `03aed5ef4b2dc0ea8794ece4e95473621e4afa00`.
+- PR #623 evidence-only head: `ca79cedc9318fc7c9e1a4aad0b40ea375129f61b`; verified source/test head: `03aed5ef4b2dc0ea8794ece4e95473621e4afa00`.
 - PR #624 evidence-only head before this canonical-record update: `41abd033679d4e52555aa0c243f17425ee07f163`; verified source/test head: `203aab3b2ea8428ce690d8c955a85d8f36c89cd3`.
 - Canonical issue: #590. No merge or deployment performed.
 
 ### Bounded implementation
 
-**PR #623 — Lane 1 shared endpoint registration** (`feat/prism-l1-standalone-surface-boundary-01`, evidence head `6ca98b5810c099bcda10d355432f4b0ae573f8b4`; verified source/test head `03aed5ef4b2dc0ea8794ece4e95473621e4afa00`):
+**PR #623 — Lane 1 shared endpoint registration** (`feat/prism-l1-standalone-surface-boundary-01`, evidence head `ca79cedc9318fc7c9e1a4aad0b40ea375129f61b`; verified source/test head `03aed5ef4b2dc0ea8794ece4e95473621e4afa00`):
 - Added `labEngineeringPr: "/api/lab/engineering/pr/{number}"` to `web/arkadia_console/src/lib/endpoints.ts` (commit `c26c2a46513d7e21eb78309f2aa50e0cca370f7f`).
 - Added `test_lab_pr_state_route_is_registered_from_the_served_handler` to `tests/test_console_endpoint_registry_contract.py` (commit `85fc74da964316d70d3e36b59b134f0d5a11659e`).
 - Updated the existing Lane-1 evidence record. No new PR was created; the existing #623 carrier was updated.
@@ -1237,13 +1237,13 @@ The fresh N-ATLAS external beta workflow [run 41803361026](https://github.com/Ar
 **PR #623 — source/test head `03aed5ef`:**
 - Prism Console Contract [41997035224](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41997035224): **1,066 passed in 50.49s**; CI-wiring guard **30 passed in 6.17s**.
 - N-ATLAS Developer Lab [41997034890](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41997034890), external beta [41997034994](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41997034994), canonical Render probe [41997034923](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41997034923), security, boot syntax, economic seam, posture currency and provider-forensics checks succeeded.
-- SG-02 [41997034929](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41997034929) remained in progress at CP10-B when last checked.
+- SG-02 [41997034929](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41997034929) completed with outer workflow success, but CP10-B raw regression was **8 failed, 3,884 passed, 17 skipped, 3 warnings, 1 error**. CP10-A passed 30; SolSpire isolated integration passed 23; CP10 API and unauthenticated browser route smoke succeeded (`consoleErrors=[]`, `pageErrors=[]`, `failedRequests=[]`). The authenticated Engineering Lab lens was **DEFERRED** because Firebase web config was blank; no disposable identity was provisioned and cleanup was skipped. The same eight failures and one collection error are detailed under #624 below; they are outside #623's changed paths. No base-main CP10-B run was available, so regression status is UNKNOWN.
 
 **PR #624 — source/test head `203aab3b`:**
 - Prism Console Contract [41997004606](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41997004606): **1,081 passed in 47.27s**; CI-wiring guard **30 passed in 6.30s**.
 - N-ATLAS Developer Lab [41997004565](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41997004565): frontend `tsc --noEmit` + Vite build passed (`148 modules transformed`, `2.43s`); backend, canonical Render image and N-ATLAS self-host image/smoke passed.
 - External beta [41997004461](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41997004461), runtime probe [41997004557](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41997004557), security, boot syntax, economic seam, posture currency and provider-forensics checks succeeded.
-- SG-02 [41997004499](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41997004499) completed with outer workflow success, but CP10-B raw regression was **8 failed, 3,899 passed, 17 skipped, 3 warnings, 1 error**. CP10-A passed 30; SolSpire isolated integration passed 23; CP10 API verification succeeded.
+- SG-02 [41997004499](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41997004499) completed with outer workflow success, but CP10-B raw regression was **8 failed, 3,899 passed, 17 skipped, 3 warnings, 1 error**. CP10-A passed 30; SolSpire isolated integration passed 23; CP10 API verification and unauthenticated browser route smoke succeeded (`consoleErrors=[]`, `pageErrors=[]`, `failedRequests=[]`). The authenticated Engineering Lab lens was DEFERRED because Firebase web config was blank; no disposable identity was provisioned and cleanup was skipped.
 - The eight CP10-B failures were: Lab router auth dependency assertion; Lab mutation endpoint inventory; AIS no-Firebase-persistence gate; identity-spine node-entry copy; ReasoMate shared-session key; two SolSpire R1 governance contracts; SolSpire R3 non-governed runtime contract. One collection error occurred in `tests/test_autonomy.py`. The two Lab failures are in unchanged backend tests/routes; neither PR changes those paths. No base-main CP10-B run was available, so regression status is **UNKNOWN**.
 - Browser route smoke passed for `/enterprise`, `/enterprise/projects`, and `/engineering-lab` with `consoleErrors=[]`, `pageErrors=[]`, `failedRequests=[]`. The authenticated Engineering Lab lens was **DEFERRED**, not PASS: Firebase web configuration was blank, no disposable identity was provisioned, and cleanup was skipped. The workflow's outer success does not make CP10-B green or authenticate the browser result.
 - CP10 security artifact scan and mutation boundary passed; evidence summary uploaded.
@@ -1259,4 +1259,4 @@ The fresh N-ATLAS external beta workflow [run 41803361026](https://github.com/Ar
 
 ### Next action
 
-Reconcile the still-running #623 SG-02 run [41997034929](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/41997034929), then present the two draft PRs for human review in dependency order: #623 (shared registry) before #624 (Lab surface). Keep the panel not-wired until the registry entry is on `main`. Do not merge, deploy production, or claim full MVP acceptance.
+Present the two draft PRs for human review in dependency order: #623 (shared registry) before #624 (Lab surface). Both outer SG-02 workflows completed, but CP10-B remains non-green and authenticated browser acceptance is deferred. Keep the panel not-wired until the registry entry is on `main`. Do not merge, deploy production, or claim full MVP acceptance.
