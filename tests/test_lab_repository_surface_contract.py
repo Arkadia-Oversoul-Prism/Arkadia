@@ -107,10 +107,85 @@ def test_surface_performs_reads_only() -> None:
         assert f'method: "{method}"' not in source, f"the panel declares a {method} call"
 
 
-def test_page_mounts_the_repository_context() -> None:
+def _matching_details_close(page: str, open_index: int) -> int:
+    """Index of the ``</details>`` that closes the ``<details`` at *open_index*.
+
+    A structural scan, not a substring search: nested ``<details>`` elements are
+    counted, so the returned close is the one that actually closes the
+    container rather than the first one that happens to appear after it.
+    """
+    depth = 0
+    i = open_index
+    while i < len(page):
+        nxt_open = page.find("<details", i)
+        nxt_close = page.find("</details>", i)
+        if nxt_close == -1:
+            raise AssertionError("unbalanced <details>: no closing tag")
+        if nxt_open != -1 and nxt_open < nxt_close:
+            depth += 1
+            i = nxt_open + len("<details")
+        else:
+            depth -= 1
+            if depth == 0:
+                return nxt_close
+            i = nxt_close + len("</details>")
+    raise AssertionError("unbalanced <details>: reached end of file")
+
+
+def _engineering_details_span(page: str) -> tuple[int, int]:
+    """The ``(open, close)`` character span of the diagnostics container."""
+    marker = page.find('data-testid="lab-engineering-details"')
+    assert marker != -1, "the lab-engineering-details container is gone"
+    open_index = page.rfind("<details", 0, marker)
+    assert open_index != -1, "the diagnostics container is not a <details> element"
+    return open_index, _matching_details_close(page, open_index)
+
+
+def test_repository_context_is_contained_in_the_engineering_details_container() -> None:
+    """The repository reading lives INSIDE the diagnostics disclosure.
+
+    Structural, not a substring check: the container's own closing tag is
+    located by counting nested ``<details>`` elements, so moving
+    ``<LabRepositoryContext />`` back outside the container reddens this guard
+    even though the string is still present in the file.
+    """
     page = _read(LAB_PAGE)
-    assert "LabRepositoryContext" in page
-    assert "<LabRepositoryContext />" in page
+    open_index, close_index = _engineering_details_span(page)
+
+    mount = page.find("<LabRepositoryContext />")
+    assert mount != -1, "the repository context is not mounted"
+    assert open_index < mount < close_index, (
+        "LabRepositoryContext must be mounted inside the lab-engineering-details "
+        "container, not beside it"
+    )
+
+
+def test_mission_workspace_is_the_first_child_of_the_page() -> None:
+    """Mission Control leads the surface; the diagnostics container follows it.
+
+    Ordering is asserted structurally: the first element after the ``<Page>``
+    opening tag must be ``<MissionWorkspace />``, and it must precede the
+    diagnostics container.
+    """
+    page = _read(LAB_PAGE)
+
+    mission = page.find("<MissionWorkspace />")
+    assert mission != -1, "MissionWorkspace is not mounted"
+
+    open_index, _ = _engineering_details_span(page)
+    assert mission < open_index, (
+        "MissionWorkspace must precede the lab-engineering-details container"
+    )
+
+    page_open = page.find("<Page")
+    assert page_open != -1, "the page element is gone"
+    tag_end = page.find(">", page_open)
+    assert tag_end != -1, "the <Page> opening tag is unterminated"
+    first_child = page[tag_end + 1 :].lstrip()
+    assert first_child.startswith("<MissionWorkspace />"), (
+        "MissionWorkspace must be the first child of <Page>; found "
+        f"{first_child[:40]!r} instead"
+    )
 
 
 # ---------------------------------------------------------------------------

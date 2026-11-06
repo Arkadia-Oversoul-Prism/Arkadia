@@ -1319,7 +1319,7 @@ Present the two draft PRs for human review in dependency order: #623 (shared reg
 **Canonical directive:** [Issue #590](https://github.com/Arkadia-Oversoul-Prism/Arkadia/issues/590)  
 **Existing integration PR:** [#629 — Arkadia One conversational workspace](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/629)  
 **Main at inspection:** `c7c6c71ac58413fd12cab02ca374a1e213bf663a`  
-**PR head before repair:** `d2280d3af896caab611a3afbdea1af48e96d87ea`  
+**PR head before repair:** `d2280d3af896caab611a3afbdea1af48e96d87ea` (superseded — see the DEA-01 containment section below; the live PR head is `0bcedbff055aaf7b644f46a1b543439e694f35a9`)  
 **Repair commit:** `aab373752e6e125f662d884de31d031224af8baf`
 
 ### Defect and evidence
@@ -1360,3 +1360,97 @@ No local checkout/test execution was available in this connector-backed run; ver
 ### Next action
 
 Read the final SG-02 CP10-B result and subsequent API/browser steps for the current PR head. Keep PR #629 open for human review; resolve the mixed-lane ownership and any remaining acceptance gaps before any merge decision.
+
+## DEA-01 Lab repository context containment — 2026-11-06
+
+**Move ID:** `DEA-01-LAB-REPOSITORY-CONTEXT-CONTAINMENT-01`
+**Canonical directive:** [Issue #590](https://github.com/Arkadia-Oversoul-Prism/Arkadia/issues/590)
+**Existing integration PR:** [#629](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/629) — no new branch, no new PR
+**Source SHA (built on):** `0bcedbff055aaf7b644f46a1b543439e694f35a9`
+**Main at inspection:** `c7c6c71ac58413fd12cab02ca374a1e213bf663a`
+
+### Part 0 — evidence reconciliation (the audit is correct; the prior report was stale)
+
+The DEA-01 execution audit corrected the record and the correction is confirmed against the live repository:
+
+| Claim | Prior report | Live repository | Verdict |
+|---|---|---|---|
+| PR #629 head | `d2280d3a` / `9f023345` | **`0bcedbff055aaf7b644f46a1b543439e694f35a9`** | **audit correct — prior SHAs stale** |
+| CI toolchain repair | not recorded | **`aab373752e6e125f662d884de31d031224af8baf`** | audit correct |
+| CI status | 17/18 | **18/18 success** | audit correct |
+| `mergeable_state` | `"dirty"` (behind_by 1) | **`"clean"`**, `mergeable: true`, `rebaseable: true` | superseded — the rebase landed |
+| Commits / files | 4 / 28 | **5 / 24** (`+4294 / −25`) | superseded |
+| Reviews | — | **0** review comments, 1 issue comment | recorded |
+
+The 18 check runs on `0bcedbff` are **all `success`**: `native-arkadia-golden-workflow`, `bundle-beta-evidence`, `beta-beta-01-english`, `beta-beta-02-hausa`, `posture-currency`, `console-contract`, `Full-history secret scan`, `trigger-coverage`, `Build canonical Render image`, `frontend`, `validate`, `backend`, `production-read-only-probe`, `verdict-step-integrity`, `boot-syntax`, `provider-forensics`, `Build and smoke-test the N-ATLAS self-host image`, `test`.
+
+The local sandbox was stale at `d2280d3a`; it was re-fetched to `0bcedbff` before any change. The prior report's SHAs are **superseded**, not merely imprecise.
+
+### Documentation corrections required by the audit
+
+**(a) The seven-stage mapping is NOT 1:1.** The console's seven display stages (Understand → Propose → Authorize → Execute → Verify → Accept → Release) are a *view* over the canonical chain. **Five display stages have canonical evidence mappings**; they do not map one-to-one onto records. `Understand` aggregates five canonical record types (`VOICE_EVENT`, `TRANSCRIPT`, `INTENT`, `CONTEXT`, `AUTHORITY`); `Execute` aggregates four (`EXECUTION`, `RESULT`, `WORK_EVENT`, `EVIDENCE`); `Authorize` aggregates two (`APPROVAL`, `AUTHORIZATION`). Only `Propose` (`PROPOSAL`) and `Verify` (`VERIFICATION`) are single-record. `Accept` and `Release` have **no** canonical record at all.
+
+**(b) Stricter state semantics adopted.** The four states are now defined as:
+
+- **`unknown`** — no readable chain, or insufficient evidence. An empty chain and a chain that has not reached execution are **not** the same thing.
+- **`pending`** — the chain is readable but the stage has not yet occurred.
+- **`unavailable`** — the underlying contract cannot be accessed, or does not support that stage.
+- **`done`** — the required canonical evidence exists.
+
+`Accept` and `Release` are `unavailable` by construction (no backend record exists for either), never `done`.
+
+### Outstanding evidence-reconciliation item (audit-raised)
+
+The SG-02 workflow's broader backend regression step is configured `continue-on-error: true` (`.github/workflows/sg-02-fe-2-v.yml`, step `CP10-B broader backend regression`). **A green workflow therefore does not establish that every backend test passed.** The raw CP10-B totals must be read from the uploaded evidence artifact, not from the green indicator.
+
+- Evidence artifact located: **`cp10-evidence-0ecc5a8e006ba2d3fb38f218cd03b9c7a46074aa`** (id `13489543984`, 23,053 bytes, not expired) on SG-02 run `42191598245`.
+- **The artifact's raw totals could not be extracted in this run**: the artifact download endpoint requires repository admin rights (`403 Must have admin rights to Repository`) and the job-log endpoint likewise (`403`). The totals are therefore **not reported here** rather than guessed.
+- The step's own conclusion is `success`, which — because of `continue-on-error` — is **not** a passing full-suite result. This is recorded as an open reconciliation item.
+
+### Security-review item (audit-raised)
+
+The CP10 API verification step constructs a **synthetic unsigned JWT with `alg: none`** (`.github/workflows/sg-02-fe-2-v.yml`, step `CP10 API verification`; the same construction appears in `scripts/voice_smoke.py`). Its success is **not** proof of Firebase identity verification. It is flagged as a **test fixture requiring separate security review** and is **not** presented as evidence of authenticated mission execution.
+
+### Part 1 — the bounded implementation
+
+`web/arkadia_console/src/pages/EngineeringLabPage.tsx` at the PR head mounted `<LabRepositoryContext />` **beside** the `lab-engineering-details` container rather than inside it, so the repository reading sat outside the diagnostics disclosure it belongs to.
+
+- Moved `<LabRepositoryContext />` **inside** the `lab-engineering-details` container (first child of its content div).
+- Preserved `<MissionWorkspace />` as the **first child** of `<Page>`.
+- No new component, no new state system, no new API, no parallel approval mechanism.
+
+`tests/test_lab_repository_surface_contract.py` was strengthened from a loose substring check to **structural** assertions:
+
+- `test_repository_context_is_contained_in_the_engineering_details_container` — locates the container's own closing tag by **counting nested `<details>` elements**, then asserts the mount index lies strictly between the container's open and close. Moving the component back outside reddens it even though the string is still present.
+- `test_mission_workspace_is_the_first_child_of_the_page` — asserts the first element after the `<Page>` opening tag is `<MissionWorkspace />`, and that it precedes the diagnostics container.
+
+### Verification
+
+| Check | Result |
+|---|---|
+| Focused regression test | **2 passed** (the two new structural guards); file total **7 failed / 6 passed** — the 7 failures are a pre-existing Node ESM/TS import limitation, **identical at baseline** (7 failed / 5 passed) |
+| Negative control — containment | planted the exact regression (component moved back outside): **1 failed** — `LabRepositoryContext must be mounted inside the lab-engineering-details container, not beside it` |
+| Negative control — ordering | planted `MissionWorkspace` no longer first: **1 failed** — `MissionWorkspace must be the first child of <Page>` |
+| `tsc --noEmit` | **0 errors** |
+| Production `vite build` | **succeeds** — 161 modules, `index-JFK5VNgy.js` 396.67 kB (102.86 kB gzip) |
+| Console contract suite | **151 failed / 900 passed / 57 errors**; failed/error **node set IDENTICAL** to baseline (208 nodes, `diff` empty); +1 net new passing test |
+| Full backend suite | **159 failed / 3741 passed / 21 skipped / 58 errors**; failed/error **node set IDENTICAL** to baseline (217 nodes, `diff` empty) |
+| Desktop render (1440×900) | harness — `repoInsideDetails: true`, `missionPresent: true`, **0 horizontal overflow**, 0 console errors |
+| Mobile render (390×844, DPR 3, touch) | harness — `repoInsideDetails: true`, **40px horizontal overflow, PRE-EXISTING** (identical at baseline; source is `MissionWorkspace`'s `mission-next-decision` panel, outside this diff) |
+
+**Rendering is component-harness rendering, not an authenticated application session.** The harness mounts the real `EngineeringLabPage` from the canonical frontend; Firebase is unconfigured, so the auth context reports its explicit unauthenticated state. The repository reading is served by a harness stub, not a backend response. **No signed-in session was simulated and no dev bypass was added.**
+
+### Changed files
+
+| Path | Change |
+|---|---|
+| `web/arkadia_console/src/pages/EngineeringLabPage.tsx` | `+2 / −2` — move the repository context inside the diagnostics container |
+| `tests/test_lab_repository_surface_contract.py` | `+81 / −3` — structural containment and ordering guards |
+| This evidence record | documentation corrections above |
+
+### Not claimed
+
+- Not merged, not deployed, not accepted. No new branch, no new PR, no force-push, no history rewrite.
+- Authenticated browser acceptance, preview verification and production verification: **UNKNOWN / NOT PERFORMED**.
+- The CP10-B raw totals remain **unreconciled** (artifact inaccessible without admin rights).
+- The `alg:none` fixture remains **unreviewed** by security.
