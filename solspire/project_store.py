@@ -280,14 +280,19 @@ def get_file(file_id: str) -> dict | None:
             "created_at": row["created_at"], "updated_at": row["updated_at"]}
 
 
-def update_file(file_id: str, content: str, name: str | None = None) -> dict:
+def update_file(project_id: str, file_id: str, content: str, name: str | None = None) -> dict:
+    """Update one file, scoped to the project it must belong to."""
     with _db() as conn:
         if name:
-            conn.execute("UPDATE project_files SET content=?,name=?,updated_at=? WHERE id=?",
-                         (content, name, time.time(), file_id))
+            c = conn.execute(
+                "UPDATE project_files SET content=?,name=?,updated_at=? WHERE id=? AND project_id=?",
+                (content, name, time.time(), file_id, project_id))
         else:
-            conn.execute("UPDATE project_files SET content=?,updated_at=? WHERE id=?",
-                         (content, time.time(), file_id))
+            c = conn.execute(
+                "UPDATE project_files SET content=?,updated_at=? WHERE id=? AND project_id=?",
+                (content, time.time(), file_id, project_id))
+    if c.rowcount == 0:
+        return {"ok": False, "error": "File not found"}
     _mirror_child("project_files", file_id)
     return {"ok": True}
 
@@ -348,12 +353,14 @@ def copy_file(file_id: str, new_name: str | None = None) -> dict:
     return create_file(src["project_id"], name, src.get("content") or "", src.get("mime_type") or "text/plain")
 
 
-def delete_file(file_id: str) -> bool:
-    pid = _child_project_id("project_files", file_id)
+def delete_file(project_id: str, file_id: str) -> bool:
+    """Delete one file, scoped to the project it must belong to."""
     with _db() as conn:
-        c = conn.execute("DELETE FROM project_files WHERE id=?", (file_id,))
+        c = conn.execute(
+            "DELETE FROM project_files WHERE id=? AND project_id=?", (file_id, project_id)
+        )
     if c.rowcount > 0:
-        _mirror_project(pid)
+        _mirror_project(project_id)
     return c.rowcount > 0
 
 
@@ -381,12 +388,14 @@ def link_repository(project_id: str, owner: str, repo: str, branch: str = "main"
     return {"id": rid, "project_id": project_id, "owner": owner, "repo": repo, "branch": branch, "label": label, "created_at": now}
 
 
-def unlink_repository(repo_id: str) -> bool:
-    pid = _child_project_id("project_repositories", repo_id)
+def unlink_repository(project_id: str, repo_id: str) -> bool:
+    """Unlink one repository, scoped to the project it must belong to."""
     with _db() as conn:
-        c = conn.execute("DELETE FROM project_repositories WHERE id=?", (repo_id,))
+        c = conn.execute(
+            "DELETE FROM project_repositories WHERE id=? AND project_id=?", (repo_id, project_id)
+        )
     if c.rowcount > 0:
-        _mirror_project(pid)
+        _mirror_project(project_id)
     return c.rowcount > 0
 
 
@@ -423,26 +432,46 @@ def create_task(project_id: str, title: str, description: str = "",
             "created_at": now, "updated_at": now}
 
 
-def update_task(task_id: str, **kwargs) -> dict:
+def update_task(project_id: str, task_id: str, **kwargs) -> dict:
+    """Update one task, scoped to the project it must belong to.
+
+    The `project_id` predicate is not decoration: the route authorizes the
+    *project* in the URL, so without it a caller who owns project B could pass
+    project A's task id and mutate a row they have no authority over. The
+    update matches only when the row is in `project_id`, and a miss is reported
+    as `ok: False` so the route can answer with the same existence-hiding 404
+    it uses for an unknown id.
+    """
     allowed = {"title", "description", "status", "assigned_to", "priority"}
     fields = {k: v for k, v in kwargs.items() if k in allowed and v is not None}
     if not fields:
         return {"ok": False, "error": "No valid fields"}
     fields["updated_at"] = time.time()
     sets = ", ".join(f"{k}=?" for k in fields)
-    vals = list(fields.values()) + [task_id]
+    vals = list(fields.values()) + [task_id, project_id]
     with _db() as conn:
-        conn.execute(f"UPDATE project_tasks SET {sets} WHERE id=?", vals)
+        c = conn.execute(
+            f"UPDATE project_tasks SET {sets} WHERE id=? AND project_id=?", vals
+        )
+    if c.rowcount == 0:
+        return {"ok": False, "error": "Task not found"}
     _mirror_child("project_tasks", task_id)
     return {"ok": True}
 
 
-def delete_task(task_id: str) -> bool:
-    pid = _child_project_id("project_tasks", task_id)
+def delete_task(project_id: str, task_id: str) -> bool:
+    """Delete one task, scoped to the project it must belong to.
+
+    Same reasoning as `update_task`: the project in the URL is the authority
+    boundary, so the delete must match on it too. Returns False when no row in
+    `project_id` has that id, which the route turns into a 404.
+    """
     with _db() as conn:
-        c = conn.execute("DELETE FROM project_tasks WHERE id=?", (task_id,))
+        c = conn.execute(
+            "DELETE FROM project_tasks WHERE id=? AND project_id=?", (task_id, project_id)
+        )
     if c.rowcount > 0:
-        _mirror_project(pid)
+        _mirror_project(project_id)
     return c.rowcount > 0
 
 
@@ -477,27 +506,32 @@ def add_memory(project_id: str, title: str, content: str, tags: list[str] | None
             "tags": tags or [], "created_at": now, "updated_at": now}
 
 
-def update_memory(mem_id: str, title: str | None = None, content: str | None = None,
-                  tags: list[str] | None = None) -> dict:
+def update_memory(project_id: str, mem_id: str, title: str | None = None,
+                  content: str | None = None, tags: list[str] | None = None) -> dict:
+    """Update one memory entry, scoped to the project it must belong to."""
     with _db() as conn:
-        row = conn.execute("SELECT * FROM project_memory WHERE id=?", (mem_id,)).fetchone()
+        row = conn.execute(
+            "SELECT * FROM project_memory WHERE id=? AND project_id=?", (mem_id, project_id)
+        ).fetchone()
         if not row:
             return {"ok": False}
         conn.execute(
-            "UPDATE project_memory SET title=?,content=?,tags=?,updated_at=? WHERE id=?",
+            "UPDATE project_memory SET title=?,content=?,tags=?,updated_at=? WHERE id=? AND project_id=?",
             (title or row["title"], content or row["content"],
-             json.dumps(tags) if tags is not None else row["tags"], time.time(), mem_id)
+             json.dumps(tags) if tags is not None else row["tags"], time.time(), mem_id, project_id)
         )
     _mirror_child("project_memory", mem_id)
     return {"ok": True}
 
 
-def delete_memory(mem_id: str) -> bool:
-    pid = _child_project_id("project_memory", mem_id)
+def delete_memory(project_id: str, mem_id: str) -> bool:
+    """Delete one memory entry, scoped to the project it must belong to."""
     with _db() as conn:
-        c = conn.execute("DELETE FROM project_memory WHERE id=?", (mem_id,))
+        c = conn.execute(
+            "DELETE FROM project_memory WHERE id=? AND project_id=?", (mem_id, project_id)
+        )
     if c.rowcount > 0:
-        _mirror_project(pid)
+        _mirror_project(project_id)
     return c.rowcount > 0
 
 
