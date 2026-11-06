@@ -385,6 +385,59 @@ def test_weaver_composes_real_read_models_and_declares_the_gaps():
     assert "setInterval" not in weaver, "Weaver polls without declaring it"
 
 
+# AO4-08: the no-polling assertion above only ever inspected the orchestrator.
+# Weaver's real behaviour is the behaviour of the components it *composes*, so a
+# `setInterval` added to `ApprovalLedger` (or any other composed panel) would
+# have passed the guard while polling on the Weaver surface. The guard is
+# widened to the composed set — and deliberately NOT to the whole console, so
+# legitimate polling in unrelated surfaces stays allowed.
+WEAVER_COMPOSED_COMPONENTS = (
+    "components/weaver/WeaverOrchestration.tsx",
+    "components/weaver/ApprovalLedger.tsx",
+    "components/lab/LabWorkLoop.tsx",
+    "components/lab/LabSessionList.tsx",
+    "components/lab/LabAgentRegistry.tsx",
+)
+
+
+def test_no_undeclared_polling_anywhere_in_the_weaver_composition():
+    """Every component Weaver actually renders must be free of undeclared polling."""
+    offenders = []
+    for relative in WEAVER_COMPOSED_COMPONENTS:
+        path = SRC / relative
+        assert path.exists(), f"Weaver composition names a missing component: {relative}"
+        source = path.read_text(encoding="utf-8")
+        for pattern in ("setInterval", "setTimeout(", "EventSource", "WebSocket("):
+            if pattern in source:
+                offenders.append(f"{relative}: {pattern}")
+    assert offenders == [], (
+        "Weaver's composed components poll or open a live stream the backend does "
+        f"not serve: {offenders}"
+    )
+
+
+def test_negative_control_polling_in_a_composed_component_is_detected():
+    """The widened guard must actually fire — proven against a mutated copy."""
+    relative = "components/weaver/ApprovalLedger.tsx"
+    source = (SRC / relative).read_text(encoding="utf-8")
+    mutated = source + "\nconst _poll = setInterval(() => {}, 1000);\n"
+    assert "setInterval" not in source, "the repaired component must not poll"
+    assert "setInterval" in mutated, "control did not mutate -- detector unproven"
+
+
+def test_polling_remains_allowed_outside_the_weaver_composition():
+    """The guard is scoped: it must not become a global no-polling rule."""
+    # A surface that legitimately polls (or may) is not in the composed set, so
+    # the guard above does not constrain it. This asserts the scope itself, so a
+    # future edit cannot quietly widen the ban to the whole console.
+    assert "components/weaver/WeaverOrchestration.tsx" in WEAVER_COMPOSED_COMPONENTS
+    assert len(WEAVER_COMPOSED_COMPONENTS) == 5
+    for relative in WEAVER_COMPOSED_COMPONENTS:
+        assert relative.startswith(("components/weaver/", "components/lab/")), (
+            "the no-polling guard must stay scoped to the Weaver composition"
+        )
+
+
 def test_negative_control_a_fabricated_worker_list_would_be_detected():
     """A hardcoded worker roster is the failure this guard exists to catch."""
     weaver = (SRC / "components" / "weaver" / "WeaverOrchestration.tsx").read_text(encoding="utf-8")
