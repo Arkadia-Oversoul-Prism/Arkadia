@@ -53,6 +53,18 @@ export interface Capability {
    */
   consequential: boolean;
   status: CapabilityStatus;
+  /**
+   * Whether the composer offers this capability as a `@token`.
+   *
+   * `status` answers "is the contract serviceable"; this answers "is it an
+   * action the composer can dispatch". They are not the same question: project
+   * conversations are a *verified, wired* contract, but a turn is recorded
+   * because a project is active — not because the user typed a token — so
+   * offering `@conversation` would be a control that does not do what its label
+   * says. Defaults to true; set false for a verified capability that is
+   * automatic rather than dispatchable.
+   */
+  dispatchable?: boolean;
   /** Why an unverified capability is not yet offered. */
   note?: string;
 }
@@ -220,10 +232,11 @@ export const CAPABILITIES: Capability[] = [
     domain: "workspace",
     summary: "Persist a conversation turn against a project, so the thread survives a reload and stays attached to its work.",
     endpoint: "/solspire/projects/{project_id}/conversations",
-    surface: "not yet wired in the console",
+    surface: "Workspace (project thread)",
     consequential: false,
-    status: "unverified",
-    note: "The route and the server-side bridge exist (solspire/conversation_bridge.py); the console has no adapter yet.",
+    status: "verified",
+    dispatchable: false,
+    note: "Wired in the workspace: `lib/projectConversation.ts` attaches the canonical thread when a project is active and appends each completed turn through the server-side bridge (`solspire/conversation_bridge.py`). It is automatic rather than a composer token — a turn is recorded because a project is active, not because the user typed `@conversation` — so it is not offered as a dispatchable action.",
   },
 ];
 

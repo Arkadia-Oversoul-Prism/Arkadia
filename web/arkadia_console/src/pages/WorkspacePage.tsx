@@ -36,7 +36,11 @@ import {
 import { isKnowledgeSearchData, recordDetail, recordTitle } from "./knowledge/knowledgeContracts";
 import type { KnowledgeSearchData } from "./knowledge/knowledgeContracts";
 import MarkdownViewer from "../components/arkana/MarkdownViewer";
+import { ArkanaThreadHistory } from "../components/arkana/ArkanaThreadHistory";
 import { WorkspaceShell } from "../components/workspace/WorkspaceShell";
+import { LabRepositoryContext } from "../components/lab/LabRepositoryContext";
+import { LabSessionList } from "../components/lab/LabSessionList";
+import { ApprovalLedger } from "../components/weaver/ApprovalLedger";
 import { Inspector, type InspectorContext, type Lifecycle } from "../components/workspace/Inspector";
 import { ArtifactView, selectArtifact, type Artifact } from "../components/workspace/ArtifactView";
 import {
@@ -465,6 +469,21 @@ export function WorkspacePage() {
             ))}
         </ul>
       </div>
+
+      {/*
+        The canonical conversation history, in the workspace rail.
+
+        This is the *same* component the standalone Arkana surface mounts
+        (`ArkanaThreadHistory`), reading the same owner-scoped
+        `/api/commune/threads` contract. It is composed here rather than
+        re-implemented so the workspace and Arkana cannot disagree about which
+        conversations exist. It is read-only by construction: opening, renaming
+        and appending are human acts the component does not wire.
+      */}
+      <div className="cg-rail-foot">
+        <p className="cg-rail-label">Conversations</p>
+        <ArkanaThreadHistory />
+      </div>
     </div>
   );
 
@@ -526,7 +545,7 @@ export function WorkspacePage() {
         </div>
       </div>
       <div className="cg-token-row" data-testid="workspace-token-row">
-        {CAPABILITIES.map((c) => (
+        {CAPABILITIES.filter((c) => c.dispatchable !== false).map((c) => (
           <button
             key={c.id}
             type="button"
@@ -551,10 +570,51 @@ export function WorkspacePage() {
     </div>
   );
 
+  /**
+   * The expandable execution/inspection panels.
+   *
+   * These are the existing Weaver and Engineering Lab components, composed into
+   * the workspace rather than duplicated. The point of the unified workspace is
+   * that a user can go from a conversational intention to the orchestration and
+   * engineering evidence behind it *without leaving the conversation* — so the
+   * approval ledger, the Lab repository context and the Lab session list render
+   * here, each keeping its own reads and its own honest unavailable state.
+   *
+   * They are collapsed by default: the conversation is the primary surface, and
+   * the panels are inspection, not decoration. Nothing here is a dead control —
+   * every panel is a live read of a contract the standalone surfaces already
+   * consume.
+   */
+  const panels = (
+    <>
+      <details className="cg-panel" data-testid="workspace-panel-weaver">
+        <summary className="cg-panel-summary">
+          <span className="cg-panel-title">Weaver · orchestration &amp; approvals</span>
+          <span className="cg-panel-hint">proposal ≠ approval ≠ execution</span>
+        </summary>
+        <div className="cg-panel-body">
+          <ApprovalLedger />
+        </div>
+      </details>
+
+      <details className="cg-panel" data-testid="workspace-panel-lab">
+        <summary className="cg-panel-summary">
+          <span className="cg-panel-title">Engineering Lab · repository &amp; sessions</span>
+          <span className="cg-panel-hint">governed engineering work and evidence</span>
+        </summary>
+        <div className="cg-panel-body">
+          <LabRepositoryContext />
+          <LabSessionList />
+        </div>
+      </details>
+    </>
+  );
+
   return (
     <WorkspaceShell
       rail={rail}
       inspector={<Inspector context={inspectorContext} />}
+      panels={panels}
       header={
         <div className="min-w-0">
           <p className="font-display text-sm tracking-[0.16em] text-gold">Workspace</p>

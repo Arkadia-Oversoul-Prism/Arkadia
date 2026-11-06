@@ -17,7 +17,7 @@
  *   - the mobile strip is a real `<nav>` with an accessible name.
  */
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { SURFACES, SURFACE_BY_ID, type SurfaceId } from "../lib/surfaces";
+import { SURFACES, SURFACE_BY_ID, SURFACE_GROUPS, type SurfaceId, type SurfaceGroupId } from "../lib/surfaces";
 import { useAuth } from "../contexts/AuthContext";
 import { SURFACE_ICONS, IconMenu, IconClose, IconShield } from "./Icons";
 
@@ -47,6 +47,27 @@ const ORDERED_NAV = [...NAV_SURFACES].sort((a, b) => {
   const bi = NAV_ORDER.indexOf(b.id);
   return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
 });
+
+/**
+ * The navigation, grouped for reading.
+ *
+ * Still derived from the one surface table: `NAV_SURFACES` is the item list and
+ * `SurfaceDef.group` is the only grouping input. A surface that declares no
+ * group is collected into a trailing group rather than dropped, so adding a
+ * surface to `surfaces.ts` can never make it unreachable from the shell.
+ *
+ * Groups with no members are omitted, so the sidebar never renders an empty
+ * heading. The order of the groups is `SURFACE_GROUPS`'s order, and the order
+ * within a group is `NAV_ORDER`'s — one declaration each, no third list.
+ */
+const UNGROUPED: SurfaceGroupId = "system";
+
+const NAV_GROUPS: Array<{ id: SurfaceGroupId; label: string; items: typeof NAV_SURFACES }> =
+  SURFACE_GROUPS.map((group) => ({
+    id: group.id,
+    label: group.label,
+    items: ORDERED_NAV.filter((s) => (s.group ?? UNGROUPED) === group.id),
+  })).filter((group) => group.items.length > 0);
 
 function NavLink({
   active,
@@ -279,14 +300,19 @@ export function Shell({
         </button>
 
         <nav aria-label="Primary navigation" className="flex flex-col gap-0.5">
-          {ORDERED_NAV.map((s) => (
-            <NavLink
-              key={s.id}
-              id={s.id}
-              active={current === s.id}
-              label={s.name}
-              onClick={() => onNavigate(s.id)}
-            />
+          {NAV_GROUPS.map((group) => (
+            <div key={group.id} className="cg-nav-group" data-testid={`nav-group-${group.id}`}>
+              <p className="cg-nav-group-label">{group.label}</p>
+              {group.items.map((s) => (
+                <NavLink
+                  key={s.id}
+                  id={s.id}
+                  active={current === s.id}
+                  label={s.name}
+                  onClick={() => onNavigate(s.id)}
+                />
+              ))}
+            </div>
           ))}
         </nav>
 
@@ -388,14 +414,19 @@ export function Shell({
               </button>
             </div>
             <nav aria-label="Primary navigation (drawer)" className="flex flex-col gap-0.5 overflow-y-auto">
-              {ORDERED_NAV.map((s) => (
-                <NavLink
-                  key={s.id}
-                  id={s.id}
-                  active={current === s.id}
-                  label={s.name}
-                  onClick={() => onNavigate(s.id)}
-                />
+              {NAV_GROUPS.map((group) => (
+                <div key={group.id} className="cg-nav-group">
+                  <p className="cg-nav-group-label">{group.label}</p>
+                  {group.items.map((s) => (
+                    <NavLink
+                      key={s.id}
+                      id={s.id}
+                      active={current === s.id}
+                      label={s.name}
+                      onClick={() => onNavigate(s.id)}
+                    />
+                  ))}
+                </div>
               ))}
             </nav>
             <IdentityBlock onNavigate={onNavigate} />

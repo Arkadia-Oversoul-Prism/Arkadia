@@ -360,6 +360,33 @@ body {
 
 /* ── Sidebar navigation ────────────────────────────────────────────────── */
 
+/* Navigation groups: a heading over a run of items. The heading is a label, not
+   a control — it is not focusable and carries no role, so the tab order is still
+   exactly the surface links. The first group's heading is suppressed so the
+   sidebar does not open with a redundant "Workspace" over the brand. */
+.cg-nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.cg-nav-group + .cg-nav-group {
+  margin-top: 0.75rem;
+}
+
+.cg-nav-group-label {
+  padding: 0 12px 0.25rem;
+  font-family: var(--cg-mono, ui-monospace, monospace);
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.28);
+}
+
+.cg-nav-group:first-child .cg-nav-group-label {
+  display: none;
+}
+
 .cg-nav-item {
   position: relative;
   display: flex;

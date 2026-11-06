@@ -53,7 +53,42 @@ export interface SurfaceDef {
    * shell around it would contradict the promise it makes.
    */
   standalone?: boolean;
+  /**
+   * The navigation group this surface is listed under.
+   *
+   * This is a *reading order* dimension, not a second navigation model: the
+   * shell still derives its item list from this one table, and a surface with
+   * no group renders in the trailing group rather than disappearing. Grouping
+   * exists because thirteen flat destinations is a list, not a map — the four
+   * governed capabilities (Arkana, Weaver, Engineering Lab, Solariun) were
+   * indistinguishable from Settings in a flat column.
+   */
+  group?: SurfaceGroupId;
 }
+
+/**
+ * The navigation groups, in reading order.
+ *
+ * `workspace` is the entry point; `converse`, `build` and `cognition` are the
+ * governed capabilities the product is organised around; `field` and `system`
+ * are the surrounding surfaces. The ids are stable because the shell orders by
+ * them — a group is a declaration here, never a hardcoded list in a component.
+ */
+export type SurfaceGroupId = "workspace" | "converse" | "build" | "cognition" | "field" | "system";
+
+export interface SurfaceGroupDef {
+  id: SurfaceGroupId;
+  label: string;
+}
+
+export const SURFACE_GROUPS: SurfaceGroupDef[] = [
+  { id: "workspace", label: "Workspace" },
+  { id: "converse", label: "Converse" },
+  { id: "build", label: "Build" },
+  { id: "cognition", label: "Cognition" },
+  { id: "field", label: "Field" },
+  { id: "system", label: "System" },
+];
 
 export const SURFACES: SurfaceDef[] = [
   {
@@ -69,6 +104,7 @@ export const SURFACES: SurfaceDef[] = [
     // unrouted path is unchanged, so an unknown link still lands on Home.
     path: "/workspace",
     accent: "text-teal",
+    group: "workspace",
   },
   {
     id: "home",
@@ -77,6 +113,7 @@ export const SURFACES: SurfaceDef[] = [
     summary: "Unified shell, identity, and navigation across the product.",
     path: "/",
     accent: "text-gold",
+    group: "workspace",
   },
   {
     id: "novanet",
@@ -88,6 +125,7 @@ export const SURFACES: SurfaceDef[] = [
     // reconciled as an alias to this route, never a second surface.
     path: "/novanet",
     accent: "text-azure",
+    group: "field",
   },
   {
     id: "arkana",
@@ -96,6 +134,7 @@ export const SURFACES: SurfaceDef[] = [
     summary: "Conversational intelligence and synthesis over the shared spine.",
     path: "/arkana",
     accent: "text-emerald",
+    group: "converse",
   },
   {
     id: "solariun",
@@ -105,6 +144,7 @@ export const SURFACES: SurfaceDef[] = [
     summary: "Personal workspace and cognitive canvas — projects and continuity.",
     path: "/solariun",
     accent: "text-violet",
+    group: "cognition",
   },
   {
     id: "projects",
@@ -114,6 +154,7 @@ export const SURFACES: SurfaceDef[] = [
     summary: "Discovery and navigation across projects, files, tasks, and activity.",
     path: "/projects",
     accent: "text-emerald",
+    group: "build",
   },
   {
     id: "engineering-lab",
@@ -123,6 +164,7 @@ export const SURFACES: SurfaceDef[] = [
     summary: "Technical operations, task state, provider status, and evidence.",
     path: "/engineering-lab",
     accent: "text-azure",
+    group: "build",
   },
   {
     id: "solspire",
@@ -136,6 +178,7 @@ export const SURFACES: SurfaceDef[] = [
     // non-colliding route; the API contract still speaks `/solspire/*`.
     path: "/enterprise",
     accent: "text-gold",
+    group: "field",
   },
   {
     id: "knowledge",
@@ -145,6 +188,7 @@ export const SURFACES: SurfaceDef[] = [
     summary: "Continuity, memory, and the knowledge graph.",
     path: "/knowledge",
     accent: "text-emerald",
+    group: "cognition",
   },
   {
     id: "weaver",
@@ -154,6 +198,7 @@ export const SURFACES: SurfaceDef[] = [
     summary: "Governed execution and orchestration. Proposal, approval, execution, verification.",
     path: "/weaver",
     accent: "text-violet",
+    group: "build",
   },
   {
     id: "settings",
@@ -163,6 +208,7 @@ export const SURFACES: SurfaceDef[] = [
     summary: "Identity, preferences, integrations, security, and workspace configuration.",
     path: "/settings",
     accent: "text-gold",
+    group: "system",
   },
   {
     id: "operator",
@@ -175,6 +221,7 @@ export const SURFACES: SurfaceDef[] = [
     path: "/operator",
     accent: "text-gold",
     param: "id",
+    group: "system",
   },
   {
     id: "n-atlas",
@@ -196,6 +243,7 @@ export const SURFACES: SurfaceDef[] = [
     summary: "Architecture, lineage, and principles.",
     path: "/about",
     accent: "text-azure",
+    group: "system",
   },
   {
     id: "login",

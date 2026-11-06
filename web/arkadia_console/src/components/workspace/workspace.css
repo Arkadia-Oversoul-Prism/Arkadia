@@ -727,6 +727,68 @@
   box-shadow: 0 0 8px -1px currentColor;
 }
 
+/* ── Expandable execution / inspection panels ───────────────────────────────
+ *
+ * The workspace composes the *existing* Weaver and Engineering Lab components
+ * (the approval ledger, the Lab repository context, the session list) so a user
+ * can inspect orchestration and engineering evidence without leaving the
+ * conversation. These rules only place them: the panels reuse the canonical
+ * `.cg-panel` glass slab from `index.css` rather than introducing a second
+ * visual language, and the summary is a real disclosure control (a native
+ * `<details>`), never a decorative header.
+ */
+.cg-panels {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0 1rem 0.5rem;
+}
+
+@media (min-width: 768px) {
+  .cg-panels {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+}
+
+.cg-panel-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 0.75rem;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  list-style: none;
+  border-radius: 18px;
+}
+
+.cg-panel-summary::-webkit-details-marker {
+  display: none;
+}
+
+.cg-panel-summary:focus-visible {
+  outline: 2px solid rgba(228, 199, 123, 0.6);
+  outline-offset: 2px;
+}
+
+.cg-panel-title {
+  font-family: var(--cg-mono, ui-monospace, monospace);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.cg-panel-hint {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.cg-panel-body {
+  padding: 0 1rem 1rem;
+  border-top: 1px solid var(--cg-glass-border);
+}
+
 /* The workspace respects the same reduced-motion contract as the rest of the
  * console: motion is decoration, never information. */
 @media (prefers-reduced-motion: reduce) {

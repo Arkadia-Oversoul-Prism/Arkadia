@@ -45,12 +45,25 @@ export function WorkspaceShell({
   children,
   composer,
   header,
+  panels,
 }: {
   rail: ReactNode;
   inspector: ReactNode;
   children: ReactNode;
   composer: ReactNode;
   header?: ReactNode;
+  /**
+   * The expandable execution/inspection panels, rendered between the canvas and
+   * the composer dock.
+   *
+   * These are the *same* live components the standalone Weaver and Engineering
+   * Lab surfaces mount (the approval ledger, the Lab repository context, the
+   * session list). They are not re-implemented here: the workspace composes the
+   * existing components so a user can inspect orchestration and engineering
+   * evidence without leaving the conversation. Each panel keeps its own reads
+   * and its own honest unavailable state.
+   */
+  panels?: ReactNode;
 }) {
   const [railOpen, setRailOpen] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(false);
@@ -108,6 +121,12 @@ export function WorkspaceShell({
         </header>
 
         <div className="cg-canvas-stage">{children}</div>
+
+        {panels ? (
+          <div className="cg-panels" data-testid="workspace-panels">
+            {panels}
+          </div>
+        ) : null}
 
         <div className="cg-composer-dock">
           <div className="cg-composer-inner">{composer}</div>
