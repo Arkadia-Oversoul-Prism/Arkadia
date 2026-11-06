@@ -360,6 +360,33 @@ body {
 
 /* ── Sidebar navigation ────────────────────────────────────────────────── */
 
+/* Navigation groups: a heading over a run of items. The heading is a label, not
+   a control — it is not focusable and carries no role, so the tab order is still
+   exactly the surface links. The first group's heading is suppressed so the
+   sidebar does not open with a redundant "Workspace" over the brand. */
+.cg-nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.cg-nav-group + .cg-nav-group {
+  margin-top: 0.75rem;
+}
+
+.cg-nav-group-label {
+  padding: 0 12px 0.25rem;
+  font-family: var(--cg-mono, ui-monospace, monospace);
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.28);
+}
+
+.cg-nav-group:first-child .cg-nav-group-label {
+  display: none;
+}
+
 .cg-nav-item {
   position: relative;
   display: flex;
@@ -1381,4 +1408,48 @@ body {
   .arkana-composer-hint {
     font-size: 8px;
   }
+}
+
+/* ── Surface context rail ────────────────────────────────────────────────────
+ *
+ * The one shell renders the rail a surface publishes. This replaces the second
+ * `<aside>` that `WorkspaceShell` and `ArkanaShell` each used to render inside
+ * the global shell — the structural cause of the console reading as several
+ * applications. There is now one navigation column (the shell's) and at most
+ * one context column (this), never two of either.
+ *
+ * Below 1024px the rail is not rendered inline at all: the surface's own
+ * content keeps the full width, and the shell's mobile drawer carries primary
+ * navigation. The rail is orientation for sustained desktop work, not a
+ * compressed desktop panel on a phone.
+ */
+.cg-surface-rail {
+  display: grid;
+  grid-template-columns: 1fr;
+  min-height: 100%;
+  width: 100%;
+}
+
+@media (min-width: 1024px) {
+  .cg-surface-rail {
+    grid-template-columns: 248px minmax(0, 1fr);
+  }
+}
+
+.cg-surface-rail-inner {
+  display: none;
+  border-right: 1px solid var(--cg-glass-border);
+  background: linear-gradient(180deg, rgba(10, 12, 22, 0.72), rgba(5, 6, 11, 0.86));
+  backdrop-filter: blur(var(--cg-glass-blur));
+  overflow-y: auto;
+}
+
+@media (min-width: 1024px) {
+  .cg-surface-rail-inner {
+    display: block;
+  }
+}
+
+.cg-surface-rail-content {
+  min-width: 0;
 }

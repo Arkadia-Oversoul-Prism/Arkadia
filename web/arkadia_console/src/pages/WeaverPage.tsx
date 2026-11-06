@@ -1,19 +1,23 @@
 import { Page, NotYetWired } from "../components/ui";
-import { LabSessionList } from "../components/lab/LabSessionList";
-import { LabWorkLoop } from "../components/lab/LabWorkLoop";
-import { ApprovalLedger } from "../components/weaver/ApprovalLedger";
+import { WeaverOrchestration } from "../components/weaver/WeaverOrchestration";
 
+/**
+ * Weaver — governed execution and orchestration.
+ *
+ * The surface composes the real read models (approval ledger, canonical work
+ * loop, session ladder with runs/events/evidence/artifacts, deployed agents) and
+ * declares the orchestration dimensions the contracts do not publish. It does
+ * not invent workers, progress or telemetry, and it wires no mutating act:
+ * authorizing, executing and transitioning are human decisions taken on the
+ * Engineering Lab's mission workspace, not here.
+ */
 export function WeaverPage() {
   return (
     <Page
       title="Weaver"
       subtitle="Governed execution and orchestration. Proposal, approval, execution, and verification remain distinct stages."
     >
-      <ApprovalLedger />
-
-      <LabWorkLoop />
-
-      <LabSessionList />
+      <WeaverOrchestration />
 
       <NotYetWired
         contract="/api/lab/engineering/sessions/{id}/execute"

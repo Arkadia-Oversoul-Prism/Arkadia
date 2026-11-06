@@ -104,6 +104,18 @@ export interface InspectorContext {
     conversationId?: string;
     note?: string | null;
   };
+  /**
+   * Additional live panels contributed by the active surface.
+   *
+   * The inspector is the one place that shows "what is true right now" for the
+   * workspace, so a capability that has real live state (the Engineering Lab's
+   * repository context, the Weaver approval ledger) renders *here* rather than
+   * on a separate page the user has to leave the conversation to reach. The
+   * slot is a `ReactNode`, not a data contract: the contributing surface owns
+   * its own reads and its own honest empty/unavailable states, and the
+   * inspector only decides where they sit.
+   */
+  panels?: ReactNode;
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -274,6 +286,8 @@ export function Inspector({ context }: { context: InspectorContext }) {
           <p className="cg-inspector-empty">No evidence has been recorded for this conversation yet.</p>
         )}
       </Section>
+
+      {context.panels}
 
       <Panel className="cg-inspector-boundary">
         <p className="font-mono text-[10px] uppercase tracking-widest text-gold/70">Boundary</p>

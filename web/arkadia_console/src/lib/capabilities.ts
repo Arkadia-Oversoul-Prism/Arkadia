@@ -53,6 +53,18 @@ export interface Capability {
    */
   consequential: boolean;
   status: CapabilityStatus;
+  /**
+   * Whether the composer offers this capability as a `@token`.
+   *
+   * `status` answers "is the contract serviceable"; this answers "is it an
+   * action the composer can dispatch". They are not the same question: project
+   * conversations are a *verified, wired* contract, but a turn is recorded
+   * because a project is active — not because the user typed a token — so
+   * offering `@conversation` would be a control that does not do what its label
+   * says. Defaults to true; set false for a verified capability that is
+   * automatic rather than dispatchable.
+   */
+  dispatchable?: boolean;
   /** Why an unverified capability is not yet offered. */
   note?: string;
 }
@@ -167,6 +179,13 @@ export const CAPABILITIES: Capability[] = [
     surface: "Engineering Lab",
     consequential: true,
     status: "verified",
+    // AO4-03: marked consequential but NOT enforced. There is no authorized
+    // dispatch integration behind this token — the composer would send an
+    // ordinary conversational turn that cannot record a grant, so offering it
+    // would imply an approval mechanism that does not exist. Authorization is
+    // performed in the governed Engineering Lab workflow, by a human.
+    dispatchable: false,
+    note: "Authorization is a human act performed in the governed Engineering Lab workflow, not a conversational token. The composer cannot record a grant, so this capability is not dispatchable here.",
   },
   {
     id: "lab.execute",
@@ -178,6 +197,12 @@ export const CAPABILITIES: Capability[] = [
     surface: "Engineering Lab",
     consequential: true,
     status: "verified",
+    // AO4-03: same gap as lab.authorize. A conversational turn cannot carry a
+    // session-scoped grant, so the ordinary composer path must not offer it.
+    // Bounded execution is dispatched from the Engineering Lab surface, which
+    // holds the session and its grant.
+    dispatchable: false,
+    note: "Bounded execution requires a session-scoped grant and is dispatched from the Engineering Lab surface, not from a conversational token.",
   },
   {
     id: "weaver.workloads",
@@ -220,10 +245,11 @@ export const CAPABILITIES: Capability[] = [
     domain: "workspace",
     summary: "Persist a conversation turn against a project, so the thread survives a reload and stays attached to its work.",
     endpoint: "/solspire/projects/{project_id}/conversations",
-    surface: "not yet wired in the console",
+    surface: "Workspace (project thread)",
     consequential: false,
-    status: "unverified",
-    note: "The route and the server-side bridge exist (solspire/conversation_bridge.py); the console has no adapter yet.",
+    status: "verified",
+    dispatchable: false,
+    note: "Wired in the workspace: `lib/projectConversation.ts` attaches the canonical thread when a project is active and appends each completed turn through the server-side bridge (`solspire/conversation_bridge.py`). It is automatic rather than a composer token — a turn is recorded because a project is active, not because the user typed `@conversation` — so it is not offered as a dispatchable action.",
   },
 ];
 
@@ -246,7 +272,13 @@ export const CAPABILITY_DOMAINS: Array<{ id: CapabilityDomain; label: string }> 
  * capability the turn is scoped to, and the workspace dispatches through the
  * registry entry above — which is why an unverified entry is shown as
  * unavailable rather than silently accepted.
+ *
+ * A token is offered only when the capability is both `verified` **and**
+ * dispatchable. `status` alone is not enough: `lab.authorize` and `lab.execute`
+ * are verified contracts but have no authorized dispatch path from the ordinary
+ * conversational composer (AO4-03), so offering them would be a control that
+ * cannot do what its label says.
  */
-export const COMPOSER_TOKENS = CAPABILITIES.filter((c) => c.status === "verified").map(
-  (c) => c.token,
-);
+export const COMPOSER_TOKENS = CAPABILITIES.filter(
+  (c) => c.status === "verified" && c.dispatchable !== false,
+).map((c) => c.token);

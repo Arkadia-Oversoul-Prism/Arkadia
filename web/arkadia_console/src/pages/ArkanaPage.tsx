@@ -10,6 +10,7 @@ import { ArkanaThreadHistory } from "../components/arkana/ArkanaThreadHistory";
 import { ReadAloud } from "../components/ReadAloud";
 import MarkdownViewer from "../components/arkana/MarkdownViewer";
 import { ArkanaShell } from "../components/arkana/shell/ArkanaShell";
+import { useSurfaceChrome } from "../lib/surfaceChrome";
 
 type ArkanaMode = "research" | "reason" | "create" | "plan";
 interface ResearchEvidence { id: string; mode: string; title: string; detail: string; }
@@ -325,16 +326,24 @@ export function ArkanaPage() {
     </div>
   );
 
+  /**
+   * Publish the conversation-history rail and the live status line to the one
+   * shell. The rail is no longer rendered here — the canonical `Shell` owns the
+   * single navigation column and the single header, so Arkana contributes
+   * content and the shell supplies the chrome.
+   */
+  useSurfaceChrome({
+    rail: <ArkanaThreadHistory />,
+    railLabel: "Conversation history",
+    status: sending
+      ? activityLabel
+      : selectedMode
+        ? selectedMode.label + " mode active"
+        : "Choose a mode",
+  });
+
   return (
-    <ArkanaShell
-      brand="Arkana"
-      statusLabel={sending ? activityLabel : selectedMode ? selectedMode.label + " mode active" : "Choose a mode"}
-      sidebar={<ArkanaThreadHistory />}
-      topTrailing={<span className="hidden font-mono text-[10px] uppercase tracking-widest text-white/35 sm:inline">
-        {activeMode === "research" ? "Knowledge OS research" : "Conversation-first intelligence"}
-      </span>}
-      composer={composer}
-    >
+    <ArkanaShell composer={composer}>
       {empty ? (
         <div className="arkana-empty" data-testid="arkana-empty">
           <div className="arkana-mark" aria-hidden>

@@ -1,49 +1,58 @@
 /*
- * Conversational workspace — three-region layout.
+ * Conversational workspace — two-region layout.
  *
  * Built entirely on the Crystal Glass tokens declared in `index.css`. No colour
  * literal appears here: the workspace inherits the design system rather than
  * declaring a second palette, which is what keeps it reading as one product
  * with the rest of the console.
  *
- * Regions: (A) rail — orientation; (B) canvas — the working surface;
- * (C) inspector — context and live state. On narrow viewports the rail and the
- * inspector become sheets, so the canvas keeps the width it needs to be read.
+ * Regions: (A) canvas — the working surface, the flexible primary region;
+ * (B) inspector — context and live state, the narrower secondary region.
+ *
+ * There is no rail column here. The orientation rail moved to the one global
+ * `Shell`, which renders it beside `<main>` (`.cg-surface-rail` in
+ * `index.css`). This file used to still declare a `248px` rail track after the
+ * rail had moved out, so the workspace grid had three tracks and only two
+ * children: the canvas collapsed into the *first* track (248px), the inspector
+ * took the second, and the `300px` inspector track sat empty. At 1440x900 that
+ * measured canvas 248px / inspector 380px instead of the intended wide canvas.
+ *
+ * The grid below therefore declares exactly two tracks at the breakpoint where
+ * the inspector is inline, and one below it — the inspector becomes a sheet
+ * under 1280px, so it is not a track there at all.
  */
 
 .cg-workspace {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
   min-height: 100%;
   width: 100%;
 }
 
-@media (min-width: 1024px) {
-  .cg-workspace {
-    grid-template-columns: 248px minmax(0, 1fr);
-  }
-}
-
+/*
+ * At >=1280px the inspector is inline (`useMediaQuery("(min-width: 1280px)")`
+ * in `WorkspaceShell`), so it gets the narrower fixed track and the canvas keeps
+ * everything else. `minmax(0, 1fr)` — not `1fr` — is what stops a wide table or
+ * a long unbroken token inside the canvas from forcing horizontal overflow.
+ */
 @media (min-width: 1280px) {
   .cg-workspace {
-    grid-template-columns: 248px minmax(0, 1fr) 300px;
+    grid-template-columns: minmax(0, 1fr) 300px;
   }
 }
 
-/* ── (A) rail ─────────────────────────────────────────────────────────── */
-
-.cg-rail {
-  display: none;
-  border-right: 1px solid var(--cg-glass-border);
-  background: linear-gradient(180deg, rgba(10, 12, 22, 0.72), rgba(5, 6, 11, 0.86));
-  backdrop-filter: blur(var(--cg-glass-blur));
-}
-
-@media (min-width: 1024px) {
-  .cg-rail {
-    display: block;
-  }
-}
+/* ── (A) rail content ────────────────────────────────────────────────────
+ *
+ * These rules style the *inside* of the rail a surface publishes to the one
+ * global `Shell`. The rail's own container, border, surface and visibility are
+ * `.cg-surface-rail` / `.cg-surface-rail-inner` in `index.css` — the shell owns
+ * them. What lives here is only the content the surface contributes.
+ *
+ * The former `.cg-rail` container rule (and its `display:none` /
+ * `display:block` media pair) was deleted: no element carries that class any
+ * more, so the rule styled nothing while still implying that the workspace grid
+ * owned a rail column.
+ */
 
 .cg-rail-body {
   display: flex;
@@ -168,19 +177,11 @@
   min-height: 100%;
 }
 
-.cg-canvas-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 18px;
-  border-bottom: 1px solid var(--cg-glass-border);
-  background: rgba(10, 12, 22, 0.5);
-  backdrop-filter: blur(var(--cg-glass-blur));
-  position: sticky;
-  top: 0;
-  z-index: 5;
-}
+/*
+ * `.cg-canvas-header` was deleted with the nested shell. `WorkspaceShell` no
+ * longer renders a header — the one global `Shell` owns it — so the rule
+ * described a sticky bar that could not appear. `.cg-canvas-stage` follows.
+ */
 
 .cg-canvas-stage {
   flex: 1;
@@ -727,6 +728,68 @@
   box-shadow: 0 0 8px -1px currentColor;
 }
 
+/* ── Expandable execution / inspection panels ───────────────────────────────
+ *
+ * The workspace composes the *existing* Weaver and Engineering Lab components
+ * (the approval ledger, the Lab repository context, the session list) so a user
+ * can inspect orchestration and engineering evidence without leaving the
+ * conversation. These rules only place them: the panels reuse the canonical
+ * `.cg-panel` glass slab from `index.css` rather than introducing a second
+ * visual language, and the summary is a real disclosure control (a native
+ * `<details>`), never a decorative header.
+ */
+.cg-panels {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0 1rem 0.5rem;
+}
+
+@media (min-width: 768px) {
+  .cg-panels {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+}
+
+.cg-panel-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 0.75rem;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  list-style: none;
+  border-radius: 18px;
+}
+
+.cg-panel-summary::-webkit-details-marker {
+  display: none;
+}
+
+.cg-panel-summary:focus-visible {
+  outline: 2px solid rgba(228, 199, 123, 0.6);
+  outline-offset: 2px;
+}
+
+.cg-panel-title {
+  font-family: var(--cg-mono, ui-monospace, monospace);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.cg-panel-hint {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.cg-panel-body {
+  padding: 0 1rem 1rem;
+  border-top: 1px solid var(--cg-glass-border);
+}
+
 /* The workspace respects the same reduced-motion contract as the rest of the
  * console: motion is decoration, never information. */
 @media (prefers-reduced-motion: reduce) {
@@ -737,4 +800,26 @@
   .cg-welcome-card:hover {
     transform: none;
   }
+}
+
+/* ── Test-only layout harness banner ────────────────────────────────────────
+ *
+ * The harness mounts the real shell with a stub identity so the workspace
+ * layout can be measured. This banner makes that unmistakable in every
+ * screenshot. It is styled from tokens like everything else — the console's
+ * design-token guard forbids page-local colour literals, and a test harness is
+ * not an exception to that.
+ */
+.cg-harness-banner {
+  position: fixed;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 9999;
+  padding: 2px 8px;
+  text-align: center;
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--cg-text);
+  background: var(--cg-gold);
 }

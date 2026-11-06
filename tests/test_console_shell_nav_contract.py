@@ -278,9 +278,23 @@ def test_navigation_model_is_declared_exactly_once():
 
 def test_shell_is_mounted_exactly_once():
     """A second shell mount would be a second navigation path. The composition
-    root is the only place that mounts it."""
+    root is the only place that mounts it.
+
+    The test-only layout harness and the behavioural test are the one sanctioned
+    exception: they mount the real `Shell` to *measure* it, are not reachable
+    from `index.html`, and are not in the production entry graph. They are named
+    explicitly here rather than excluded by a wildcard, so a new mount anywhere
+    else still reddens this guard.
+    """
+    sanctioned = {
+        str(APP_PATH.relative_to(ROOT)),
+        "web/arkadia_console/src/layout-harness.tsx",
+        "web/arkadia_console/src/lib/surfaceChrome.test.tsx",
+    }
     importers = [name for name, src in _ts_sources().items() if "<Shell" in src]
-    assert importers == [str(APP_PATH.relative_to(ROOT))], f"<Shell> is mounted in {importers}"
+    assert set(importers) == sanctioned, f"<Shell> is mounted in {importers}"
+    # The production composition root must still be exactly one of them.
+    assert str(APP_PATH.relative_to(ROOT)) in importers
 
 
 def test_router_module_owns_the_only_pathname_resolution():

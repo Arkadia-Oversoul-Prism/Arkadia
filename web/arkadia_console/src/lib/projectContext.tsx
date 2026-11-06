@@ -78,6 +78,26 @@ export interface ProjectContextValue {
 
 const ProjectContext = createContext<ProjectContextValue | null>(null);
 
+/**
+ * Session key for the remembered project selection.
+ *
+ * Session-scoped on purpose: a project selection is a working context, not a
+ * preference. A new browser session starts unscoped, and the value is always
+ * re-validated against the live project list before it is trusted.
+ */
+const ACTIVE_PROJECT_KEY = "arkadia.activeProjectId";
+
+/** Persist the selection, tolerating storage being unavailable. */
+function rememberProject(projectId: string | null): void {
+  try {
+    if (projectId) window.sessionStorage.setItem(ACTIVE_PROJECT_KEY, projectId);
+    else window.sessionStorage.removeItem(ACTIVE_PROJECT_KEY);
+  } catch {
+    // Storage unavailable (private mode, disabled cookies): the selection still
+    // works for this page's lifetime, it just does not survive a reload.
+  }
+}
+
 function readProjectRows(data: unknown): ProjectRef[] {
   const payload = data as { projects?: unknown[] } | unknown[] | null;
   if (!payload) return [];
@@ -119,7 +139,24 @@ function readWorkspaceRef(data: unknown): WorkspaceRef | null {
 
 export function ProjectProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useAuth();
-  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
+  // The active project is a *selection*, not a server fact — so remembering it
+  // across a reload is not inventing state, it is remembering a choice the user
+  // made. Without this, a refresh silently dropped the project and the next
+  // conversation was scoped to nothing while the previous one was scoped to a
+  // project: the exact "navigation silently discards active work" failure.
+  //
+  // It is session-scoped, not durable: a new browser session starts unscoped,
+  // and the selection is re-validated against the live project list below, so a
+  // remembered id that no longer exists (archived, or another identity's) is
+  // dropped rather than trusted.
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      return window.sessionStorage.getItem(ACTIVE_PROJECT_KEY);
+    } catch {
+      return null;
+    }
+  });
 
   // Both reads are the canonical contracts, re-run when identity settles so a
   // sign-in does not leave the console holding an unauthenticated empty list.
@@ -144,11 +181,15 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     if (projects.state !== "ready") return;
     if (activeProjectId && !projectRows.some((row) => row.id === activeProjectId)) {
       setActiveProjectId(null);
+      // The remembered selection is stale too — clearing only the state would
+      // resurrect it on the next reload.
+      rememberProject(null);
     }
   }, [projects.state, projectRows, activeProjectId]);
 
   const selectProject = useCallback((projectId: string | null) => {
     setActiveProjectId(projectId);
+    rememberProject(projectId);
   }, []);
 
   const activeProject = useMemo(

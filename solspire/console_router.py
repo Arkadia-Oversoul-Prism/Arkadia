@@ -927,14 +927,17 @@ async def project_get_file(project_id: str, file_id: str,
 async def project_update_file(project_id: str, file_id: str, body: UpdateFileRequest,
                               user: dict = Depends(require_project_owner)) -> dict[str, Any]:
     from solspire.project_store import update_file
-    return update_file(file_id, body.content, body.name)
+    result = update_file(project_id, file_id, body.content, body.name)
+    if not result.get("ok"):
+        raise HTTPException(status_code=404, detail="File not found")
+    return result
 
 
 @router.delete("/projects/{project_id}/files/{file_id}")
 async def project_delete_file(project_id: str, file_id: str,
                               user: dict = Depends(require_project_owner)) -> dict[str, Any]:
     from solspire.project_store import delete_file
-    if not delete_file(file_id):
+    if not delete_file(project_id, file_id):
         raise HTTPException(status_code=404, detail="File not found")
     return {"ok": True}
 
@@ -1027,7 +1030,7 @@ async def project_link_repo(project_id: str, body: LinkRepoRequest,
 async def project_unlink_repo(project_id: str, repo_id: str,
                               user: dict = Depends(require_project_owner)) -> dict[str, Any]:
     from solspire.project_store import unlink_repository
-    if not unlink_repository(repo_id):
+    if not unlink_repository(project_id, repo_id):
         raise HTTPException(status_code=404, detail="Repository not found")
     return {"ok": True}
 
@@ -1050,7 +1053,8 @@ async def project_create_task(project_id: str, body: CreateTaskRequest,
 async def project_update_task(project_id: str, task_id: str, body: UpdateTaskRequest,
                               user: dict = Depends(require_project_owner)) -> dict[str, Any]:
     from solspire.project_store import update_task
-    return update_task(
+    result = update_task(
+        project_id,
         task_id,
         title=body.title,
         description=body.description,
@@ -1058,13 +1062,18 @@ async def project_update_task(project_id: str, task_id: str, body: UpdateTaskReq
         assigned_to=body.assigned_to,
         priority=body.priority,
     )
+    # A task id that is not in *this* project is indistinguishable from one that
+    # does not exist: the caller owns the project in the URL, not the row.
+    if not result.get("ok"):
+        raise HTTPException(status_code=404, detail="Task not found")
+    return result
 
 
 @router.delete("/projects/{project_id}/tasks/{task_id}")
 async def project_delete_task(project_id: str, task_id: str,
                               user: dict = Depends(require_project_owner)) -> dict[str, Any]:
     from solspire.project_store import delete_task
-    if not delete_task(task_id):
+    if not delete_task(project_id, task_id):
         raise HTTPException(status_code=404, detail="Task not found")
     return {"ok": True}
 
@@ -1087,14 +1096,17 @@ async def project_add_memory(project_id: str, body: AddMemoryRequest,
 async def project_update_memory(project_id: str, mem_id: str, body: UpdateMemoryRequest,
                                 user: dict = Depends(require_project_owner)) -> dict[str, Any]:
     from solspire.project_store import update_memory
-    return update_memory(mem_id, body.title, body.content, body.tags)
+    result = update_memory(project_id, mem_id, body.title, body.content, body.tags)
+    if not result.get("ok"):
+        raise HTTPException(status_code=404, detail="Memory entry not found")
+    return result
 
 
 @router.delete("/projects/{project_id}/memory/{mem_id}")
 async def project_delete_memory(project_id: str, mem_id: str,
                                 user: dict = Depends(require_project_owner)) -> dict[str, Any]:
     from solspire.project_store import delete_memory
-    if not delete_memory(mem_id):
+    if not delete_memory(project_id, mem_id):
         raise HTTPException(status_code=404, detail="Memory entry not found")
     return {"ok": True}
 

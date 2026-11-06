@@ -23,12 +23,13 @@
  * listing the reconciled lenses — previously `/solariun/bogus` silently showed
  * the projects view, leaving the address bar claiming something false.
  */
-import { useState } from "react";
 import { Page, Panel, Facts, ContractState, NotYetWired } from "../components/ui";
 import { SurfaceLenses } from "../components/SurfaceLenses";
 import { ProjectRuntimeCanvas } from "../components/solariun/ProjectRuntimeCanvas";
 import { PersonalFieldPanel } from "../components/solariun/PersonalFieldPanel";
+import { SolariunWorkspace } from "../components/solariun/SolariunWorkspace";
 import { useAuth } from "../contexts/AuthContext";
+import { useProjectContext } from "../lib/projectContext";
 import { useHydration } from "../lib/useHydration";
 import { apiRequest } from "../lib/apiClient";
 import { endpoints } from "../lib/endpoints";
@@ -79,7 +80,12 @@ export function SolariunPage({
   onNavigate: (id: SurfaceId, section?: string) => void;
 }) {
   const { profile, isAuthenticated, identityState } = useAuth();
-  const [selectedProject, setSelectedProject] = useState<string | null>(null);
+  // The selected project is the *shared* context's, not this page's. Solariun
+  // used to hold its own `selectedProject` state, which meant the runtime canvas
+  // here could show a different project than the one the Workspace, Projects and
+  // Engineering Lab were scoped to. One answer to "which project am I in" is the
+  // whole point of the unified workspace.
+  const { activeProjectId, selectProject } = useProjectContext();
   const projects = useHydration<ProjectList>(
     endpoints.solspireProjects,
     (p) => apiRequest<ProjectList>(p),
@@ -132,8 +138,8 @@ export function SolariunPage({
                       <p className="text-sm text-white/85">{p.name}</p>
                       <button
                         type="button"
-                        onClick={() => setSelectedProject((current) => (current === p.id ? null : p.id))}
-                        aria-pressed={selectedProject === p.id}
+                        onClick={() => selectProject(activeProjectId === p.id ? null : p.id)}
+                        aria-pressed={activeProjectId === p.id}
                         data-testid={`solariun-runtime-${p.id}`}
                         className="shrink-0 rounded border border-white/15 px-2 py-1 font-mono text-[10px] uppercase tracking-widest text-white/50 hover:text-white/80"
                       >
@@ -151,9 +157,10 @@ export function SolariunPage({
         </Panel>
       )}
 
-      {section === "projects" && selectedProject && (
+      {section === "projects" && activeProjectId && (
         <div className="mt-4">
-          <ProjectRuntimeCanvas projectId={selectedProject} />
+          <SolariunWorkspace projectId={activeProjectId} />
+          <ProjectRuntimeCanvas projectId={activeProjectId} />
         </div>
       )}
 

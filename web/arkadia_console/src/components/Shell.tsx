@@ -17,8 +17,10 @@
  *   - the mobile strip is a real `<nav>` with an accessible name.
  */
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { SURFACES, SURFACE_BY_ID, type SurfaceId } from "../lib/surfaces";
+import { SURFACES, SURFACE_BY_ID, SURFACE_GROUPS, type SurfaceId, type SurfaceGroupId } from "../lib/surfaces";
 import { useAuth } from "../contexts/AuthContext";
+import { usePublishedChrome } from "../lib/surfaceChrome";
+import { TEST_IDENTITY_ENABLED } from "../lib/testIdentity";
 import { SURFACE_ICONS, IconMenu, IconClose, IconShield } from "./Icons";
 
 const NAV_SURFACES = SURFACES.filter((s) => s.nav !== false);
@@ -47,6 +49,27 @@ const ORDERED_NAV = [...NAV_SURFACES].sort((a, b) => {
   const bi = NAV_ORDER.indexOf(b.id);
   return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
 });
+
+/**
+ * The navigation, grouped for reading.
+ *
+ * Still derived from the one surface table: `NAV_SURFACES` is the item list and
+ * `SurfaceDef.group` is the only grouping input. A surface that declares no
+ * group is collected into a trailing group rather than dropped, so adding a
+ * surface to `surfaces.ts` can never make it unreachable from the shell.
+ *
+ * Groups with no members are omitted, so the sidebar never renders an empty
+ * heading. The order of the groups is `SURFACE_GROUPS`'s order, and the order
+ * within a group is `NAV_ORDER`'s — one declaration each, no third list.
+ */
+const UNGROUPED: SurfaceGroupId = "system";
+
+const NAV_GROUPS: Array<{ id: SurfaceGroupId; label: string; items: typeof NAV_SURFACES }> =
+  SURFACE_GROUPS.map((group) => ({
+    id: group.id,
+    label: group.label,
+    items: ORDERED_NAV.filter((s) => (s.group ?? UNGROUPED) === group.id),
+  })).filter((group) => group.items.length > 0);
 
 function NavLink({
   active,
@@ -164,6 +187,19 @@ export function Shell({
   const mobileNavRef = useRef<HTMLElement>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const surface = SURFACE_BY_ID[current];
+  // The one shell renders the chrome a surface publishes. A surface never
+  // renders its own rail or header — it contributes them here, so there is
+  // exactly one navigation column and one header in the product.
+  const chrome = usePublishedChrome();
+  // A disposable test identity (dev/test builds only) is labelled in the DOM so
+  // a screenshot can never be mistaken for a real signed-in session. The gate is
+  // the *compile-time* constant, not only the runtime context value: in a
+  // production build `TEST_IDENTITY_ENABLED` is the literal `false`, so this
+  // whole branch is dead-code-eliminated and the banner cannot exist in the
+  // shipped bundle. `testIdentity` (the live session flag) is ANDed in so the
+  // banner is also correct if the seam is ever disabled at runtime.
+  const { testIdentity } = useAuth();
+  const showTestIdentityBanner = TEST_IDENTITY_ENABLED && testIdentity;
 
   // A route change moves to a new surface, but the browser keeps the keyboard
   // focus (and scroll position) where the previous surface left it. Focus the
@@ -246,6 +282,16 @@ export function Shell({
     <div className="relative flex min-h-screen bg-ink text-white">
       <div className="aurora-bg" />
 
+      {showTestIdentityBanner ? (
+        <div
+          data-testid="test-identity-banner"
+          role="status"
+          className="fixed inset-x-0 top-0 z-[60] bg-amber-500/90 px-3 py-1 text-center font-mono text-[10px] uppercase tracking-widest text-black"
+        >
+          Disposable test identity — dev-mode only. Not real Firebase authentication.
+        </div>
+      ) : null}
+
       <a
         href="#main-content"
         data-testid="skip-to-content"
@@ -279,14 +325,19 @@ export function Shell({
         </button>
 
         <nav aria-label="Primary navigation" className="flex flex-col gap-0.5">
-          {ORDERED_NAV.map((s) => (
-            <NavLink
-              key={s.id}
-              id={s.id}
-              active={current === s.id}
-              label={s.name}
-              onClick={() => onNavigate(s.id)}
-            />
+          {NAV_GROUPS.map((group) => (
+            <div key={group.id} className="cg-nav-group" data-testid={`nav-group-${group.id}`}>
+              <p className="cg-nav-group-label">{group.label}</p>
+              {group.items.map((s) => (
+                <NavLink
+                  key={s.id}
+                  id={s.id}
+                  active={current === s.id}
+                  label={s.name}
+                  onClick={() => onNavigate(s.id)}
+                />
+              ))}
+            </div>
           ))}
         </nav>
 
@@ -324,6 +375,17 @@ export function Shell({
             </h2>
           </div>
 
+          {/* The surface's live status, published to the one header. A surface
+              that publishes none renders nothing here — no placeholder. */}
+          {chrome.status ? (
+            <span
+              data-testid="shell-surface-status"
+              className="hidden max-w-[40%] truncate font-mono text-[9px] uppercase tracking-[0.18em] text-emerald/70 sm:block"
+            >
+              {chrome.status}
+            </span>
+          ) : null}
+
           <span className="hidden items-center gap-2 rounded-full border border-white/10 px-3 py-1 font-mono text-[9px] uppercase tracking-[0.18em] text-white/40 sm:flex">
             <span className="cg-dot cg-dot-live" />
             canonical
@@ -354,7 +416,25 @@ export function Shell({
           aria-label={`${SURFACE_BY_ID[current].name} content`}
           className="min-w-0 flex-1 focus:outline-none"
         >
-          {children}
+          {/*
+            The surface's context rail, rendered by the one shell.
+
+            This is the region that used to be a second `<aside>` inside
+            `WorkspaceShell` and `ArkanaShell`. It is now a single region owned
+            by the shell and *filled* by whichever surface is current, so the
+            product has one navigation column and one context column — never
+            two of either. A surface that publishes no rail renders no region.
+          */}
+          {chrome.rail ? (
+            <div className="cg-surface-rail" data-testid="shell-surface-rail">
+              <aside aria-label={chrome.railLabel} className="cg-surface-rail-inner">
+                {chrome.rail}
+              </aside>
+              <div className="cg-surface-rail-content">{children}</div>
+            </div>
+          ) : (
+            children
+          )}
         </main>
       </div>
 
@@ -388,14 +468,19 @@ export function Shell({
               </button>
             </div>
             <nav aria-label="Primary navigation (drawer)" className="flex flex-col gap-0.5 overflow-y-auto">
-              {ORDERED_NAV.map((s) => (
-                <NavLink
-                  key={s.id}
-                  id={s.id}
-                  active={current === s.id}
-                  label={s.name}
-                  onClick={() => onNavigate(s.id)}
-                />
+              {NAV_GROUPS.map((group) => (
+                <div key={group.id} className="cg-nav-group">
+                  <p className="cg-nav-group-label">{group.label}</p>
+                  {group.items.map((s) => (
+                    <NavLink
+                      key={s.id}
+                      id={s.id}
+                      active={current === s.id}
+                      label={s.name}
+                      onClick={() => onNavigate(s.id)}
+                    />
+                  ))}
+                </div>
               ))}
             </nav>
             <IdentityBlock onNavigate={onNavigate} />

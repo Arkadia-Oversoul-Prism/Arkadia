@@ -8,6 +8,7 @@
  */
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { ProjectProvider } from "./lib/projectContext";
+import { SurfaceChromeProvider } from "./lib/surfaceChrome";
 import { Shell } from "./components/Shell";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Loading, Page, Panel } from "./components/ui";
@@ -151,7 +152,16 @@ export default function App() {
         Projects and the Engineering Lab — that survival is the whole point.
       */}
       <ProjectProvider>
-        <Surfaces />
+        {/*
+          The surface-chrome provider sits above the router so a surface can
+          publish its context rail and status line to the one shell. It is
+          inside the project context because the rail it carries reads project
+          state, and above the router because the shell — which renders the
+          published chrome — is mounted by the router's consumer.
+        */}
+        <SurfaceChromeProvider>
+          <Surfaces />
+        </SurfaceChromeProvider>
       </ProjectProvider>
     </AuthProvider>
   );
