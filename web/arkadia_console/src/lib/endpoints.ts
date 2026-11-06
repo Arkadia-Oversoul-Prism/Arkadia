@@ -56,6 +56,10 @@ export const endpoints = {
   tts: "/api/tts",
   ttsStatus: "/api/tts/status",
   ttsVoices: "/api/tts/voices",
+
+  /** Arkadia Voice — the governed mission lifecycle chain (solspire/voice_router.py). */
+  voiceStatus: "/solspire/voice/status",
+  voiceEvents: "/solspire/voice/events",
 } as const;
 
 export type EndpointName = keyof typeof endpoints;
@@ -90,4 +94,55 @@ export function solspireProjectFiles(projectId: string): string {
 /** The project's activity (event) stream. */
 export function solspireProjectEvents(projectId: string): string {
   return `${solspireProject(projectId)}/events`;
+}
+
+/**
+ * The project's conversation collection.
+ *
+ * Served by `solspire/console_router.py` (`GET`/`POST
+ * /projects/{project_id}/conversations`), guarded by `require_project_owner`.
+ * A conversation created here is the canonical project record; the Knowledge OS
+ * thread is derived from it by `solspire/conversation_bridge.py`, never the
+ * other way round.
+ */
+export function solspireProjectConversations(projectId: string): string {
+  return `${solspireProject(projectId)}/conversations`;
+}
+
+/** One project conversation, addressed by its canonical UUID. */
+export function solspireProjectConversation(projectId: string, convId: string): string {
+  return `${solspireProjectConversations(projectId)}/${encodeURIComponent(convId)}`;
+}
+
+/**
+ * The turn-append sub-resource of one project conversation.
+ *
+ * This is the route that composes a turn across the existing substrates
+ * (`append_conversation_turn`): the project conversation record, the Knowledge
+ * OS thread/note, and the project activity event. It is the only write path the
+ * console uses to persist a conversation turn, so no second store is created.
+ */
+export function solspireProjectConversationMessages(projectId: string, convId: string): string {
+  return `${solspireProjectConversation(projectId, convId)}/messages`;
+}
+
+/** One voice event (the governed mission conversation), addressed by its canonical id. */
+export function voiceEvent(eventId: string): string {
+  return `${endpoints.voiceEvents}/${encodeURIComponent(eventId)}`;
+}
+
+/** The inspectable causal evidence chain of one voice event. */
+export function voiceEventChain(eventId: string): string {
+  return `${voiceEvent(eventId)}/chain`;
+}
+
+/**
+ * The voice events of one conversation session, newest first.
+ *
+ * Derived from the declared `voiceEvents` collection so the base cannot drift,
+ * and the session id is percent-encoded so an id containing `/` cannot address
+ * another route.
+ */
+export function voiceEventsForSession(sessionId: string, limit = 1): string {
+  return `${endpoints.voiceEvents}?session_id=${encodeURIComponent(sessionId)}&limit=${limit}`;
 }

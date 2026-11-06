@@ -32,6 +32,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Panel } from "../ui";
 import { ApiError } from "../../lib/apiClient";
 import { useAuth } from "../../contexts/AuthContext";
+import { useProjectContext } from "../../lib/projectContext";
+import {
+  appendProjectTurn,
+  composeLabOutcomeTurn,
+  ensureProjectConversation,
+} from "../../lib/projectConversation";
 import {
   AGENT_ROLES,
   READ_ONLY_ROLES,
@@ -138,10 +144,18 @@ export function MissionWorkspace() {
   const { user } = useAuth();
   const uid = user?.uid ?? null;
 
+  // The active project and the canonical workspace are the shared context's.
+  // A session created while a project is active is bound to that project
+  // (`project_ref`), and the server requires the canonical workspace id in that
+  // case — so the binding is only offered when both are known.
+  const { activeProjectId, activeProject, workspaceRef, canBindProject } = useProjectContext();
+
   const [activeAction, setActiveAction] = useState<ActiveAction>(null);
   const [role, setRole] = useState<AgentRole>("SENTINEL");
   const [objective, setObjective] = useState("Read-only investigation of repository entry points");
   const [targets, setTargets] = useState("README.md");
+  const [returnState, setReturnState] = useState<"idle" | "returning" | "returned" | "failed">("idle");
+  const [returnNote, setReturnNote] = useState<string | null>(null);
 
   const [agentId, setAgentId] = useState<string | null>(null);
   const [session, setSession] = useState<LabSession | null>(null);
@@ -475,11 +489,19 @@ export function MissionWorkspace() {
     setActiveAction("create");
     setError(null);
     try {
-      const created = await createSession(MISSION_WORKSPACE_REF, agentId, objective);
+      // A project-bound session uses the canonical workspace id the server
+      // enforces; an unbound session keeps the operator-scoped reference. The
+      // binding is never claimed when the canonical workspace is unknown.
+      const bound = canBindProject && workspaceRef ? activeProjectId : null;
+      const workspace = bound && workspaceRef ? workspaceRef.id : MISSION_WORKSPACE_REF;
+      const created = await createSession(workspace, agentId, objective, bound);
       setActiveSession(created);
       if (uid) rememberMissionSession(uid, created.session_id, created.objective || objective, targetList);
       setResumeScopeKnown(true);
-      note("Mission created", `${created.session_id} · state ${created.state}`);
+      note(
+        "Mission created",
+        `${created.session_id} · state ${created.state}${bound ? ` · project ${bound}` : " · unbound"}`,
+      );
       await refreshView(created.session_id);
     } catch (e) {
       setError(describeError(e));
@@ -487,7 +509,53 @@ export function MissionWorkspace() {
     } finally {
       setActiveAction(null);
     }
-  }, [agentId, objective, note, uid, targetList, refreshView]);
+  }, [agentId, objective, note, uid, targetList, refreshView, canBindProject, workspaceRef, activeProjectId]);
+
+  /**
+   * Return this session's outcome to its project conversation thread.
+   *
+   * This is the reverse edge of the journey. The session was created with this
+   * project's `project_ref`, so its outcome belongs in this project's thread.
+   * The turn is appended through the same canonical bridge as any other turn —
+   * there is no separate mission log. The recorded body is composed from the
+   * substrate's own report, so a run that stopped at the review boundary is
+   * recorded as a proposal awaiting review, never as an acceptance.
+   */
+  const onReturnToThread = useCallback(async () => {
+    if (!session || !activeProjectId) return;
+    setReturnState("returning");
+    setReturnNote(null);
+    try {
+      const conversation = await ensureProjectConversation(
+        activeProjectId,
+        `${activeProject?.name ?? "Project"} conversation`,
+      );
+      const outcome = {
+        sessionId: session.session_id,
+        state: session.state,
+        runId: run?.run_id ?? null,
+        resultState: run?.state ?? null,
+        summary: run?.summary ?? null,
+      };
+      const result = await appendProjectTurn(
+        activeProjectId,
+        conversation.id,
+        "arkana",
+        composeLabOutcomeTurn(outcome),
+      );
+      setReturnState("returned");
+      setReturnNote(
+        result.knowledge.status === "ingested"
+          ? `Outcome recorded in the project thread (${conversation.id}) and ingested into Knowledge OS.`
+          : `Outcome recorded in the project thread (${conversation.id}). Knowledge OS ingestion reported: ${result.knowledge.status}.`,
+      );
+      note("Outcome returned to thread", `${conversation.id} · knowledge ${result.knowledge.status}`);
+    } catch (e) {
+      setReturnState("failed");
+      setReturnNote(describeError(e));
+      note("Outcome return failed", describeError(e), false);
+    }
+  }, [session, activeProjectId, activeProject?.name, run, note]);
 
   const onExecuteUnauthorized = useCallback(async () => {
     if (!session) return;
@@ -795,7 +863,38 @@ export function MissionWorkspace() {
           >
             5 · Execute bounded run
           </button>
+          <button
+            type="button"
+            onClick={onReturnToThread}
+            disabled={!session || !activeProjectId || returnState === "returning"}
+            data-testid="mission-return-to-thread"
+            title={
+              activeProjectId
+                ? "Record this session's outcome in the active project's conversation thread."
+                : "Select a project first — an outcome returns to the thread it belongs to."
+            }
+            className="rounded border border-azure/40 px-3 py-1.5 font-mono text-[10px] uppercase tracking-widest text-azure hover:border-azure disabled:opacity-30"
+          >
+            6 · Return outcome to thread
+          </button>
         </div>
+
+        <p className="mt-3 text-xs leading-5 text-white/45" data-testid="mission-binding">
+          {activeProjectId
+            ? canBindProject
+              ? `Project binding: this session is created with project_ref = ${activeProjectId} and the canonical workspace ${workspaceRef?.id}.`
+              : `Project ${activeProjectId} is selected, but the canonical workspace could not be read, so the session is created unbound rather than claiming a binding the server would refuse.`
+            : "No project is selected, so a session is created unbound. Select a project in the rail to bind it."}
+        </p>
+
+        {returnNote ? (
+          <p
+            className={`mt-2 text-xs ${returnState === "failed" ? "text-red-300" : "text-white/60"}`}
+            data-testid="mission-return-note"
+          >
+            {returnNote}
+          </p>
+        ) : null}
 
         {error ? (
           <p className="mt-3 text-xs text-red-300" data-testid="mission-error">

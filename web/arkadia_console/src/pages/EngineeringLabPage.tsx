@@ -39,8 +39,6 @@ export function EngineeringLabPage() {
     >
       <MissionWorkspace />
 
-      <LabRepositoryContext />
-
       <details
         className="mb-4 rounded-lg border border-line bg-ink/40"
         data-testid="lab-engineering-details"
@@ -49,6 +47,8 @@ export function EngineeringLabPage() {
           Engineering evidence &amp; diagnostics
         </summary>
         <div className="space-y-4 border-t border-line p-3 md:p-4">
+        <LabRepositoryContext />
+
         <Panel className="mb-4">
           <p className="mb-3 font-mono text-[11px] uppercase tracking-widest text-white/40">Lab overview</p>
           {overview.state === "ready" && overview.data ? (

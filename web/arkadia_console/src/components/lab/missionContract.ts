@@ -115,10 +115,39 @@ export function registerAgent(role: AgentRole, displayName: string): Promise<Lab
   });
 }
 
-export function createSession(workspaceRef: string, agentId: string, objective: string): Promise<LabSession> {
+/**
+ * Create a session, optionally bound to a project.
+ *
+ * `project_ref` is the real `SessionCreate` field (`api/lab_routes.py`). When it
+ * is present the server enforces two things the console must therefore satisfy
+ * rather than assume:
+ *
+ *  * the project must exist and be owned by the caller (else 404);
+ *  * `workspace_ref` must be the caller's **canonical** workspace (else 409
+ *    "Canonical workspace binding mismatch").
+ *
+ * So a project-bound session is created with the canonical workspace id read
+ * from `GET /solspire/workspace`, not with the operator-scoped placeholder. The
+ * placeholder remains the correct value for an unbound session, which is why
+ * both are accepted here rather than one replacing the other.
+ */
+export function createSession(
+  workspaceRef: string,
+  agentId: string,
+  objective: string,
+  projectRef?: string | null,
+): Promise<LabSession> {
+  const body: Record<string, unknown> = {
+    workspace_ref: workspaceRef,
+    agent_id: agentId,
+    objective,
+  };
+  // Omitted rather than sent as null when unbound: the field is optional and an
+  // explicit null would be a claim about a binding that does not exist.
+  if (projectRef) body.project_ref = projectRef;
   return apiRequest<LabSession>(endpoints.labSessions, {
     method: "POST",
-    body: JSON.stringify({ workspace_ref: workspaceRef, agent_id: agentId, objective }),
+    body: JSON.stringify(body),
   });
 }
 
