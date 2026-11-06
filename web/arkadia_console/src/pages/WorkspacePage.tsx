@@ -90,11 +90,20 @@ function isAbortError(error: unknown): boolean {
   return false;
 }
 
-/** Parse a leading `@token` from the draft, returning the capability and the rest. */
+/**
+ * Parse a leading `@token` from the draft, returning the capability and the rest.
+ *
+ * A capability that is not `dispatchable` is deliberately **not** resolved here.
+ * Hiding the token button is not enough: a user can type `@authorize` by hand,
+ * and the ordinary conversational path must not accept it either. Returning
+ * `null` means the turn is sent as plain text with no capability scoped — the
+ * composer never claims to have dispatched something it cannot dispatch.
+ */
 function parseToken(draft: string): { capability: Capability | null; rest: string } {
   const match = draft.match(/^@([a-z-]+)\s*/i);
   if (!match) return { capability: null, rest: draft };
-  const capability = CAPABILITY_BY_TOKEN[match[1].toLowerCase()] ?? null;
+  const found = CAPABILITY_BY_TOKEN[match[1].toLowerCase()] ?? null;
+  const capability = found && found.dispatchable !== false ? found : null;
   return { capability, rest: draft.slice(match[0].length) };
 }
 

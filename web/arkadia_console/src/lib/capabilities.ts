@@ -179,6 +179,13 @@ export const CAPABILITIES: Capability[] = [
     surface: "Engineering Lab",
     consequential: true,
     status: "verified",
+    // AO4-03: marked consequential but NOT enforced. There is no authorized
+    // dispatch integration behind this token — the composer would send an
+    // ordinary conversational turn that cannot record a grant, so offering it
+    // would imply an approval mechanism that does not exist. Authorization is
+    // performed in the governed Engineering Lab workflow, by a human.
+    dispatchable: false,
+    note: "Authorization is a human act performed in the governed Engineering Lab workflow, not a conversational token. The composer cannot record a grant, so this capability is not dispatchable here.",
   },
   {
     id: "lab.execute",
@@ -190,6 +197,12 @@ export const CAPABILITIES: Capability[] = [
     surface: "Engineering Lab",
     consequential: true,
     status: "verified",
+    // AO4-03: same gap as lab.authorize. A conversational turn cannot carry a
+    // session-scoped grant, so the ordinary composer path must not offer it.
+    // Bounded execution is dispatched from the Engineering Lab surface, which
+    // holds the session and its grant.
+    dispatchable: false,
+    note: "Bounded execution requires a session-scoped grant and is dispatched from the Engineering Lab surface, not from a conversational token.",
   },
   {
     id: "weaver.workloads",
@@ -259,7 +272,13 @@ export const CAPABILITY_DOMAINS: Array<{ id: CapabilityDomain; label: string }> 
  * capability the turn is scoped to, and the workspace dispatches through the
  * registry entry above — which is why an unverified entry is shown as
  * unavailable rather than silently accepted.
+ *
+ * A token is offered only when the capability is both `verified` **and**
+ * dispatchable. `status` alone is not enough: `lab.authorize` and `lab.execute`
+ * are verified contracts but have no authorized dispatch path from the ordinary
+ * conversational composer (AO4-03), so offering them would be a control that
+ * cannot do what its label says.
  */
-export const COMPOSER_TOKENS = CAPABILITIES.filter((c) => c.status === "verified").map(
-  (c) => c.token,
-);
+export const COMPOSER_TOKENS = CAPABILITIES.filter(
+  (c) => c.status === "verified" && c.dispatchable !== false,
+).map((c) => c.token);
