@@ -216,15 +216,24 @@ def test_negative_control_state_vocabulary_detector():
 # ---------------------------------------------------------------------------
 
 WEAVER_PAGE = CONSOLE / "src" / "pages" / "WeaverPage.tsx"
+WEAVER_ORCHESTRATION = CONSOLE / "src" / "components" / "weaver" / "WeaverOrchestration.tsx"
 LAB_RUNTIME = ROOT / "lab" / "engineering_lab" / "runtime.py"
 
 
 def test_weaver_page_renders_the_session_ledger():
     """The Weaver page names runs/events/evidence from a real contract rather
-    than advertising an unbuilt execute view."""
+    than advertising an unbuilt execute view.
+
+    The page composes `WeaverOrchestration`, which mounts the session ledger.
+    The assertion follows that one hop rather than requiring the page to import
+    the component directly: the requirement is that the ledger is *rendered on
+    the Weaver surface*, not that it is imported by one particular file.
+    """
     page = _read(WEAVER_PAGE)
-    assert 'import { LabSessionList }' in page
-    assert "<LabSessionList />" in page
+    orchestration = _read(WEAVER_ORCHESTRATION)
+    assert "<WeaverOrchestration />" in page, "the Weaver page does not mount its orchestration view"
+    assert 'import { LabSessionList }' in orchestration
+    assert "<LabSessionList />" in orchestration
 
 
 def test_weaver_page_lists_the_three_record_classes():
@@ -411,9 +420,12 @@ def test_negative_control_orphan_detector_flags_an_unimported_name():
 
 
 def test_weaver_page_mounts_the_work_loop_read_model():
+    """The work loop is rendered on the Weaver surface (via its orchestration view)."""
     page = _read(WEAVER_PAGE)
-    assert "import { LabWorkLoop }" in page
-    assert "<LabWorkLoop />" in page
+    orchestration = _read(WEAVER_ORCHESTRATION)
+    assert "<WeaverOrchestration />" in page, "the Weaver page does not mount its orchestration view"
+    assert "import { LabWorkLoop }" in orchestration
+    assert "<LabWorkLoop />" in orchestration
 
 
 def test_work_loop_reads_the_declared_overview_endpoint():

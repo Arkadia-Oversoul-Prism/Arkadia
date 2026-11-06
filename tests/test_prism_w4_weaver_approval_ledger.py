@@ -29,6 +29,7 @@ WEAVER_TREE = CONSOLE / "src" / "components" / "weaver"
 PROJECTION = WEAVER_TREE / "approvalLedger.ts"
 SURFACE = WEAVER_TREE / "ApprovalLedger.tsx"
 WEAVER_PAGE = CONSOLE / "src" / "pages" / "WeaverPage.tsx"
+WEAVER_ORCHESTRATION = CONSOLE / "src" / "components" / "weaver" / "WeaverOrchestration.tsx"
 HANDLER = REPO_ROOT / "api" / "approval_routes.py"
 
 
@@ -282,9 +283,17 @@ def test_empty_payload_is_an_empty_ledger_not_a_failure():
 
 
 def test_weaver_page_renders_the_approval_ledger():
+    """The approval ledger is rendered on the Weaver surface.
+
+    The page composes `WeaverOrchestration`, which mounts the ledger. The
+    assertion follows that one hop: the requirement is that the ledger is
+    rendered on the Weaver surface, not that one particular file imports it.
+    """
     page = _read(WEAVER_PAGE)
-    assert 'import { ApprovalLedger }' in page
-    assert "<ApprovalLedger />" in page
+    orchestration = _read(WEAVER_ORCHESTRATION)
+    assert "<WeaverOrchestration />" in page, "the Weaver page does not mount its orchestration view"
+    assert 'import { ApprovalLedger }' in orchestration
+    assert "<ApprovalLedger />" in orchestration
 
 
 def test_surface_reads_only_a_served_contract():

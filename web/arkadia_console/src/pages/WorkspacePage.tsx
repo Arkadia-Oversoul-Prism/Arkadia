@@ -38,6 +38,7 @@ import type { KnowledgeSearchData } from "./knowledge/knowledgeContracts";
 import MarkdownViewer from "../components/arkana/MarkdownViewer";
 import { ArkanaThreadHistory } from "../components/arkana/ArkanaThreadHistory";
 import { WorkspaceShell } from "../components/workspace/WorkspaceShell";
+import { useSurfaceChrome } from "../lib/surfaceChrome";
 import { LabRepositoryContext } from "../components/lab/LabRepositoryContext";
 import { LabSessionList } from "../components/lab/LabSessionList";
 import { ApprovalLedger } from "../components/weaver/ApprovalLedger";
@@ -610,19 +611,24 @@ export function WorkspacePage() {
     </>
   );
 
+  /**
+   * Publish the orientation rail and the live status line to the one shell.
+   *
+   * The rail is no longer rendered here: it is contributed to the canonical
+   * `Shell`, which owns the single navigation column and the single header.
+   * This is what removes the nested-shell duplication — the workspace supplies
+   * *content*, the shell supplies the *chrome*.
+   */
+  useSurfaceChrome({
+    rail,
+    railLabel: "Workspace orientation",
+    status: sending ? activity + "…" : "Arkana · Solariun canvas",
+  });
+
   return (
     <WorkspaceShell
-      rail={rail}
       inspector={<Inspector context={inspectorContext} />}
       panels={panels}
-      header={
-        <div className="min-w-0">
-          <p className="font-display text-sm tracking-[0.16em] text-gold">Workspace</p>
-          <p className="font-mono text-[10px] uppercase tracking-widest text-emerald/70">
-            {sending ? activity + "…" : "Arkana · Solariun canvas"}
-          </p>
-        </div>
-      }
       composer={composer}
     >
       {turns.length === 0 ? (

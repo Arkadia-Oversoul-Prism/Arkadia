@@ -1409,3 +1409,47 @@ body {
     font-size: 8px;
   }
 }
+
+/* ── Surface context rail ────────────────────────────────────────────────────
+ *
+ * The one shell renders the rail a surface publishes. This replaces the second
+ * `<aside>` that `WorkspaceShell` and `ArkanaShell` each used to render inside
+ * the global shell — the structural cause of the console reading as several
+ * applications. There is now one navigation column (the shell's) and at most
+ * one context column (this), never two of either.
+ *
+ * Below 1024px the rail is not rendered inline at all: the surface's own
+ * content keeps the full width, and the shell's mobile drawer carries primary
+ * navigation. The rail is orientation for sustained desktop work, not a
+ * compressed desktop panel on a phone.
+ */
+.cg-surface-rail {
+  display: grid;
+  grid-template-columns: 1fr;
+  min-height: 100%;
+  width: 100%;
+}
+
+@media (min-width: 1024px) {
+  .cg-surface-rail {
+    grid-template-columns: 248px minmax(0, 1fr);
+  }
+}
+
+.cg-surface-rail-inner {
+  display: none;
+  border-right: 1px solid var(--cg-glass-border);
+  background: linear-gradient(180deg, rgba(10, 12, 22, 0.72), rgba(5, 6, 11, 0.86));
+  backdrop-filter: blur(var(--cg-glass-blur));
+  overflow-y: auto;
+}
+
+@media (min-width: 1024px) {
+  .cg-surface-rail-inner {
+    display: block;
+  }
+}
+
+.cg-surface-rail-content {
+  min-width: 0;
+}

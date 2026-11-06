@@ -19,6 +19,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { SURFACES, SURFACE_BY_ID, SURFACE_GROUPS, type SurfaceId, type SurfaceGroupId } from "../lib/surfaces";
 import { useAuth } from "../contexts/AuthContext";
+import { usePublishedChrome } from "../lib/surfaceChrome";
 import { SURFACE_ICONS, IconMenu, IconClose, IconShield } from "./Icons";
 
 const NAV_SURFACES = SURFACES.filter((s) => s.nav !== false);
@@ -185,6 +186,10 @@ export function Shell({
   const mobileNavRef = useRef<HTMLElement>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const surface = SURFACE_BY_ID[current];
+  // The one shell renders the chrome a surface publishes. A surface never
+  // renders its own rail or header — it contributes them here, so there is
+  // exactly one navigation column and one header in the product.
+  const chrome = usePublishedChrome();
 
   // A route change moves to a new surface, but the browser keeps the keyboard
   // focus (and scroll position) where the previous surface left it. Focus the
@@ -350,6 +355,17 @@ export function Shell({
             </h2>
           </div>
 
+          {/* The surface's live status, published to the one header. A surface
+              that publishes none renders nothing here — no placeholder. */}
+          {chrome.status ? (
+            <span
+              data-testid="shell-surface-status"
+              className="hidden max-w-[40%] truncate font-mono text-[9px] uppercase tracking-[0.18em] text-emerald/70 sm:block"
+            >
+              {chrome.status}
+            </span>
+          ) : null}
+
           <span className="hidden items-center gap-2 rounded-full border border-white/10 px-3 py-1 font-mono text-[9px] uppercase tracking-[0.18em] text-white/40 sm:flex">
             <span className="cg-dot cg-dot-live" />
             canonical
@@ -380,7 +396,25 @@ export function Shell({
           aria-label={`${SURFACE_BY_ID[current].name} content`}
           className="min-w-0 flex-1 focus:outline-none"
         >
-          {children}
+          {/*
+            The surface's context rail, rendered by the one shell.
+
+            This is the region that used to be a second `<aside>` inside
+            `WorkspaceShell` and `ArkanaShell`. It is now a single region owned
+            by the shell and *filled* by whichever surface is current, so the
+            product has one navigation column and one context column — never
+            two of either. A surface that publishes no rail renders no region.
+          */}
+          {chrome.rail ? (
+            <div className="cg-surface-rail" data-testid="shell-surface-rail">
+              <aside aria-label={chrome.railLabel} className="cg-surface-rail-inner">
+                {chrome.rail}
+              </aside>
+              <div className="cg-surface-rail-content">{children}</div>
+            </div>
+          ) : (
+            children
+          )}
         </main>
       </div>
 
