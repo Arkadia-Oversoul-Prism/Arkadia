@@ -20,6 +20,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { SURFACES, SURFACE_BY_ID, SURFACE_GROUPS, type SurfaceId, type SurfaceGroupId } from "../lib/surfaces";
 import { useAuth } from "../contexts/AuthContext";
 import { usePublishedChrome } from "../lib/surfaceChrome";
+import { TEST_IDENTITY_ENABLED } from "../lib/testIdentity";
 import { SURFACE_ICONS, IconMenu, IconClose, IconShield } from "./Icons";
 
 const NAV_SURFACES = SURFACES.filter((s) => s.nav !== false);
@@ -190,6 +191,15 @@ export function Shell({
   // renders its own rail or header — it contributes them here, so there is
   // exactly one navigation column and one header in the product.
   const chrome = usePublishedChrome();
+  // A disposable test identity (dev/test builds only) is labelled in the DOM so
+  // a screenshot can never be mistaken for a real signed-in session. The gate is
+  // the *compile-time* constant, not only the runtime context value: in a
+  // production build `TEST_IDENTITY_ENABLED` is the literal `false`, so this
+  // whole branch is dead-code-eliminated and the banner cannot exist in the
+  // shipped bundle. `testIdentity` (the live session flag) is ANDed in so the
+  // banner is also correct if the seam is ever disabled at runtime.
+  const { testIdentity } = useAuth();
+  const showTestIdentityBanner = TEST_IDENTITY_ENABLED && testIdentity;
 
   // A route change moves to a new surface, but the browser keeps the keyboard
   // focus (and scroll position) where the previous surface left it. Focus the
@@ -271,6 +281,16 @@ export function Shell({
   return (
     <div className="relative flex min-h-screen bg-ink text-white">
       <div className="aurora-bg" />
+
+      {showTestIdentityBanner ? (
+        <div
+          data-testid="test-identity-banner"
+          role="status"
+          className="fixed inset-x-0 top-0 z-[60] bg-amber-500/90 px-3 py-1 text-center font-mono text-[10px] uppercase tracking-widest text-black"
+        >
+          Disposable test identity — dev-mode only. Not real Firebase authentication.
+        </div>
+      ) : null}
 
       <a
         href="#main-content"

@@ -124,8 +124,44 @@ jobs:
           done
           python render_check_layout.py \
             --base-url http://127.0.0.1:5199 \
-            --path /layout-harness.html \
+            --routes /layout-harness.html \
             --identity-label "STUBBED IDENTITY (layout harness) — not authenticated, not a test identity"
+      - name: Workspace layout assertions (rendered, authenticated test identity)
+        # AO4-05/06: the *real* protected routes (`/workspace`, `/arkana`) render
+        # under a disposable test identity and their layout is asserted. The
+        # identity authenticates through the backend's documented dev-mode seam
+        # (`api/auth.py` decodes the bearer payload without verifying its
+        # signature outside production) — NOT Firebase, and the report labels it
+        # as such. The backend runs with `--lifespan off` (the auth seam
+        # initialises at import, not in lifespan) and `ENVIRONMENT=development`
+        # (dev-mode is refused in production, so this cannot weaken production
+        # identity verification). `--require-authenticated` fails the run if the
+        # protected route rendered its sign-in threshold instead of the surface,
+        # so a stubbed or unauthenticated render can never be reported as
+        # authenticated. No `continue-on-error`: a red layout check reddens the
+        # gate.
+        working-directory: web/arkadia_console
+        run: |
+          # Backend: dev-mode identity seam, no background daemons.
+          ( cd ../.. && ENVIRONMENT=development PYTHONPATH=. \
+              python -m uvicorn api.main:app --host 127.0.0.1 --port 8000 --lifespan off \
+              > /tmp/ao005-backend.log 2>&1 & )
+          for i in $(seq 1 90); do
+            curl -sf http://127.0.0.1:8000/health >/dev/null && break
+            sleep 1
+          done
+          curl -sf http://127.0.0.1:8000/health >/dev/null || { echo "backend did not start"; tail -40 /tmp/ao005-backend.log; exit 1; }
+          # Frontend: the test-identity seam is opt-in via the env var.
+          VITE_ARKADIA_TEST_IDENTITY=1 pnpm exec vite --port 5200 --strictPort --host 127.0.0.1 &
+          for i in $(seq 1 60); do
+            curl -sf http://127.0.0.1:5200/ >/dev/null && break
+            sleep 1
+          done
+          python render_check_layout.py \
+            --base-url http://127.0.0.1:5200 \
+            --routes "/workspace,/arkana" \
+            --require-authenticated \
+            --identity-label "DISPOSABLE TEST IDENTITY (dev-mode, not Firebase)"
       - name: Upload layout evidence
         if: always()
         uses: actions/upload-artifact@v4

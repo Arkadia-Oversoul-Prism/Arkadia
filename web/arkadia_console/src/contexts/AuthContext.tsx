@@ -17,6 +17,11 @@ import { onAuthStateChanged, signInWithEmailAndPassword, signOut, User } from "f
 import { auth, firebaseConfigured } from "../lib/firebase";
 import { apiRequest, ApiError, setApiAuthToken } from "../lib/apiClient";
 import { endpoints } from "../lib/endpoints";
+import {
+  TEST_IDENTITY_ENABLED,
+  TEST_IDENTITY_SUBJECT,
+  testIdentityToken,
+} from "../lib/testIdentity";
 import type { NodeProfile } from "../lib/types";
 
 export interface AuthUser {
@@ -44,6 +49,12 @@ interface AuthContextValue {
   refreshProfile: () => Promise<void>;
   isAuthenticated: boolean;
   firebaseConfigured: boolean;
+  /**
+   * True when the session is a disposable test identity (dev/test builds only),
+   * not a real Firebase sign-in. Surfaces label themselves with this so a
+   * screenshot can never be mistaken for authenticated acceptance.
+   */
+  testIdentity: boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -85,6 +96,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    // ── Disposable test identity (dev/test builds only) ──────────────────────
+    //
+    // This is the console's authenticated *test* seam. It authenticates through
+    // the backend's documented dev-mode path (`api/auth.py` decodes the bearer
+    // payload without verifying its signature outside production), not through
+    // Firebase. It is inert in a production build: `TEST_IDENTITY_ENABLED` is
+    // `import.meta.env.DEV && VITE_ARKADIA_TEST_IDENTITY === "1"`, and `DEV` is
+    // the literal `false` in a production bundle, so this branch is eliminated.
+    //
+    // It is NOT real Firebase authentication and NOT a production credential:
+    // the token is unsigned and a production backend rejects it outright.
+    if (TEST_IDENTITY_ENABLED) {
+      const token = testIdentityToken();
+      if (token) {
+        setUser({
+          uid: TEST_IDENTITY_SUBJECT,
+          email: `${TEST_IDENTITY_SUBJECT}@test.invalid`,
+          displayName: "AO-005 Test Identity",
+        });
+        void fetchProfile(token).finally(() => setLoading(false));
+        return;
+      }
+    }
     if (!auth) {
       setLoading(false);
       setIdentityState("unconfigured");
@@ -143,6 +177,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         refreshProfile,
         isAuthenticated: user !== null && identityState === "ready",
         firebaseConfigured,
+        testIdentity: TEST_IDENTITY_ENABLED,
       }}
     >
       {children}
