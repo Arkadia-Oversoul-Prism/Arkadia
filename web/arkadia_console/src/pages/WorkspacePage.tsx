@@ -39,6 +39,12 @@ import MarkdownViewer from "../components/arkana/MarkdownViewer";
 import { WorkspaceShell } from "../components/workspace/WorkspaceShell";
 import { Inspector, type InspectorContext, type Lifecycle } from "../components/workspace/Inspector";
 import { ArtifactView, selectArtifact, type Artifact } from "../components/workspace/ArtifactView";
+import {
+  projectLifecycle,
+  readMissionLifecycle,
+  readLatestVoiceEvent,
+  type MissionLifecycleRead,
+} from "../lib/missionLifecycle";
 
 type TurnRole = "user" | "assistant";
 
@@ -112,6 +118,45 @@ export function WorkspacePage() {
     "idle",
   );
   const [threadNote, setThreadNote] = useState<string | null>(null);
+
+  // The governed mission lifecycle is a *read* of the canonical voice chain
+  // (GET /solspire/voice/events/{id}/chain). When no identity is present the
+  // read is refused and the inspector renders every stage as unavailable —
+  // never as complete. The session key for the chain is this workspace
+  // conversation once a project-thread is attached.
+  const [missionLifecycle, setMissionLifecycle] = useState<MissionLifecycleRead>({
+    state: "idle",
+  });
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setMissionLifecycle({ state: "unavailable", error: "Authentication required to read the governed mission lifecycle" });
+      return;
+    }
+    let cancelled = false;
+    setMissionLifecycle({ state: "loading" });
+    const sessionKey = thread?.id ?? activeProjectId;
+    if (!sessionKey) {
+      setMissionLifecycle({ state: "empty" });
+      return;
+    }
+    readLatestVoiceEvent(sessionKey)
+      .then((event) => {
+        if (cancelled) return;
+        if (!event) {
+          setMissionLifecycle({ state: "empty" });
+          return;
+        }
+        return readMissionLifecycle(event.event_id).then((read) => {
+          if (!cancelled) setMissionLifecycle(read);
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setMissionLifecycle({ state: "unavailable", error: "The mission lifecycle contract could not be read" });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, activeProjectId, thread?.id]);
 
   // Attach (or re-attach) the project thread whenever the active project
   // changes. A project with no conversation gets one; a project that already
@@ -317,19 +362,12 @@ export function WorkspacePage() {
 
   const selectedProject = activeProject;
 
-  const lifecycle: Lifecycle[] = [
-    {
-      stage: "understand",
-      state: turns.length ? "done" : "pending",
-      evidence: turns.length ? `${turns.length} turn(s) in this conversation` : undefined,
-    },
-    { stage: "propose", state: "pending", evidence: "No proposal has been raised in this conversation" },
-    { stage: "authorize", state: "pending", evidence: "No grant is linked to this session" },
-    { stage: "execute", state: "pending", evidence: "Nothing has been dispatched" },
-    { stage: "verify", state: "pending" },
-    { stage: "accept", state: "pending" },
-    { stage: "release", state: "pending" },
-  ];
+  // The lifecycle strip is driven by the real governed chain when one exists.
+  // `projectLifecycle` maps the canonical recorded stages onto the seven-stage
+  // view and never upgrades a stage beyond what the evidence records: Accept
+  // and Release are unavailable by construction (no backend record exists for
+  // them) and a stage with no evidence renders unknown, not complete.
+  const lifecycle: Lifecycle[] = projectLifecycle(missionLifecycle);
 
   const inspectorContext: InspectorContext = {
     projectName: selectedProject?.name,
@@ -342,6 +380,14 @@ export function WorkspacePage() {
       .map((e) => ({ label: `[${e.id}] ${e.title}`, detail: e.mode })),
     authorization: null,
     lifecycle,
+    lifecycleNote:
+      missionLifecycle.state === "ready"
+        ? `Driven by the canonical governed chain (${missionLifecycle.chain?.stages.length ?? 0} recorded stage(s), digest ${missionLifecycle.chain?.chain_digest?.slice(0, 12) ?? "—"}).`
+        : missionLifecycle.state === "empty"
+          ? "No governed mission is recorded against this conversation yet — every stage is unknown, not complete."
+          : missionLifecycle.state === "unavailable"
+            ? `The governed lifecycle could not be read: ${missionLifecycle.error ?? "contract unreachable"}. Stages are shown as unavailable, never as complete.`
+            : "Reading the governed lifecycle…",
     thread: activeProjectId
       ? {
           state: threadState,

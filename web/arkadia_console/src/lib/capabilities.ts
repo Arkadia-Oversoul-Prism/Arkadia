@@ -208,10 +208,10 @@ export const CAPABILITIES: Capability[] = [
     domain: "missions",
     summary: "Drive a mission through understand → propose → authorize → execute → verify, with each stage a separate recorded act.",
     endpoint: "/solspire/voice/events",
-    surface: "not yet wired in the console",
+    surface: "Workspace inspector (read-only)",
     consequential: true,
     status: "unverified",
-    note: "The backend chain exists (solspire/voice_router.py) but no console surface reads it yet, so the composer does not offer it.",
+    note: "The inspector now READS the canonical chain (GET /solspire/voice/events/{id}/chain) and drives the lifecycle strip from it. The composer still does not DISPATCH a mission (no voice event is created from here), so the capability is not offered as an action.",
   },
   {
     id: "project.conversations",

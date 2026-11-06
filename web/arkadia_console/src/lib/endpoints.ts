@@ -56,6 +56,10 @@ export const endpoints = {
   tts: "/api/tts",
   ttsStatus: "/api/tts/status",
   ttsVoices: "/api/tts/voices",
+
+  /** Arkadia Voice — the governed mission lifecycle chain (solspire/voice_router.py). */
+  voiceStatus: "/solspire/voice/status",
+  voiceEvents: "/solspire/voice/events",
 } as const;
 
 export type EndpointName = keyof typeof endpoints;
@@ -120,4 +124,25 @@ export function solspireProjectConversation(projectId: string, convId: string): 
  */
 export function solspireProjectConversationMessages(projectId: string, convId: string): string {
   return `${solspireProjectConversation(projectId, convId)}/messages`;
+}
+
+/** One voice event (the governed mission conversation), addressed by its canonical id. */
+export function voiceEvent(eventId: string): string {
+  return `${endpoints.voiceEvents}/${encodeURIComponent(eventId)}`;
+}
+
+/** The inspectable causal evidence chain of one voice event. */
+export function voiceEventChain(eventId: string): string {
+  return `${voiceEvent(eventId)}/chain`;
+}
+
+/**
+ * The voice events of one conversation session, newest first.
+ *
+ * Derived from the declared `voiceEvents` collection so the base cannot drift,
+ * and the session id is percent-encoded so an id containing `/` cannot address
+ * another route.
+ */
+export function voiceEventsForSession(sessionId: string, limit = 1): string {
+  return `${endpoints.voiceEvents}?session_id=${encodeURIComponent(sessionId)}&limit=${limit}`;
 }

@@ -10,6 +10,12 @@
  *   proposed ≠ authorized · running ≠ completed · completed ≠ verified ·
  *   verified ≠ accepted · accepted ≠ released
  *
+ * The strip is driven by the canonical governed chain
+ * (`GET /solspire/voice/events/{id}/chain`, see `lib/missionLifecycle.ts`).
+ * A stage with no recorded evidence renders `unknown`; a stage the backend
+ * cannot represent at all renders `unavailable` with a plain reason. Neither
+ * ever reads as complete.
+ *
  * The permissions block reads the *real* authorization contract. When no grant
  * is linked it says so plainly rather than showing an empty "allowed" list,
  * because an absent grant must never read as unrestricted access.
@@ -26,7 +32,7 @@ export type LifecycleStage =
   | "accept"
   | "release";
 
-export type StageState = "done" | "active" | "pending" | "refused" | "unavailable";
+export type StageState = "done" | "active" | "pending" | "refused" | "unavailable" | "unknown";
 
 export interface Lifecycle {
   stage: LifecycleStage;
@@ -51,6 +57,11 @@ const STATE_TONE: Record<StageState, string> = {
   pending: "text-white/35",
   refused: "text-red-300",
   unavailable: "text-white/25",
+  // `unknown` is deliberately the dimmest tone: no evidence exists, so the
+  // stage must not read as progress. It is distinct from `pending` (the chain
+  // is in progress but this stage is not reached) and from `unavailable`
+  // (the contract could not be read at all).
+  unknown: "text-white/20",
 };
 
 export interface InspectorContext {
@@ -71,6 +82,15 @@ export interface InspectorContext {
   approvals?: Array<{ id: string; label: string; state: string }>;
   evidence?: Array<{ label: string; detail?: string }>;
   lifecycle?: Lifecycle[];
+  /**
+   * Where the lifecycle state came from, in plain terms.
+   *
+   * The strip is driven by the canonical governed chain
+   * (`GET /solspire/voice/events/{id}/chain`). When that read is refused or
+   * unreachable the note says so, so a viewer never reads an all-pending strip
+   * as "nothing has happened" when the truth is "we could not look".
+   */
+  lifecycleNote?: string;
   /**
    * The canonical project thread this conversation is recorded against.
    *
@@ -150,6 +170,11 @@ export function Inspector({ context }: { context: InspectorContext }) {
           Each stage is a separate recorded act. A stage marked done is not a claim that the next one
           happened.
         </p>
+        {context.lifecycleNote ? (
+          <p className="cg-inspector-note" data-testid="workspace-lifecycle-source">
+            {context.lifecycleNote}
+          </p>
+        ) : null}
       </Section>
 
       <Section title="Permissions">
