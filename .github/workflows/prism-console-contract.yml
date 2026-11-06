@@ -71,6 +71,18 @@ jobs:
           # checkout of this revision: `1 failed, 1035 passed`; full clone:
           # `1036 passed`.
           fetch-depth: 0
+      # The derived console-contract domain executes the real TypeScript
+      # mission-lifecycle adapter. Install the same locked console toolchain
+      # used by the frontend build before running that contract suite.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install canonical console toolchain
+        working-directory: web/arkadia_console
+        run: |
+          npm install --global pnpm@10.26.1
+          pnpm install --frozen-lockfile
+          pnpm exec tsc --version
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
