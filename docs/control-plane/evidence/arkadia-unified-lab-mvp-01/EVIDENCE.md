@@ -1311,3 +1311,52 @@ The fresh N-ATLAS external beta workflow [run 41803361026](https://github.com/Ar
 ### Next action
 
 Present the two draft PRs for human review in dependency order: #623 (shared registry) before #624 (Lab surface). Both outer SG-02 workflows completed, but CP10-B remains non-green and authenticated browser acceptance is deferred. Keep the panel not-wired until the registry entry is on `main`. Do not merge, deploy production, or claim full MVP acceptance.
+
+
+## DEA-01 console-contract toolchain closure — 2026-11-06
+
+**Move ID:** `DEA-01-CONSOLE-CONTRACT-TOOLCHAIN-01`  
+**Canonical directive:** [Issue #590](https://github.com/Arkadia-Oversoul-Prism/Arkadia/issues/590)  
+**Existing integration PR:** [#629 — Arkadia One conversational workspace](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/629)  
+**Main at inspection:** `c7c6c71ac58413fd12cab02ca374a1e213bf663a`  
+**PR head before repair:** `d2280d3af896caab611a3afbdea1af48e96d87ea`  
+**Repair commit:** `aab373752e6e125f662d884de31d031224af8baf`
+
+### Defect and evidence
+
+The current `tests/test_mission_lifecycle_adapter_contract.py` is included in the derived console-contract domain and executes the real `missionLifecycle.ts` adapter using the repository's TypeScript compiler at `web/arkadia_console/node_modules/typescript/lib/typescript.js`.
+
+The current `.github/workflows/prism-console-contract.yml` installed Python dependencies only. It did not provision Node or install the console's locked frontend dependencies.
+
+The fresh PR-head run before repair, Prism Console Contract [42170412972](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/42170412972), therefore failed **10 adapter tests** with the exact assertion that the repository TypeScript compiler was missing; the other **1,097 tests passed**. This was a CI dependency defect, not evidence that the lifecycle adapter logic failed.
+
+### Bounded repair
+
+Updated only `.github/workflows/prism-console-contract.yml` on the existing PR branch:
+
+- Added `actions/setup-node@v4` with Node 24.
+- Installed the repository-pinned `pnpm@10.26.1`.
+- Ran `pnpm install --frozen-lockfile` in `web/arkadia_console`.
+- Recorded the installed compiler version with `pnpm exec tsc --version`.
+
+No application source, API, identity, authorization, approval, provenance, WorkEvent, workspace persistence, K15/K3, production configuration or credential path was changed.
+
+### Fresh verification on repair commit
+
+Prism Console Contract [run 42191222880](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/42191222880), head `aab373752e6e125f662d884de31d031224af8baf):
+
+- Locked console toolchain installation succeeded; TypeScript reported **5.9.3**.
+- Derived console-contract domain: **1,107 passed in 32.12s**.
+- Console-contract CI-wiring guard: **30 passed in 3.69s**.
+- The previously failing ten lifecycle-adapter tests now execute and pass under the repository TypeScript compiler.
+- N-ATLAS frontend typecheck/build, backend job, canonical Render image build, N-ATLAS self-host image/smoke test, native Arkadia golden workflow, English/Hausa external beta, production read-only probe, security scan, boot syntax, provider forensics, posture currency, trigger coverage and verdict-step integrity were observed successful on this head.
+
+### Still running / not claimed
+
+At the evidence snapshot (`2026-11-06T08:57:07Z`), the SG-02 `validate` job was still in **CP10-B broader backend regression**. Its API and browser steps had not yet run. Therefore no fresh CP10-B, authenticated-browser, desktop/mobile visual, preview, or production acceptance is claimed from this run.
+
+No local checkout/test execution was available in this connector-backed run; verification above is from the named GitHub Actions run and its job logs. No merge or production deployment occurred.
+
+### Next action
+
+Read the final SG-02 CP10-B result and subsequent API/browser steps for the current PR head. Keep PR #629 open for human review; resolve the mixed-lane ownership and any remaining acceptance gaps before any merge decision.
