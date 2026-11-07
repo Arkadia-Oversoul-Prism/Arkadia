@@ -1490,14 +1490,29 @@ backend did not start
 | `tests/test_prism_console_ci_wiring.py` | Pin the dependency-before-launch ordering and backend command. |
 | `docs/control-plane/evidence/arkadia-unified-lab-mvp-01/EVIDENCE.md` | Record the observed blocker, root cause, bounded repair and acceptance boundary. |
 
-### Verification status
+### Verification — fresh PR-head CI
 
-- The failure root cause is directly observed in run `42272947470`, job `128081916078`; no inference from the outer workflow conclusion was used.
-- Fresh PR checks for this repair are pending. No local checkout or local test/build execution is claimed in this connector-backed run.
-- The authenticated layout measurement remains **NOT YET VERIFIED** until the repaired workflow installs dependencies, starts the dev backend, and completes the protected-route Playwright assertions.
-- The test identity remains the repository's disposable non-production dev-mode seam, not Firebase authentication.
-- No preview or production deployment, live revision, or post-deploy acceptance is claimed.
+**PR:** [#632](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/632)  
+**Head:** `539da6c5ba2356cbf2e17b28cee1a06b35e4a0f9`  
+**Prism Console Contract:** [run 42357346072](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/42357346072) — **SUCCESS**.
+
+The repaired path executed end to end:
+
+- Python requirements installation completed; the explicit preflight reported **uvicorn 0.54.0**.
+- Console behavioural tests: **5 test files / 30 tests passed**.
+- Console typecheck: **success, 0 errors**.
+- Console production build: **success**.
+- Stub-identity layout: **PASS** at 1440×900, 1024×768 and 390×844.
+- Authenticated protected-route layout: **PASS** for `/workspace` and `/arkana` at all three viewports (six route/viewport measurements). Every measurement reported `authThreshold=false`, `testIdentityBanner=true`, `stubIdentity=false`, and document scroll width equal to client width; DOM mutation counts were 65–76. The harness printed **PASS: all routes and viewports satisfy the layout contract**.
+- Derived console-contract domain: **1,133 passed in 49.89s**.
+- Console-contract CI-wiring guard: **31 passed in 5.95s**.
+- All **12/12** check runs on the PR head completed successfully, including native golden workflow, English/Hausa beta, provider forensics, secret scan, trigger coverage, posture currency, boot syntax, verdict integrity and the console contract.
+- Layout evidence artifact: [workspace-layout-evidence, artifact 13567994059](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/42357346072/artifacts/13567994059), 4,439,836 bytes.
+
+The prior failure was therefore a CI bootstrap-order defect, and the authenticated route measurement now actually ran and passed. The authenticated identity is still the repository's disposable **development-mode test identity**, not Firebase authentication. No production identity or credentials were used.
+
+No local checkout/test execution is claimed; verification above is from the named GitHub Actions run. No preview or production deployment, live revision, or post-deploy acceptance is claimed.
 
 ### Next concrete step
 
-Inspect the fresh PR-head `Prism Console Contract` result. Confirm that the backend dependency preflight succeeds and the authenticated `/workspace` and `/arkana` layout assertions actually execute at all three viewports. Then continue the next verified Engineering Lab MVP acceptance gap; do not treat a green build or this CI repair alone as MVP acceptance.
+The CI repair is implementation-complete and ready for human review on PR #632. Await the human review/merge decision, then continue the next verified Engineering Lab MVP acceptance gap. This infrastructure repair does **not** by itself establish full Engineering Lab MVP acceptance.
