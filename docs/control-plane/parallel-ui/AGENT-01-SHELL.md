@@ -371,3 +371,46 @@ Evidence: `docs/control-plane/evidence/lane1-posture-control-integrity-01/EVIDEN
 
 Merge, production deployment and acceptance remain human-only. Lane 1 opens its next bounded PR
 only after this one merges.
+
+## Status — 2026-11-07 (LANE 1: spiral-codex control integrity, no active PR declared)
+
+**Active branch:** `feat/prism-l1-spiral-codex-control-integrity-01` (recorded for provenance only).
+**Active PR:** none declared — this section records the slice's objective; the snapshot below is the judge.
+
+A lane PR cannot declare itself open at merge time: the merge that lands it closes it, so the
+snapshot would contradict live state the instant it merged. This section therefore declares no
+active PR and leaves the lane's status to the derived snapshot.
+
+This is lane 1's next bounded slice, opened from freshly fetched `main` under
+`11 — LANE NEW-PR AUTHORIZATION`. It is **not** a continuation of #636: that PR merged as
+`35e03fcb` and repaired the revision detector in `test_console_posture_currency.py`. This slice is
+the same defect class in a different Lane-1 guard.
+
+**Objective.** `tests/test_console_spiral_codex_contract.py` carried two
+`test_negative_control_*` nodes that restated their detectors inline and never called them:
+`test_negative_control_detector_flags_a_panel_that_inlines_the_path` re-wrote the
+`'"/api/codex"' in code` comparison, and
+`test_negative_control_detector_flags_a_reintroduced_categories_request` asserted the dead path
+was present in the mutated text without running any detector. Neither could fail for any edit to
+the live assertion it exists to protect, so both live detectors could be disarmed with no red
+test. Two module-level helpers — `_inlined_corpus_path(code)` and
+`_categories_route_mentions(code)` — now hold the predicates, and the live assertions and their
+controls both call them. Each control additionally asserts the repaired input is *not* reported,
+so a detector that matches everything cannot pass either.
+
+**Bounded scope.** `tests/test_console_spiral_codex_contract.py` only — lane-1 owned (shared
+console contract tests). No console source, backend contract, registry, or other lane's file is
+touched. Node count unchanged at 21 (a strengthening, not an addition).
+
+**Evidence.** A **discriminating A/B** on the real file: neutering the *live* detector's own
+expression on the pre-repair file reddened the live node while its control stayed **green** (the
+vacuity); forcing the shared helpers to always report on the repaired file reddens **both** the
+live node and its control. Domain `10 failed, 1123 passed` — identical to `main` (the 10
+`test_mission_lifecycle_adapter_contract.py` failures are the documented missing-`node_modules`
+TypeScript-toolchain baseline). `tests/architecture` `11 passed`; `scripts/lane_state.py --check`
+and `--check --verify-live` both exit 0.
+
+Evidence: `docs/control-plane/evidence/lane1-spiral-codex-control-integrity-01/EVIDENCE.md`.
+
+Merge, production deployment and acceptance remain human-only. Lane 1 opens its next bounded PR
+only after this one merges.

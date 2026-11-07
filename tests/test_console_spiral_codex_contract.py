@@ -84,6 +84,30 @@ def _flat(text: str) -> str:
     return re.sub(r"\s+", " ", text)
 
 
+def _inlined_corpus_path(code: str) -> bool:
+    """Whether the panel inlines the corpus path instead of reading the registry.
+
+    Module level, so the live assertion and its negative control exercise the
+    *same* code. The control used to restate this comparison inline, which made it
+    vacuous: the live literal could be changed to anything and the control still
+    passed, because it was checking a copy of the predicate rather than the
+    predicate.
+    """
+    return '"/api/codex"' in code
+
+
+def _categories_route_mentions(code: str) -> list[str]:
+    """Every occurrence of the archive's unserved categories path in code.
+
+    The whole literal is matched rather than one request form, so the detector is
+    no weaker than the substring check it replaces: a bare string, a template
+    literal, or any other spelling of the dead path is still reported. Comments
+    are removed by :func:`_code_only` before this runs, which is what keeps a doc
+    comment that *names* the dead route from reading as a request.
+    """
+    return re.findall(r"/api/codex/categories", code)
+
+
 # ---------------------------------------------------------------------------
 # The contract is the served one, not an invented one
 # ---------------------------------------------------------------------------
@@ -118,7 +142,7 @@ def test_the_panel_reads_the_registry_not_a_literal():
     assert "endpoints.publicCodex" in code, (
         "SpiralCodexPanel does not read endpoints.publicCodex"
     )
-    assert '"/api/codex"' not in code, (
+    assert not _inlined_corpus_path(code), (
         "SpiralCodexPanel inlines the corpus path instead of using the registry"
     )
 
@@ -132,7 +156,7 @@ def test_the_categories_route_the_archive_used_is_not_served():
     assert "/api/codex/categories" not in _served_paths(), (
         "the app now serves /api/codex/categories — revisit the client-side derivation"
     )
-    assert "/api/codex/categories" not in _code_only(PANEL), (
+    assert _categories_route_mentions(_code_only(PANEL)) == [], (
         "the panel requests a categories route the app does not serve"
     )
 
@@ -343,19 +367,36 @@ def test_the_hub_note_no_longer_calls_the_corpus_unverified():
 
 
 def test_negative_control_detector_flags_a_panel_that_inlines_the_path():
-    """The registry-bypass detector must bite on a real inline path in code."""
+    """The registry-bypass detector must bite on a real inline path in code.
+
+    Calls :func:`_inlined_corpus_path` — the same detector the live assertion uses
+    — so the control can actually fail when that detector is disarmed. The
+    previous version restated the comparison inline and stayed green for any edit
+    to the live predicate.
+    """
     mutated = _code_only(PANEL).replace("endpoints.publicCodex", '"/api/codex"')
     assert '"/api/codex"' in mutated, "control did not produce an inline path"
     assert "endpoints.publicCodex" not in mutated
+    assert _inlined_corpus_path(mutated), "the detector did not flag an inlined path"
+    # And it must stay silent on the live panel, or it is trivially true.
+    assert not _inlined_corpus_path(_code_only(PANEL))
 
 
 def test_negative_control_detector_flags_a_reintroduced_categories_request():
-    """The dead-path detector must bite on the archive's 404 route, in code."""
+    """The dead-path detector must bite on the archive's 404 route, in code.
+
+    Calls :func:`_categories_route_mentions` — the same detector the live
+    assertion uses. The previous version asserted the path was present in the
+    mutated text without ever running the detector, so it could not fail for any
+    edit to the live predicate.
+    """
     mutated = _code_only(PANEL) + '\nfetch("/api/codex/categories");\n'
-    assert "/api/codex/categories" in mutated
+    assert _categories_route_mentions(mutated) == ['/api/codex/categories'], (
+        "the detector did not flag the reintroduced request"
+    )
     # And the same detector must stay silent on a prose-only mention, which is
     # exactly the false positive the first draft of this guard hit.
-    assert "/api/codex/categories" not in _code_only(PANEL), (
+    assert _categories_route_mentions(_code_only(PANEL)) == [], (
         "a doc comment that names the dead route was reported as a request"
     )
 
