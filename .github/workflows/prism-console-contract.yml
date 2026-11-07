@@ -126,6 +126,16 @@ jobs:
             --base-url http://127.0.0.1:5199 \
             --routes /layout-harness.html \
             --identity-label "STUBBED IDENTITY (layout harness) — not authenticated, not a test identity"
+      - name: Install Python backend and contract-test dependencies
+        # The authenticated layout check boots api.main through the existing
+        # development identity seam. Install the same backend dependencies used
+        # by the contract suite before invoking uvicorn; otherwise this check
+        # fails at process startup and never measures the protected routes.
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install pytest
+          python -c "import uvicorn; print('uvicorn', uvicorn.__version__)"
       - name: Workspace layout assertions (rendered, authenticated test identity)
         # AO4-05/06: the *real* protected routes (`/workspace`, `/arkana`) render
         # under a disposable test identity and their layout is asserted. The
@@ -169,9 +179,6 @@ jobs:
           name: workspace-layout-evidence
           path: web/arkadia_console/render_evidence/
           if-no-files-found: error
-      - run: python -m pip install --upgrade pip
-      - run: python -m pip install -r requirements.txt
-      - run: python -m pip install pytest
       - name: Verify the console contract guards
         # The inventory is derived from `scripts/console_contract_domain.py`, the
         # same source of truth the wiring judge imports. A guard added to the
