@@ -612,3 +612,40 @@ def test_real_gate_selects_a_guard_added_after_the_gate(_grown_domain):
             f"{event} paths filter would not select a newly added guard, so the "
             "judge that reports it unexecuted would not run"
         )
+
+def test_authenticated_layout_installs_backend_runtime_before_starting_it():
+    """The authenticated layout check must reach the route, not fail at boot.
+
+    The backend is launched with ``python -m uvicorn api.main:app``. Its
+    dependencies are installed by the same workflow for the contract suite;
+    that install must happen before the authenticated layout step, otherwise
+    the test exits before measuring any protected route (for example,
+    ``No module named uvicorn``).
+    """
+    workflow = _load(WORKFLOWS / Path(_WORKFLOW_FILE).name)
+    steps = workflow["jobs"]["console-contract"]["steps"]
+    names = [step.get("name", "") for step in steps]
+
+    install_name = "Install Python backend and contract-test dependencies"
+    authenticated_name = "Workspace layout assertions (rendered, authenticated test identity)"
+    assert install_name in names, "backend dependencies must be an explicit workflow step"
+    assert authenticated_name in names, "authenticated layout coverage must remain present"
+
+    install_index = names.index(install_name)
+    authenticated_index = names.index(authenticated_name)
+    assert install_index < authenticated_index, (
+        "install backend dependencies before launching the authenticated layout backend"
+    )
+
+    install_step = steps[install_index]
+    assert install_step.get("working-directory") in (None, "."), (
+        "requirements.txt must be installed from the repository root"
+    )
+    install_run = install_step.get("run", "")
+    assert "python -m pip install -r requirements.txt" in install_run
+    assert "python -m pip install pytest" in install_run
+    assert "import uvicorn" in install_run, "fail early if the backend server dependency is absent"
+
+    authenticated_run = steps[authenticated_index].get("run", "")
+    assert "python -m uvicorn api.main:app" in authenticated_run
+    assert "curl -sf http://127.0.0.1:8000/health" in authenticated_run
