@@ -64,6 +64,16 @@ _CONSOLE_DIR = "web/arkadia_console/src/operator"
 # the loose form matched `"...POST /api/x/approve, POST /api/y/run). Production..."`.
 _SURFACE_RE = re.compile(r'"((?:GET|POST|PUT|PATCH|DELETE)\s+/[^"\s]+)"')
 _CITED_TEST_RE = re.compile(r'"(test_[a-z0-9_]+)"')
+#: A bare commit-SHA literal. Module level so the live detector and its negative
+#: control call the *same* pattern; the control previously restated this regex
+#: inline, so renaming it here left the control passing — the detector could be
+#: disarmed with no red test.
+_REVISION_RE = re.compile(r"\b[0-9a-f]{7,40}\b")
+
+
+def hardcoded_revision_hits_in(text: str) -> list[str]:
+    """Commit-SHA literals in one source text, in order of appearance."""
+    return _REVISION_RE.findall(text)
 
 
 def declared_surfaces(text: str) -> set[tuple[str, str]]:
@@ -199,7 +209,7 @@ def _hardcoded_revision_hits() -> dict[str, list[str]]:
         if rel == REVISION_MODULE.relative_to(ROOT).as_posix():
             continue  # the one module allowed to hold the derivation point
         text = src.read_text(encoding="utf-8", errors="ignore")
-        found = re.findall(r"\b[0-9a-f]{7,40}\b", text)
+        found = hardcoded_revision_hits_in(text)
         if found:
             hits[rel] = sorted(set(found))
     return hits
@@ -260,9 +270,15 @@ def test_negative_control_detector_flags_an_absent_surface():
 
 
 def test_negative_control_detector_flags_a_hardcoded_revision():
-    """Feed the revision detector a stamp of the pre-repair shape."""
+    """Feed the revision detector a stamp of the pre-repair shape.
+
+    Calls :func:`hardcoded_revision_hits_in` — the same detector the live
+    assertion uses — so the control can actually fail. The previous version
+    restated the regex inline and stayed green for any edit to the live pattern.
+    """
     defect = '<span className="topbar-meta tiny mono">ae847dd · reconciled</span>'
-    assert re.findall(r"\b[0-9a-f]{7,40}\b", defect) == ["ae847dd"]
+    assert hardcoded_revision_hits_in(defect) == ["ae847dd"]
+    assert hardcoded_revision_hits_in("no stamp here") == []
 
 
 def test_positive_control_normalisation_joins_template_params():
