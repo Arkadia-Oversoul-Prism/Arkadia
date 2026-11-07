@@ -139,3 +139,43 @@ lane doc) or the lane-currency shared guard it is judged by; `SHARED-CONTRACTS.m
 assigns `AGENT-02` to workstream 2 and the lane instruction docs to their lanes.
 
 *This record was created by an AI agent (OpenHands) on behalf of the user.*
+
+## 7. Repair pass (2026-11-07) — the doc edit must carry its snapshot refresh
+
+The slice above edits `AGENT-02-NOVANET-OPPORTUNITY.md`, a **guarded lane doc**.
+`scripts/lane_state.py::_freshness_findings` treats any commit after the newest
+snapshot commit that touches a guarded lane doc as staleness. `lane-state.json` was
+last written by `4ff76c15` (#619), so this PR's doc edit — with no refresh — makes
+`lane-doc-currency` red on `main` the instant the merge lands. That is the #607 /
+#613 / #610 failure class verbatim, and the merge would have reddened `main`.
+
+Measured, not inferred. On a simulated squash of this PR's own diff onto `main`
+`6c42f55e`, driving the live decision function
+`scripts/lane_state.py::_freshness_findings` directly:
+
+```
+freshness findings: ['snapshot is stale: 1 commit(s) since it was recorded (4ff76c15)
+  changed a guarded lane doc (...AGENT-0{1,2,3,4}.md) -- re-measure the lane PRs and
+  refresh the snapshot (first: <sim>']
+```
+
+The convention is already established by the merged lane PRs that edit a lane doc:
+#614 (`0c615bda`) and #619 (`4ff76c15`) each refreshed `lane-state.json` in the same
+change to the post-merge all-idle form. This repair applies that same convention.
+
+```
+python scripts/lane_state_refresh.py --write --base-main b2d33c80a23421333e1c2ba8bd23d143db500ef3
+python scripts/lane_state.py --check     -> exit 0
+```
+
+`--base-main` is the freshly fetched `main` this slice is rebased onto. The refreshed
+snapshot records this PR under `unassigned_open_prs`, not under any lane `open_prs`,
+so it makes no self-contradicting open claim: the refresh is derived from live PR
+state, and no guard reads `unassigned_open_prs` (verified by `grep -rn
+unassigned_open_prs scripts/ tests/` — no reader outside the refresh script).
+
+Changed paths for this repair pass: `docs/control-plane/parallel-ui/lane-state.json`
+only. The slice's own paths are unchanged.
+
+*This record was created by an AI agent (OpenHands) on behalf of the user.*
+
