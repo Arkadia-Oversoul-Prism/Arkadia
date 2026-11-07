@@ -395,6 +395,26 @@ def test_mount_section_states_an_empty_project_list_honestly():
     assert "This is not an empty" in section, "an empty project list must not read as an empty opportunity board"
 
 
+#: The mount markers the live node above pins.
+MOUNT_MARKERS = (
+    "import { OpportunityRadarSection }",
+    "<OpportunityRadarSection projects={projects.data.projects} />",
+    'projects.state === "ready" && projects.data',
+)
+
+
+def _unmounted_page_violations(page_code: str) -> list[str]:
+    """Mount markers a Projects surface must carry to render the radar section.
+
+    Module level so the live assertion and its negative control call the *same*
+    code. The control previously asserted on a private ``pre_mount`` literal of
+    its own making, so it could not fail for any edit to the live detector:
+    deleting the mount from ``SolSpirePage.tsx`` reddened the live node and left
+    the control passing (measured at `main` `482a4ba0`).
+    """
+    return [marker for marker in MOUNT_MARKERS if marker not in page_code]
+
+
 def test_projects_surface_mounts_the_opportunity_radar_section():
     """The Projects surface (SolSpire, inventory Slice D) renders the section.
 
@@ -402,15 +422,28 @@ def test_projects_surface_mounts_the_opportunity_radar_section():
     read cannot be presented as an empty opportunity board.
     """
     page = SOLSPIRE_PAGE_TS.read_text(encoding="utf-8")
-    assert "import { OpportunityRadarSection }" in page
-    assert "<OpportunityRadarSection projects={projects.data.projects} />" in page
-    assert 'projects.state === "ready" && projects.data' in page
+    assert _unmounted_page_violations(page) == [], (
+        "the Projects surface must mount the radar section behind a ready list: "
+        f"{_unmounted_page_violations(page)}"
+    )
 
 
 def test_negative_control_the_mount_pins_are_not_vacuous():
-    """Prove the mount detectors fail on the pre-mount page text."""
-    pre_mount = 'import { Page } from "../components/ui";\nexport function SolSpirePage() { return null; }\n'
-    assert "OpportunityRadarSection" not in pre_mount
-    assert "readPath={projectBoardPath(selected)}" not in pre_mount
-    assert "No projects exist in this workspace yet" not in pre_mount
+    """Prove the mount detectors fail on the pre-mount page text.
+
+    The control calls :func:`_unmounted_page_violations` — the same function the
+    live assertion uses — so it can actually fail. The previous version compared
+    a private ``pre_mount`` literal inline and stayed green for any edit to the
+    live detector.
+    """
+    assert _unmounted_page_violations(SOLSPIRE_PAGE_TS.read_text(encoding="utf-8")) == [], (
+        "the repaired page must not be reported"
+    )
+    pre_mount = (
+        'import { Page } from "../components/ui";\n'
+        "export function SolSpirePage() { return null; }\n"
+    )
+    assert _unmounted_page_violations(pre_mount) == list(MOUNT_MARKERS), (
+        "a page that never mounts the section must report every mount marker"
+    )
 
