@@ -36,13 +36,25 @@ SOLARIUN = SOLARIUN_PATH.read_text(encoding="utf-8")
 ENDPOINTS = ENDPOINTS_PATH.read_text(encoding="utf-8")
 
 
-def _renders_degraded_counts(panel: str) -> bool:
-    """An unavailable source must surface as degraded, never a confident zero."""
-    return (
-        "unavailable · not counted" in panel
-        and "s.included" in panel
-        and "included: s.included" not in panel  # a chip may never claim included when false
-    )
+def _degraded_reading_defects(panel: str) -> list[str]:
+    """Why an unavailable source could read as a confident zero.
+
+    Module level, so the live assertion and its negative control call the *same*
+    code. The control previously restated the ``unavailable · not counted``
+    literal inline and never ran a detector, so the live predicate could be
+    replaced by a constant with no red test (measured at `main` `03220c95`:
+    forcing it to `True` left the whole file green).
+    """
+    defects: list[str] = []
+    if "unavailable · not counted" not in panel:
+        defects.append("a degraded source does not state 'unavailable · not counted'")
+    if "s.included" not in panel:
+        defects.append("the panel does not read the contract's own `included` flag")
+    if "included: s.included" in panel:
+        defects.append("a chip claims `included` when the contract says it was not")
+    if "available.has(source)" not in panel:
+        defects.append("the counts rows are not gated on the included-source set")
+    return defects
 
 
 def test_memory_lens_mounts_the_panel():
@@ -63,14 +75,29 @@ def test_panel_renders_the_contract_provenance_verbatim():
 
 
 def test_degraded_sources_are_shown_as_degraded_not_zero():
-    assert _renders_degraded_counts(PANEL)
-    # The COUNTS rows are gated on membership of the included-source set.
-    assert "available.has(source)" in PANEL
+    """The load-bearing assertion: an unavailable source is never a confident zero."""
+    assert _degraded_reading_defects(PANEL) == [], _degraded_reading_defects(PANEL)
 
 
 def test_negative_control_detects_confident_zeros_for_unavailable_sources():
-    synthetic = "value: count(data[key])"  # unconditional: an unavailable source reads as 0
-    assert "unavailable · not counted" not in synthetic
+    """Prove the detector bites, by calling it on the pre-repair shape.
+
+    Calls :func:`_degraded_reading_defects` — the same function the live assertion
+    uses — so the control can actually fail when that detector is disarmed. The
+    previous version asserted a literal was absent from a hand-written string and
+    ran no detector at all.
+    """
+    naive = "value: count(data[key])"  # unconditional: an unavailable source reads as 0
+    defects = _degraded_reading_defects(naive)
+    assert any("unavailable · not counted" in d for d in defects), defects
+    assert any("included-source set" in d for d in defects), defects
+    # A chip that claims inclusion for a source the contract excluded is its own defect.
+    claiming = (
+        "unavailable · not counted s.included available.has(source) included: s.included"
+    )
+    assert any("claims `included`" in d for d in _degraded_reading_defects(claiming))
+    # And the detector must stay silent on the real panel, or it is trivially true.
+    assert _degraded_reading_defects(PANEL) == []
 
 
 def test_panel_is_counts_only():
