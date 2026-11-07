@@ -90,12 +90,27 @@ def test_every_navigable_surface_declares_a_declared_group():
     assert missing == [], f"navigable surfaces without a declared group: {missing}"
 
 
+def _groups_from_the_declared_table(shell_text: str) -> bool:
+    """The shell groups by the declared group table, not a hardcoded list.
+
+    Module level so the live assertion and its negative control call the *same*
+    code. The control previously restated the membership test inline, which made
+    it vacuous: renaming the marker in the live test left the control passing, so
+    the detector could be disarmed with no red test (the class repaired in
+    ``test_console_surface_error_boundary.py`` and
+    ``test_console_shell_nav_contract.py``).
+    """
+    return "SURFACE_GROUPS.map" in shell_text
+
+
 def test_shell_derives_grouped_navigation_from_the_surface_table():
     """The shell groups the one derived item list; it does not own a second list."""
     assert "NAV_SURFACES = SURFACES.filter" in SHELL, (
         "the shell must derive navigation from the surface table"
     )
-    assert "SURFACE_GROUPS.map" in SHELL, "the shell must group by the declared group table"
+    assert _groups_from_the_declared_table(SHELL), (
+        "the shell must group by the declared group table"
+    )
     assert "s.group ?? UNGROUPED" in SHELL, (
         "an ungrouped surface must be collected, not dropped"
     )
@@ -106,10 +121,21 @@ def test_shell_derives_grouped_navigation_from_the_surface_table():
 
 
 def test_negative_control_a_second_group_list_would_be_detected():
-    """The detector is proven on synthetic input: a hardcoded group list fails it."""
+    """The detector is proven on synthetic input: a hardcoded group list fails it.
+
+    The control calls :func:`_groups_from_the_declared_table` — the same function
+    the live assertion uses — so it can actually fail. The previous version
+    compared the marker against a mutated string inline and passed even when the
+    live detector's marker was renamed.
+    """
     stale = SHELL.replace("SURFACE_GROUPS.map", "HARDCODED_GROUPS.map")
-    assert "SURFACE_GROUPS.map" in SHELL, "the repaired shell must not be reported"
-    assert "SURFACE_GROUPS.map" not in stale, "control did not mutate the shell -- detector unproven"
+    assert stale != SHELL, "control did not mutate the shell -- detector unproven"
+    assert not _groups_from_the_declared_table(stale), (
+        "a shell that groups by a hardcoded list must be reported"
+    )
+    # The live tree still groups by the declared table, so the detector is not
+    # trivially false.
+    assert _groups_from_the_declared_table(SHELL)
 
 
 # ---------------------------------------------------------------------------
@@ -132,13 +158,31 @@ def test_workspace_composes_the_existing_weaver_and_lab_components():
         assert (SRC / path).exists(), f"{path} does not exist -- the import would not resolve"
 
 
+#: A workspace that re-declares one of these is a second approval/session/history
+#: system — the duplication the mission forbids.
+SECOND_SYSTEM_DEFINITIONS = (
+    "function ApprovalLedger",
+    "function LabSessionList",
+    "function ArkanaThreadHistory",
+)
+
+
+def _second_system_definitions(source: str) -> list[str]:
+    """Component definitions that would be a second approval/session/history system.
+
+    Module level so the live assertion and its negative control call the *same*
+    code; the control previously appended a definition and re-checked the marker
+    inline, which could not fail for any edit to the live detector.
+    """
+    return [marker for marker in SECOND_SYSTEM_DEFINITIONS if marker in source]
+
+
 def test_workspace_does_not_introduce_a_second_approval_or_session_system():
     """No second approval ledger, session list, or conversation reader."""
     # The workspace must not define its own approval/session/history components.
-    assert "function ApprovalLedger" not in WORKSPACE, "the workspace defines a second approval ledger"
-    assert "function LabSessionList" not in WORKSPACE, "the workspace defines a second session list"
-    assert "function ArkanaThreadHistory" not in WORKSPACE, (
-        "the workspace defines a second conversation-history reader"
+    assert _second_system_definitions(WORKSPACE) == [], (
+        "the workspace defines a second approval/session/history system: "
+        f"{_second_system_definitions(WORKSPACE)}"
     )
     # And it must not read the approval/session contracts directly.
     assert "endpoints.approvals" not in WORKSPACE, (
@@ -158,10 +202,20 @@ def test_workspace_shell_exposes_a_panels_slot_and_inspector_renders_it():
 
 
 def test_negative_control_a_duplicated_ledger_would_be_detected():
-    """The duplication detector is proven on synthetic input."""
+    """The duplication detector is proven on synthetic input.
+
+    The control calls :func:`_second_system_definitions` — the same function the
+    live assertion uses — so it can actually fail. The previous version re-checked
+    the marker inline and stayed green even when the live detector's marker was
+    renamed.
+    """
+    assert _second_system_definitions(WORKSPACE) == [], (
+        "the repaired workspace must not be reported"
+    )
     duplicated = WORKSPACE + "\nfunction ApprovalLedger() { return null; }\n"
-    assert "function ApprovalLedger" not in WORKSPACE, "the repaired workspace must not be reported"
-    assert "function ApprovalLedger" in duplicated, "control did not mutate -- detector unproven"
+    assert _second_system_definitions(duplicated) == ["function ApprovalLedger"], (
+        "a reintroduced second approval ledger must be reported"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -244,16 +298,21 @@ def test_layouts_render_no_navigation_chrome_of_their_own():
         )
 
 
+def _navigation_renderers(sources: dict[str, str]) -> list[str]:
+    """Files that render the grouped navigation — the second-renderer detector.
+
+    Module level so the live assertion and its negative control call the *same*
+    code. The control previously restated this comprehension, so renaming the
+    marker in the live test left the control passing.
+    """
+    return sorted(path for path, source in sources.items() if "NAV_GROUPS.map" in source)
+
+
 def test_exactly_one_file_renders_the_primary_navigation():
     """`Shell.tsx` is the only file that renders the grouped navigation."""
-    renderers = sorted(
-        path
-        for path, source in _ts_sources().items()
-        if "NAV_GROUPS.map" in source
-    )
-    assert renderers == ["web/arkadia_console/src/components/Shell.tsx"], (
-        f"the primary navigation must be rendered by exactly one file, found: {renderers}"
-    )
+    assert _navigation_renderers(_ts_sources()) == [
+        "web/arkadia_console/src/components/Shell.tsx"
+    ], f"the primary navigation must be rendered by exactly one file, found: {_navigation_renderers(_ts_sources())}"
 
 
 def test_surfaces_publish_their_rail_instead_of_rendering_it():
@@ -299,9 +358,14 @@ def test_negative_control_a_reintroduced_second_shell_is_detected():
 
 
 def test_negative_control_a_second_nav_renderer_is_detected():
-    """A second file rendering the grouped navigation would be caught."""
+    """A second file rendering the grouped navigation would be caught.
+
+    The control calls :func:`_navigation_renderers` — the same function the live
+    assertion uses — so it can actually fail. The previous version restated the
+    comprehension and passed even when the live detector's marker was renamed.
+    """
     sources = _ts_sources()
-    assert [p for p, s in sources.items() if "NAV_GROUPS.map" in s] == [
+    assert _navigation_renderers(sources) == [
         "web/arkadia_console/src/components/Shell.tsx"
     ], "the repaired tree must have exactly one navigation renderer"
     # Simulate a second renderer appearing in a layout file.
@@ -309,13 +373,36 @@ def test_negative_control_a_second_nav_renderer_is_detected():
     simulated["web/arkadia_console/src/components/workspace/WorkspaceShell.tsx"] = (
         WORKSPACE_SHELL + "\n{NAV_GROUPS.map((g) => null)}\n"
     )
-    renderers = sorted(p for p, s in simulated.items() if "NAV_GROUPS.map" in s)
-    assert len(renderers) == 2, "control did not produce a second renderer -- detector unproven"
+    assert _navigation_renderers(simulated) == [
+        "web/arkadia_console/src/components/Shell.tsx",
+        "web/arkadia_console/src/components/workspace/WorkspaceShell.tsx",
+    ], "control did not produce a second renderer -- detector unproven"
 
 
 # ---------------------------------------------------------------------------
 # Context continuity: one project selection, remembered across a reload
 # ---------------------------------------------------------------------------
+
+
+#: The marks of a project selection that survives a reload and is re-validated
+#: against the live list. A source missing any of these has a selection that is
+#: lost on refresh or resurrects a stale id.
+REMEMBERED_SELECTION_MARKERS = (
+    "sessionStorage.getItem(ACTIVE_PROJECT_KEY)",
+    "sessionStorage.setItem(ACTIVE_PROJECT_KEY",
+    "rememberProject(null)",
+    "projectRows.some((row) => row.id === activeProjectId)",
+)
+
+
+def _missing_remembered_selection_markers(source: str) -> list[str]:
+    """Marks of a persisted, re-validated project selection that ``source`` omits.
+
+    Module level so the live assertion and its negative control call the *same*
+    code. The control previously re-checked one marker inline, so it could not
+    fail for any edit to the live detector.
+    """
+    return [marker for marker in REMEMBERED_SELECTION_MARKERS if marker not in source]
 
 
 def test_project_selection_is_remembered_and_revalidated():
@@ -328,30 +415,29 @@ def test_project_selection_is_remembered_and_revalidated():
     rather than trusted.
     """
     ctx = (SRC / "lib" / "projectContext.tsx").read_text(encoding="utf-8")
-    assert "sessionStorage.getItem(ACTIVE_PROJECT_KEY)" in ctx, (
-        "the active project is not restored from session storage"
-    )
-    assert "sessionStorage.setItem(ACTIVE_PROJECT_KEY" in ctx, (
-        "the active project selection is not persisted"
-    )
-    # The invalidation path must clear storage too, or a stale id resurrects.
-    assert "rememberProject(null)" in ctx, (
-        "a stale selection is cleared from state but not from storage"
-    )
-    # Re-validation against the live list must still exist.
-    assert "projectRows.some((row) => row.id === activeProjectId)" in ctx, (
-        "the remembered selection is not re-validated against the live project list"
+    missing = _missing_remembered_selection_markers(ctx)
+    assert missing == [], (
+        "the project selection is not persisted or re-validated; missing: " + ", ".join(missing)
     )
 
 
 def test_negative_control_a_state_only_selection_would_be_detected():
-    """The detector is proven: a state-only selection fails it."""
+    """The detector is proven: a state-only selection fails it.
+
+    The control calls :func:`_missing_remembered_selection_markers` — the same
+    function the live assertion uses — so it can actually fail. The previous
+    version re-checked one marker inline and stayed green even when the live
+    detector's markers were renamed.
+    """
     ctx = (SRC / "lib" / "projectContext.tsx").read_text(encoding="utf-8")
-    state_only = ctx.replace("sessionStorage.getItem(ACTIVE_PROJECT_KEY)", "null")
-    assert "sessionStorage.getItem(ACTIVE_PROJECT_KEY)" in ctx, "the repaired context must not be reported"
-    assert "sessionStorage.getItem(ACTIVE_PROJECT_KEY)" not in state_only, (
-        "control did not mutate -- detector unproven"
+    assert _missing_remembered_selection_markers(ctx) == [], (
+        "the repaired context must not be reported"
     )
+    state_only = ctx.replace("sessionStorage.getItem(ACTIVE_PROJECT_KEY)", "null")
+    assert state_only != ctx, "control did not mutate -- detector unproven"
+    assert _missing_remembered_selection_markers(state_only) == [
+        "sessionStorage.getItem(ACTIVE_PROJECT_KEY)"
+    ], "a selection that is not restored from storage must be reported"
 
 
 def test_solariun_reads_the_shared_project_selection():
@@ -371,6 +457,19 @@ def test_solariun_reads_the_shared_project_selection():
 # ---------------------------------------------------------------------------
 
 
+#: A module-level worker roster in the orchestrator is the fabricated worker list
+#: the surface's own doctrine forbids: "It refuses to invent workers, progress
+#: percentages, retry counters or live telemetry." Weaver composes real read
+#: models; a roster declared here would be invented state with no contract behind
+#: it. Module level so the live assertion and its control call the *same* code.
+FABRICATED_ROSTER_MARKERS = ("const WORKERS", "const WORKER_ROSTER")
+
+
+def _fabricated_worker_rosters(source: str) -> list[str]:
+    """Fabricated worker-roster declarations in a source file."""
+    return [marker for marker in FABRICATED_ROSTER_MARKERS if marker in source]
+
+
 def test_weaver_composes_real_read_models_and_declares_the_gaps():
     """Weaver surfaces real state and names what the contracts do not publish."""
     weaver = (SRC / "components" / "weaver" / "WeaverOrchestration.tsx").read_text(encoding="utf-8")
@@ -380,7 +479,10 @@ def test_weaver_composes_real_read_models_and_declares_the_gaps():
     assert "UNAVAILABLE_DIMENSIONS" in weaver, "Weaver declares no unavailable dimensions"
     for dimension in ("Task dependencies", "Subtask decomposition", "Retry conditions"):
         assert dimension in weaver, f"Weaver does not declare {dimension!r} as unavailable"
-    # And it must not invent live telemetry.
+    # And it must not invent workers or live telemetry.
+    assert _fabricated_worker_rosters(weaver) == [], (
+        "Weaver declares a fabricated worker roster: " f"{_fabricated_worker_rosters(weaver)}"
+    )
     assert "EventSource" not in weaver, "Weaver opens a live stream the backend does not serve"
     assert "setInterval" not in weaver, "Weaver polls without declaring it"
 
@@ -400,29 +502,57 @@ WEAVER_COMPOSED_COMPONENTS = (
 )
 
 
+#: Patterns that mean "this component polls or opens a live stream the backend
+#: does not serve". Weaver's orchestration contracts publish no such transport,
+#: so any of these in a composed component is undeclared live state.
+POLLING_PATTERNS = ("setInterval", "setTimeout(", "EventSource", "WebSocket(")
+
+
+def _undeclared_polling_offenders(sources: dict[str, str]) -> list[str]:
+    """``relative: pattern`` for every source that polls or opens a live stream.
+
+    Module level so the live assertion and its negative control call the *same*
+    code. The control previously appended a pattern and re-checked the literal
+    inline, which could not fail for any edit to the live detector.
+    """
+    offenders = []
+    for relative, source in sorted(sources.items()):
+        for pattern in POLLING_PATTERNS:
+            if pattern in source:
+                offenders.append(f"{relative}: {pattern}")
+    return offenders
+
+
 def test_no_undeclared_polling_anywhere_in_the_weaver_composition():
     """Every component Weaver actually renders must be free of undeclared polling."""
-    offenders = []
+    sources = {}
     for relative in WEAVER_COMPOSED_COMPONENTS:
         path = SRC / relative
         assert path.exists(), f"Weaver composition names a missing component: {relative}"
-        source = path.read_text(encoding="utf-8")
-        for pattern in ("setInterval", "setTimeout(", "EventSource", "WebSocket("):
-            if pattern in source:
-                offenders.append(f"{relative}: {pattern}")
-    assert offenders == [], (
+        sources[relative] = path.read_text(encoding="utf-8")
+    assert _undeclared_polling_offenders(sources) == [], (
         "Weaver's composed components poll or open a live stream the backend does "
-        f"not serve: {offenders}"
+        f"not serve: {_undeclared_polling_offenders(sources)}"
     )
 
 
 def test_negative_control_polling_in_a_composed_component_is_detected():
-    """The widened guard must actually fire — proven against a mutated copy."""
+    """The widened guard must actually fire — proven against a mutated copy.
+
+    The control calls :func:`_undeclared_polling_offenders` — the same function
+    the live assertion uses — so it can actually fail. The previous version
+    re-checked the ``setInterval`` literal inline and never exercised the live
+    detector, so the live assertion could be disarmed with no red test.
+    """
     relative = "components/weaver/ApprovalLedger.tsx"
     source = (SRC / relative).read_text(encoding="utf-8")
+    assert _undeclared_polling_offenders({relative: source}) == [], (
+        "the repaired component must not poll"
+    )
     mutated = source + "\nconst _poll = setInterval(() => {}, 1000);\n"
-    assert "setInterval" not in source, "the repaired component must not poll"
-    assert "setInterval" in mutated, "control did not mutate -- detector unproven"
+    assert _undeclared_polling_offenders({relative: mutated}) == [f"{relative}: setInterval"], (
+        "an undeclared poll in a composed component must be reported"
+    )
 
 
 def test_polling_remains_allowed_outside_the_weaver_composition():
@@ -439,11 +569,19 @@ def test_polling_remains_allowed_outside_the_weaver_composition():
 
 
 def test_negative_control_a_fabricated_worker_list_would_be_detected():
-    """A hardcoded worker roster is the failure this guard exists to catch."""
+    """A hardcoded worker roster is the failure this guard exists to catch.
+
+    The control calls :func:`_fabricated_worker_rosters` — the same function the
+    live assertion uses — so it can actually fail. The previous version appended a
+    roster and re-checked the marker inline; it never exercised the live detector,
+    so the live assertion could be disarmed with no red test.
+    """
     weaver = (SRC / "components" / "weaver" / "WeaverOrchestration.tsx").read_text(encoding="utf-8")
+    assert _fabricated_worker_rosters(weaver) == [], "the repaired Weaver must not be reported"
     fabricated = weaver + '\nconst WORKERS = [{ id: "w1", progress: 42 }];\n'
-    assert "const WORKERS" not in weaver, "the repaired Weaver must not be reported"
-    assert "const WORKERS" in fabricated, "control did not mutate -- detector unproven"
+    assert _fabricated_worker_rosters(fabricated) == ["const WORKERS"], (
+        "a fabricated worker roster must be reported"
+    )
 
 
 # ---------------------------------------------------------------------------

@@ -294,3 +294,46 @@ file was restored byte-identically; the gate that executes this guard
 
 Merge, production deployment and acceptance remain human-only. Lane 1 opens its next bounded PR
 only after this one merges.
+
+## Status — 2026-11-07 (LANE 1: control integrity in the unified-interface guard, no active PR declared)
+
+**Active branch:** `feat/prism-l1-vacuous-control-integrity-02` (recorded for provenance only).
+**Active PR:** none declared — this section records the slice's objective; the snapshot below is the judge.
+
+A lane PR cannot declare itself open at merge time: the merge that lands it closes it, so the
+snapshot would contradict live state the instant it merged. This section therefore declares no
+active PR and leaves the lane's status to the derived snapshot.
+
+This is lane 1's next bounded slice, opened from freshly fetched `main` under
+`11 — LANE NEW-PR AUTHORIZATION`. It is **not** a continuation of #631: that PR merged as
+`b2d33c80` and repaired two vacuous controls in `test_console_surface_error_boundary.py` and
+`test_console_shell_nav_contract.py`. This slice is the same defect class in the **third**
+Lane-1 guard, which #631 did not reach.
+
+**Objective.** `tests/test_console_unified_interface_contract.py` (added by `b9297ab9`, AO-002)
+carried **six** `test_negative_control_*` nodes, and every one restated its detector inline
+instead of calling it — so a control could not fail for any edit to the live assertion it was
+supposed to protect. The file's own header claims the opposite. One of the six
+(`…a_fabricated_worker_list_would_be_detected`) was additionally **orphaned**: it named a
+`const WORKERS` roster that no live assertion in the file guards at all.
+
+**Bounded scope.** `tests/test_console_unified_interface_contract.py` only — lane-1 owned
+(`SHARED-CONTRACTS.md` §1, "shared shell/endpoint contract tests"). No console source, backend
+contract, registry, or other lane's file is touched. Six detectors move to module-level
+functions that the live assertion and its control both call; each control now asserts the
+repaired input is not reported as well as the mutated one is.
+
+**Evidence.** Targeted `24 passed` (node count unchanged at 24 — this strengthens controls and
+adds none). A **live** mutation control on the real file: neutering each shared helper body
+reddens **both** the live node and its control; on the pre-repair file, neutering the live
+detector's own expression reddened the live node while the control stayed green (the vacuity).
+The orphaned roster control was proven attached to no live assertion. The gate that executes
+this guard (`pytest $(python scripts/console_contract_domain.py)`) reports `1123 passed` (10
+failures are the documented missing-`node_modules` TypeScript toolchain, matching #633's
+baseline); console wiring `31 passed`; `tests/architecture` `11 passed`; lane suites
+`67 passed`; `scripts/lane_state.py --check` and `--check --verify-live` both exit 0.
+
+Evidence: `docs/control-plane/evidence/lane1-unified-interface-control-integrity-01/EVIDENCE.md`.
+
+Merge, production deployment and acceptance remain human-only. Lane 1 opens its next bounded PR
+only after this one merges.

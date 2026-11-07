@@ -1,7 +1,7 @@
 {
  "schema": "arkadia.lane-state/1.2",
- "observed_at": "2026-11-07T14:22:25Z",
- "base_main": "b2d33c80a23421333e1c2ba8bd23d143db500ef3",
+ "observed_at": "2026-11-07T15:19:39Z",
+ "base_main": "482a4ba09d3a63c76781d149d474de51b0c33f72",
  "source": "GitHub REST reads API (Arkadia-Oversoul-Prism/Arkadia), read-only, derived by scripts/lane_state_refresh.py",
  "note": "Machine-readable mirror of the four Prism UI lane threads, DERIVED from live PR state rather than hand-transcribed. Lane assignment is by exclusive path ownership (SHARED-CONTRACTS.md section 1); a PR touching more than one lane's owned paths appears in each. scripts/lane_state.py judges the docs against this file; --verify-live additionally requires every claimed-open PR to be authoritatively open. Refresh with scripts/lane_state_refresh.py --write.",
  "lanes": {
@@ -118,16 +118,7 @@
    "doc_guard": "idle"
   }
  },
- "unassigned_open_prs": [
-  {
-   "number": 633,
-   "branch": "feat/prism-l2-doc-task-currency-defect3-01",
-   "head_sha": "f16fa09ec5a6fe463069b6af1f6c65fa7b7e0f36",
-   "draft": true,
-   "updated_at": "2026-11-07T13:21:14Z",
-   "title": "Lane 2: discharge the DEFECT 3 claim and audit doc test-node citations"
-  }
- ],
+ "unassigned_open_prs": [],
  "closed_unmerged": [
   {
    "number": 499,
