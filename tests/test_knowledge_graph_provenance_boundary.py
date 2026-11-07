@@ -194,6 +194,8 @@ def test_panel_renders_the_provenance_reading():
     assert "provenanceReading" in source
     assert 'data-testid="knowledge-graph-provenance"' in source
     assert 'data-testid="knowledge-graph-provenance-rows"' in source
+    # No literal attribution: provenance is data from the contract.
+    assert _hardcoded_attribution_hits(source) == []
 
 
 def test_notice_counts_reconcile_with_the_node_total():
@@ -213,11 +215,33 @@ def test_negative_control_a_single_state_reader_is_not_the_contract():
         assert f'"{state}"' in source, f"missing provenance state {state!r}"
 
 
+def _hardcoded_attribution_hits(source: str) -> list[str]:
+    """Literal attributions a panel invented rather than read from the contract.
+
+    Module level, so the live assertions and their negative controls call the
+    *same* code. The controls previously restated these regexes inline and ran no
+    detector, so either predicate could be deleted with no red test (measured at
+    `main` `03220c95`: the live assertions are the only callers, and nothing
+    exercises them but themselves).
+    """
+    patterns = (
+        ("captured_by", r"captured_by\s*=\s*\""),
+        ("authored_by", r"authored_by\s*=\s*\""),
+        ("author", r"author\s*=\s*\""),
+    )
+    return [name for name, pattern in patterns if re.search(pattern, source)]
+
+
 def test_negative_control_panel_does_not_hardcode_an_origin():
-    """No literal attribution may appear in the panel — provenance is data from
-    the contract, never a value the surface invents."""
-    source = PANEL_TSX.read_text(encoding="utf-8")
-    assert not re.search(r"captured_by\s*=\s*\"", source)
+    """Prove the origin detector bites, on a panel that invents a captured origin.
+
+    Calls :func:`_hardcoded_attribution_hits` — the same function the live
+    assertion uses — so the control can fail when that detector is disarmed. It
+    previously restated the regex inline and ran no detector.
+    """
+    invented = '<Provenance captured_by="the archive" />'
+    assert _hardcoded_attribution_hits(invented) == ["captured_by"]
+    assert _hardcoded_attribution_hits(PANEL_TSX.read_text(encoding="utf-8")) == []
 
 
 # ── handler side: the authorship dimension the projection also carries ───────
@@ -320,6 +344,8 @@ def test_panel_renders_the_authorship_reading():
     assert "authorshipReading" in source
     assert 'data-testid="knowledge-graph-authorship"' in source
     assert 'label: "author not declared"' in source
+    # No literal author either: the surface never invents an attribution.
+    assert _hardcoded_attribution_hits(source) == []
 
 
 def test_panel_row_reads_authorship_for_every_node(client):
@@ -350,8 +376,14 @@ def test_negative_control_an_authorship_blind_reader_is_not_the_contract():
 
 
 def test_negative_control_panel_never_hardcodes_an_author():
-    """No literal author may appear in the panel — authorship is data from the
-    contract, never a value the surface invents."""
-    source = PANEL_TSX.read_text(encoding="utf-8")
-    assert not re.search(r"authored_by\s*=\s*\"", source)
-    assert not re.search(r"author\s*=\s*\"", source)
+    """Prove the attribution detector bites, on a panel that invents an author.
+
+    Calls :func:`_hardcoded_attribution_hits` — the same function the live
+    assertions use — so the control can fail when that detector is disarmed. It
+    previously restated both regexes inline and ran no detector.
+    """
+    assert _hardcoded_attribution_hits(PANEL_TSX.read_text(encoding="utf-8")) == []
+    invented = '<Provenance captured_by="the oracle" authored_by="Arkana" author="A" />'
+    assert _hardcoded_attribution_hits(invented) == ["captured_by", "authored_by", "author"]
+    # A `key=` attribute and a data read are not literal attributions.
+    assert _hardcoded_attribution_hits('<Row key={node.id} author={node.author} />') == []

@@ -93,3 +93,37 @@ The forward-looking task recorded above — a bounded "load older events" contro
 The repository holds **zero open PRs** in every lane, so the idle declaration above is the
 current truth. This block adds no pointer declaration, so that idle disposition remains the
 last-wins declaration for this lane.
+
+## Status — 2026-11-07 (LANE 3: control integrity in two lane-3 guards, no active PR declared)
+
+**Active branch:** `feat/prism-l3-control-integrity-01` (recorded for provenance only).
+**Active PR:** none declared — the snapshot below is the judge.
+
+A lane PR cannot declare itself open at merge time: the merge that lands it closes it. This
+section therefore declares no active PR and leaves the lane's status to the derived snapshot.
+
+Lane 3's next bounded slice, opened from freshly fetched `main` under
+`11 — LANE NEW-PR AUTHORIZATION`. It is the same defect class #631/#634/#636/#637 repaired in
+Lane 1, in two lane-3 guards that the Lane 1 passes did not reach.
+
+**Objective.** Bind two vacuous `test_negative_control_*` nodes to the detectors they claim to
+prove, in the guards for this lane's `PersonalFieldPanel` (Solariun `memory` lens) and
+`KnowledgeGraphPanel` (Knowledge OS graph).
+
+- `tests/test_prism_solariun_memory_lens.py` — `test_negative_control_detects_confident_zeros_for_unavailable_sources`
+  asserted a literal was absent from a hand-written string and called no detector.
+- `tests/test_knowledge_graph_provenance_boundary.py` — the two attribution controls restated
+  their regexes inline; they were also the *only* enforcement of the "no literal attribution"
+  invariant, so the property was guarded by nodes labelled as controls rather than by a live
+  assertion.
+
+Measured at `main` `03220c95`: forcing the Solariun live predicate to a constant left the file
+7 passed, and disarming both attribution regexes left the provenance file 24 passed. Neither
+control could fail for any edit to the detector it protects.
+
+Both files now hold a module-level detector (`_degraded_reading_defects`,
+`_hardcoded_attribution_hits`) that the live assertions and their controls both call, and each
+control also asserts the repaired input is *not* reported, so a detector that matches
+everything cannot pass either. Node count is unchanged in both files (7 and 24).
+
+Lane 3's next bounded PR opens only after this one merges.
