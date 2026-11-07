@@ -43,8 +43,12 @@ change to the *live* pattern is observable to it):
 | PRE-REPAIR (`main`), over-permissive live regex `\S+` | FAIL | **PASS** (vacuous) |
 | POST-REPAIR, over-permissive shared `_REVISION_RE` | FAIL | **FAIL** (bound) |
 
-Neutering the shared pattern (`NEVER_MATCHES`) reddens both the live node and the control on
-the repaired file.
+Neutering the shared pattern (`NEVER_MATCHES`) reddens the control on the repaired file
+(measured `1 failed, 19 passed`). The live node stays green there, and that is correct rather
+than a gap: `test_the_revision_is_not_hardcoded_outside_one_module` asserts the *absence* of
+hardcoded revisions, and a pattern that matches nothing yields none. The binding that the
+repair establishes is row 2 — an over-permissive pattern reddens **both** nodes on the repaired
+file, which the pre-repair control could not do because it restated the regex inline.
 
 **Domain regression:** `pytest $(python scripts/console_contract_domain.py)` failing/error node
 set is **identical** to the same command on `main` (38 nodes, `diff` empty). The 4
