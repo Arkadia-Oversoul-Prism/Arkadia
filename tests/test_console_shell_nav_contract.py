@@ -264,10 +264,21 @@ def _focus_bound_to_route(shell_text: str) -> bool:
 # ---------------------------------------------------------------------------
 
 
+def _navigation_owners(sources: dict[str, str]) -> list[str]:
+    """Modules that own a navigation list — the second-owner detector.
+
+    Module level, so the negative control exercises the *same* code the live
+    assertion does. The control below used to restate this comprehension, which
+    made it vacuous: renaming the marker in the live test left the control
+    passing, so the detector could be disarmed with no red test.
+    """
+    return sorted(name for name, src in sources.items() if "NAV_SURFACES" in src)
+
+
 def test_navigation_model_is_declared_exactly_once():
     """One global navigation model: the shell renders the surface table, and no
     other component owns a navigation list (directive §5.1, §4 Slice A)."""
-    nav_modules = [name for name in _ts_sources() if "NAV_SURFACES" in _ts_sources()[name]]
+    nav_modules = _navigation_owners(_ts_sources())
     assert nav_modules == [str(SHELL_PATH.relative_to(ROOT))], (
         f"the navigation model must live only in Shell.tsx; found {nav_modules}"
     )
@@ -1063,11 +1074,25 @@ def test_design_tokens_are_not_bypassed_by_page_local_hex_literals():
 
 def test_detector_flags_a_second_navigation_owner():
     """A second component with its own NAV list is exactly the defect. Feed the
-    detector the real shell plus a synthetic second owner."""
-    shell = SHELL_PATH.read_text(encoding="utf-8")
-    sources = {str(SHELL_PATH.relative_to(ROOT)): shell, "src/components/GhostNav.tsx": "const NAV_SURFACES = [];"}
-    owners = [name for name, src in sources.items() if "NAV_SURFACES" in src]
-    assert len(owners) == 2, "the navigation detector cannot see a second owner"
+    detector the real shell plus a synthetic second owner.
+
+    The control calls the same :func:`_navigation_owners` the live assertion uses,
+    so it can actually fail: the previous version restated the comprehension and
+    passed even when the live detector's marker was renamed (measured — the live
+    test reddened, this one stayed green). A control that cannot fail is not a
+    control.
+    """
+    sources = {
+        str(SHELL_PATH.relative_to(ROOT)): SHELL_PATH.read_text(encoding="utf-8"),
+        "src/components/GhostNav.tsx": "const NAV_SURFACES = [];",
+    }
+    owners = _navigation_owners(sources)
+    assert owners == [
+        "src/components/GhostNav.tsx",
+        str(SHELL_PATH.relative_to(ROOT)),
+    ], owners
+    # The live tree has exactly one owner, so the detector is not trivially true.
+    assert _navigation_owners(_ts_sources()) == [str(SHELL_PATH.relative_to(ROOT))]
 
 
 def test_detector_flags_a_hardcoded_origin():
