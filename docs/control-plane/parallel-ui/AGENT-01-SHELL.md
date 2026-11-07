@@ -337,3 +337,37 @@ Evidence: `docs/control-plane/evidence/lane1-unified-interface-control-integrity
 
 Merge, production deployment and acceptance remain human-only. Lane 1 opens its next bounded PR
 only after this one merges.
+
+## Status — 2026-11-07 (LANE 1: posture-currency control integrity, no active PR declared)
+
+**Active branch:** `feat/prism-l1-posture-control-integrity-01` (recorded for provenance only).
+**Active PR:** none declared — this section records the slice's objective; the snapshot below is the judge.
+
+A lane PR cannot declare itself open at merge time: the merge that lands it closes it, so the
+snapshot would contradict live state the instant it merged. This section therefore declares no
+active PR and leaves the lane's status to the derived snapshot.
+
+This is lane 1's next bounded slice, opened from freshly fetched `main` under
+`11 — LANE NEW-PR AUTHORIZATION`. It is **not** a continuation of #634: that PR merged as
+`f495e1b6` and repaired six vacuous controls in `test_console_unified_interface_contract.py`.
+This slice is the same defect class in a different Lane-1 guard.
+
+**Objective.** `tests/test_console_posture_currency.py`'s
+`test_negative_control_detector_flags_a_hardcoded_revision` restated the live detector's regex
+inline instead of calling it, so the detector could be disarmed with no red test. The revision
+pattern moves to a module-level `_REVISION_RE` constant exposed through
+`hardcoded_revision_hits_in(text)`; the live detector and its control both call that helper.
+
+**Bounded scope.** `tests/test_console_posture_currency.py` only — lane-1 owned (shared console
+contract tests). No console source, backend contract, registry, or other lane's file is touched.
+
+**Evidence.** Node count unchanged at 20. A **discriminating A/B** on the real file: an
+over-permissive live regex reddened the live node while the control stayed **green** on the
+pre-repair file (the vacuity) and reddens **both** on the repaired file. Domain node set
+identical to `main` (38 nodes, `diff` empty; the 4 `test_every_declared_surface_is_served[...]`
+failures are pre-existing `main` debt). `tests/architecture` `11 passed`; CP10 boundary PASS.
+
+Evidence: `docs/control-plane/evidence/lane1-posture-control-integrity-01/EVIDENCE.md`.
+
+Merge, production deployment and acceptance remain human-only. Lane 1 opens its next bounded PR
+only after this one merges.
