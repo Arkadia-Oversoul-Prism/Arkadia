@@ -34,12 +34,24 @@ Measured backend facts worth keeping (do not re-derive):
   `fb78c700` via `SETTABLE_STATUSES` (through `READY_TO_EXECUTE`), enforced in the
   body builders and not only in the option list. Do not re-widen it; see
   `EVIDENCE.md` §3a.
-- **MEASURED DEFECT 3 in `solspire/buyer_recon.py` (open, not repaired):**
-  `BuyerReconManager.update_entry` validates `status.upper()` then persists the
-  original value, so `PATCH {"status": "conversation"}` answers `200` and stores a
-  status outside the declared vocabulary. `create_entry` normalizes; `update_entry`
-  does not. Pinned by `test_update_does_not_normalize_a_lowercase_status`. Repair
-  needs its own authorization (`SHARED-CONTRACTS` §1/§7.1).
+- **DEFECT 3 in `solspire/buyer_recon.py` — REPAIRED.** This supersedes the
+  earlier "open, not repaired" reading of the same paragraph. `update_entry`
+  validated `status.upper()` and then persisted the original value, so
+  `PATCH {"status": "conversation"}` answered `200` and stored a status outside
+  the declared vocabulary, where any consumer grouping by `STATUSES` missed it.
+  The repair normalises into a local mapping so validation and persistence agree
+  (`normalized["status"] = status`), merged as `8f4a6ea0`
+  (`fix(solspire): one combined buyer-recon update_entry repair (#538 + #544)`).
+  Now pinned by `test_update_normalizes_a_lowercase_status`, with
+  `test_negative_control_an_unknown_status_is_still_refused` proving the repair
+  did not widen the vocabulary. Its predecessor pin
+  test_update_does_not_normalize_a_lowercase_status was **deleted** by that same
+  merge — a node that pins a defect is replaced by that defect's positive form,
+  so it could not survive the repair. The dead citation is named here without
+  backticks deliberately: the citation audit in
+  `tests/test_lane_instruction_doc_currency.py` flags any backticked test node
+  that no longer exists, and this name no longer exists. Full
+  record: `docs/control-plane/evidence/l2-buyer-recon-combined-01/EVIDENCE.md`.
 - A blank `prospect` is refused on **create** (`400 prospect is required`) but
   **accepted on edit** (`200`, and it blanks the stored value). The edit body
   therefore omits `prospect` unless supplied.

@@ -20,6 +20,8 @@ from __future__ import annotations
 import copy
 import importlib.util
 import json
+import ast
+import re
 from pathlib import Path
 
 import pytest
@@ -1015,3 +1017,147 @@ def test_live_tree_has_no_deferred_branch_mismatch():
     state = live_state()
     findings = guard.deferred_branch_findings(state, lanes=guard.current_lanes(state, invert=True))
     assert findings == [], findings
+
+
+# ---------------------------------------------------------------------------
+# Backticked test-node citations in the lane docs
+#
+# The pointer guard judges *which PR a doc names*. It cannot see whether the
+# test node a doc cites still exists. Measured at main 6c42f55e: AGENT-02 cited
+# a pin that the defect's own repair deleted, and the doc kept calling the
+# defect "open, not repaired" -- so a successor agent was sent to re-repair
+# delivered work. That is the same class as a dead PR pointer: a doc that points
+# at something that is gone, green everywhere it is judged.
+# ---------------------------------------------------------------------------
+
+
+_CITATION_RE = re.compile(r"`(test_[A-Za-z0-9_]+)`")
+
+
+def _node_names_in_file(path: Path) -> set[str]:
+    """Every ``def test_…`` name a module defines, parsed with the AST.
+
+    Parsed rather than regexed: a name inside a comment or a docstring is not a
+    node, and a detector that counted those would accept a citation that
+    resolves only to prose.
+    """
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    names: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name.startswith(
+            "test_"
+        ):
+            names.add(node.name)
+    return names
+
+
+def _cited_test_nodes(text: str) -> list[str]:
+    """Backticked ``test_…`` tokens in a doc, deduplicated and sorted."""
+    return sorted(set(_CITATION_RE.findall(text)))
+
+
+def _test_node_universe(root: Path) -> set[str]:
+    """Union of node names across every ``tests/test_*.py`` module."""
+    names: set[str] = set()
+    for path in sorted((root / "tests").glob("test_*.py")):
+        try:
+            names |= _node_names_in_file(path)
+        except (SyntaxError, UnicodeDecodeError):
+            continue
+    return names
+
+
+def _dangling_citations(text: str, universe: set[str]) -> list[str]:
+    """Cited node names that no test module defines."""
+    return sorted(n for n in _cited_test_nodes(text) if n not in universe)
+
+
+def _audited_docs(state: dict) -> list[Path]:
+    """Every lane instruction doc the audit covers, from the snapshot itself."""
+    return [LANE_DIR / state["lanes"][lane]["doc"] for lane in sorted(state["lanes"])]
+
+
+def test_lane_docs_cite_only_test_nodes_that_exist():
+    """A citation of a deleted pin is a pointer to work that no longer exists.
+
+    Judged over every lane doc the snapshot declares, so a doc added to a lane
+    is audited without editing this test.
+    """
+    universe = _test_node_universe(REPO)
+    assert len(universe) > 1000, (
+        f"the node universe is implausibly small ({len(universe)}); the audit read "
+        "the corpus incorrectly and would pass by finding nothing"
+    )
+    dangling: dict[str, list[str]] = {}
+    for doc in _audited_docs(live_state()):
+        found = _dangling_citations(doc.read_text(encoding="utf-8"), universe)
+        if found:
+            dangling[doc.name] = found
+    assert dangling == {}, (
+        "lane doc(s) cite test node(s) that no test module defines: "
+        + "; ".join(f"{doc} -> {names}" for doc, names in dangling.items())
+    )
+
+
+def test_citation_audit_is_not_trivially_empty_on_the_live_docs():
+    """The live docs must carry citations, or the audit above proves nothing.
+
+    A guard that passes because it matched zero citations is the vacuous shape.
+    AGENT-01 cites two node names, so the corpus is non-empty and the audit has
+    something to judge.
+    """
+    cited = {
+        doc.name: _cited_test_nodes(doc.read_text(encoding="utf-8"))
+        for doc in _audited_docs(live_state())
+    }
+    total = sum(len(v) for v in cited.values())
+    assert total > 0, f"no lane doc cites any test node, so the audit cannot bite: {cited}"
+
+
+def test_citation_control_flags_a_planted_dead_citation():
+    """Negative control: a cited node that does not exist must be reported."""
+    universe = _test_node_universe(REPO)
+    planted = "pinned by `test_this_node_does_not_exist_anywhere` in the corpus"
+    assert _dangling_citations(planted, universe) == ["test_this_node_does_not_exist_anywhere"]
+
+
+def test_citation_control_is_silent_for_a_real_node():
+    """Positive control: citing a node that exists must not be reported.
+
+    A detector that reported everything would redden every lane doc and be
+    turned off; this proves it discriminates.
+    """
+    universe = _test_node_universe(REPO)
+    real = "guarded by `test_lane_docs_cite_only_test_nodes_that_exist`"
+    assert _dangling_citations(real, universe) == []
+
+
+def test_citation_detector_ignores_names_that_are_not_nodes(tmp_path):
+    """A name mentioned in a comment or string is not a node.
+
+    The predecessor pin is *named* in AGENT-02 without backticks for exactly this
+    reason; if the detector parsed prose instead of definitions it would report
+    the deliberate mention and the repair would be impossible to express.
+    """
+    module = tmp_path / "test_probe.py"
+    module.write_text(
+        "def test_real_one():\n"
+        "    pass\n"
+        "\n"
+        "# def test_commented_out():\n"
+        "NAME = 'test_inside_a_string'\n",
+        encoding="utf-8",
+    )
+    names = _node_names_in_file(module)
+    assert names == {"test_real_one"}, names
+
+
+def test_citation_audit_covers_every_declared_lane_doc():
+    """The audited doc set is derived, not a hand-written list.
+
+    Measured set at main 6c42f55e: one doc per lane. A fifth lane, or a renamed
+    doc, is audited without touching this test.
+    """
+    docs = _audited_docs(live_state())
+    assert len(docs) == 4, docs
+    assert all(d.exists() for d in docs), [str(d) for d in docs if not d.exists()]
