@@ -86,12 +86,25 @@ def _guards_every_surface(app_source: str) -> bool:
 # ---------------------------------------------------------------------------
 
 
+def _boundary_mount_owners(sources: dict[str, str]) -> list[str]:
+    """Modules that mount the error boundary — the second-mount detector.
+
+    Module level, so the negative control exercises the *same* code the live
+    assertion does. The control below used to compare a hand-written list against
+    itself, which made it vacuous: renaming the live detector's marker left the
+    control passing, so the mount guard could be disarmed with no red test.
+    """
+    return sorted(
+        name for name, src in sources.items() if re.search(r"<ErrorBoundary(?=[\s>])", src)
+    )
+
+
 def test_boundary_is_mounted_exactly_once_in_the_composition_root():
-    importers = [
-        str(p.relative_to(ROOT))
+    sources = {
+        str(p.relative_to(ROOT)): p.read_text(encoding="utf-8")
         for p in sorted(SRC.rglob("*.ts*"))
-        if re.search(r"<ErrorBoundary(?=[\s>])", p.read_text(encoding="utf-8"))
-    ]
+    }
+    importers = _boundary_mount_owners(sources)
     assert importers == ["web/arkadia_console/src/App.tsx"], (
         f"the boundary must be mounted only in the composition root; found {importers}"
     )
@@ -160,8 +173,23 @@ def test_the_boundary_state_is_module_local_not_shared():
 
 
 def test_negative_control_detects_a_mount_outside_the_composition_root():
-    synthetic_importers = ["web/arkadia_console/src/pages/HomePage.tsx"]
-    assert synthetic_importers != ["web/arkadia_console/src/App.tsx"]
+    """A second mount is the defect, and the detector must report it.
+
+    The control calls :func:`_boundary_mount_owners` — the same function the live
+    assertion uses — on a synthetic second mount. The previous version compared a
+    hand-written list to a literal, so it stayed green while the live detector's
+    marker was renamed (measured), i.e. it could not fail for any input.
+    """
+    synthetic = {
+        "web/arkadia_console/src/App.tsx": "<ErrorBoundary key={route.surface}>{body}</ErrorBoundary>",
+        "web/arkadia_console/src/pages/HomePage.tsx": "<ErrorBoundary>{body}</ErrorBoundary>",
+    }
+    assert _boundary_mount_owners(synthetic) == [
+        "web/arkadia_console/src/App.tsx",
+        "web/arkadia_console/src/pages/HomePage.tsx",
+    ], _boundary_mount_owners(synthetic)
+    # A type argument is not a mount, and must not be reported.
+    assert _boundary_mount_owners({"src/x.tsx": "type P = Component<ErrorBoundaryProps>"}) == []
 
 
 def test_negative_control_detects_a_boundary_missing_lifecycle():
