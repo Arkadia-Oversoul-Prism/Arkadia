@@ -613,6 +613,7 @@ def test_real_gate_selects_a_guard_added_after_the_gate(_grown_domain):
             "judge that reports it unexecuted would not run"
         )
 
+
 def test_authenticated_layout_installs_backend_runtime_before_starting_it():
     """The authenticated layout check must reach the route, not fail at boot.
 
