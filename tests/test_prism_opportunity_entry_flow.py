@@ -865,12 +865,36 @@ def test_negative_control_a_settable_status_still_reaches_the_wire(contract_prob
     assert contract_probe["edit_from_contacted"] == {"status": "CONTACTED"}
 
 
+#: The option source the form must use, and the one it must not.
+SETTABLE_OPTION_SOURCE = "SETTABLE_STATUSES.map((status)"
+FULL_VOCABULARY_OPTION_SOURCE = "BUYER_RECON_STATUSES.map((status)"
+
+
+def _status_option_violations(form_code: str) -> list[str]:
+    """The form must offer the reconnaissance ceiling, never the full vocabulary.
+
+    Module level so the live assertion and its negative control call the *same*
+    code. The control previously built its own ``naive`` string and compared that
+    inline, so it could not fail for any edit to the live detector: mutating
+    ``ProspectEntryForm.tsx`` to offer the full vocabulary reddened the live node
+    and left the control passing (measured at `main` `482a4ba0`).
+    """
+    problems: list[str] = []
+    if SETTABLE_OPTION_SOURCE not in form_code:
+        problems.append("the options must be the reconnaissance ceiling")
+    if FULL_VOCABULARY_OPTION_SOURCE in form_code:
+        problems.append(
+            "offering the full vocabulary would make EXECUTED / SETTLED one click away"
+        )
+    return problems
+
+
 def test_the_form_offers_only_settable_statuses():
     """The `<select>` options are the ceiling, not the whole backend vocabulary."""
     form = _code_only(FORM_TS)
-    assert "SETTABLE_STATUSES.map((status)" in form, "the options must be the reconnaissance ceiling"
-    assert "BUYER_RECON_STATUSES.map((status)" not in form, (
-        "offering the full vocabulary would make EXECUTED / SETTLED one click away"
+    assert _status_option_violations(form) == [], (
+        "the form must offer only the settable ceiling: "
+        f"{_status_option_violations(form)}"
     )
 
 
@@ -883,10 +907,24 @@ def test_a_recorded_transaction_outcome_is_read_only_in_the_form():
 
 
 def test_negative_control_the_settable_detector_flags_the_full_vocabulary():
-    """Prove the detector above fires on the defect it exists to catch."""
+    """Prove the detector above fires on the defect it exists to catch.
+
+    The control calls :func:`_status_option_violations` — the same function the
+    live assertion uses — so it can actually fail. The previous version built a
+    ``naive`` string and compared it inline, which stayed green for any edit to
+    the live detector's own marker.
+    """
+    assert _status_option_violations(_code_only(FORM_TS)) == [], (
+        "the repaired form must not be reported"
+    )
     naive = "const options = BUYER_RECON_STATUSES.map((status) => status);"
-    assert "BUYER_RECON_STATUSES.map((status)" in naive
-    assert "SETTABLE_STATUSES.map((status)" not in naive
+    reported = _status_option_violations(naive)
+    assert any("full vocabulary" in p for p in reported), (
+        "a form offering the full vocabulary must be reported"
+    )
+    assert any("ceiling" in p for p in reported), (
+        "a form that drops the ceiling source must be reported"
+    )
 
 
 def test_measured_the_exposure_the_ceiling_closes(app, contract_probe):
