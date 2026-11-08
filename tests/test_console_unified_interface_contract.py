@@ -473,8 +473,20 @@ def _fabricated_worker_rosters(source: str) -> list[str]:
 def test_weaver_composes_real_read_models_and_declares_the_gaps():
     """Weaver surfaces real state and names what the contracts do not publish."""
     weaver = (SRC / "components" / "weaver" / "WeaverOrchestration.tsx").read_text(encoding="utf-8")
-    for component in ("ApprovalLedger", "LabWorkLoop", "LabSessionList", "LabAgentRegistry"):
+    for component in ("ApprovalLedger", "CanvasOrchestration", "LabWorkLoop", "LabSessionList", "LabAgentRegistry"):
         assert f"<{component}" in weaver, f"Weaver does not compose the existing {component}"
+    canvas = (SRC / "components" / "weaver" / "CanvasOrchestration.tsx").read_text(encoding="utf-8")
+    assert 'endpoints.canvas' in canvas and 'apiRequest<unknown>' in canvas, (
+        "the unified canvas must be read through the canonical endpoint registry and API client"
+    )
+    for field in ("dependencies", "subtasks", "retries", "threads", "updated_at", "read_only"):
+        assert field in canvas, f"the canvas consumer does not validate/render {field!r}"
+    assert "UNKNOWN" in canvas and "No dependency edges recorded" in canvas, (
+        "malformed responses and real empty collections must remain distinct"
+    )
+    assert "setInterval" not in canvas and "EventSource" not in canvas and "WebSocket(" not in canvas, (
+        "the canvas must not invent automatic polling or a transport the backend does not serve"
+    )
     # The unpublished dimensions are declared, not rendered as empty lists.
     assert "UNAVAILABLE_DIMENSIONS" in weaver, "Weaver declares no unavailable dimensions"
     # AO-006 closed three of the four gaps at the contract level: the run record
@@ -505,6 +517,7 @@ def test_weaver_composes_real_read_models_and_declares_the_gaps():
 # legitimate polling in unrelated surfaces stays allowed.
 WEAVER_COMPOSED_COMPONENTS = (
     "components/weaver/WeaverOrchestration.tsx",
+    "components/weaver/CanvasOrchestration.tsx",
     "components/weaver/ApprovalLedger.tsx",
     "components/lab/LabWorkLoop.tsx",
     "components/lab/LabSessionList.tsx",

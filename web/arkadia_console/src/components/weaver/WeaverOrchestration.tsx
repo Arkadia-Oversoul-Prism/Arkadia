@@ -29,12 +29,13 @@
  * no SSE/WebSocket orchestration transport is served, so the surface labels the
  * read as polled rather than live.
  *
- * The frontend wiring of the canvas sections into this component is declared
- * deferred in the AO-006 PR body: the backend contract and its guard land here,
- * and the surface consumes them in the follow-up. Until then this component
- * keeps its existing real read models and declares only the telemetry gap.
+ * CanvasOrchestration now consumes the unified read and renders its server-reported
+ * cross-surface counts, dependency edges, subtasks and retry decisions. The
+ * existing detail panels remain attached to their owning contracts; the canvas
+ * does not replace their evidence or mutation boundaries.
  */
 import { Panel } from "../ui";
+import { CanvasOrchestration } from "./CanvasOrchestration";
 import { ApprovalLedger } from "./ApprovalLedger";
 import { LabWorkLoop } from "../lab/LabWorkLoop";
 import { LabSessionList } from "../lab/LabSessionList";
@@ -52,9 +53,9 @@ const UNAVAILABLE_DIMENSIONS: Array<{ dimension: string; reason: string; contrac
   {
     dimension: "Live worker telemetry",
     reason:
-      "There is no SSE or WebSocket transport for orchestration state in this console. Polling the session view is the only real read, so no live indicator is shown.",
+      "There is no SSE or WebSocket transport for orchestration state. The canvas is a manually refreshed snapshot, not a live worker feed.",
     contractChange:
-      "An orchestration event stream, or an explicit `updated_at`-based poll contract the surface can honestly label as polled.",
+      "An authenticated event stream or durable push-based event cursor for worker and run updates.",
   },
 ];
 
@@ -62,6 +63,8 @@ export function WeaverOrchestration() {
   return (
     <div data-testid="weaver-orchestration">
       <ApprovalLedger />
+
+      <CanvasOrchestration />
 
       <LabWorkLoop />
 
@@ -74,9 +77,8 @@ export function WeaverOrchestration() {
           Not published by the contracts
         </p>
         <p className="mb-4 text-xs text-white/40">
-          These orchestration dimensions have no contract behind them. They are shown as
-          unavailable rather than as an empty list, because "the substrate does not record this" and
-          "there are none" are different facts.
+          Live worker telemetry remains unavailable because no event transport is served. The
+          canvas above is a manually refreshed snapshot; it does not imply that a worker is live.
         </p>
         <ul className="flex flex-col gap-3">
           {UNAVAILABLE_DIMENSIONS.map((item) => (
