@@ -294,3 +294,64 @@ Measured from live GitHub state and repository source at `main` `4de6fc4d`:
 The repository holds **zero open PRs** in every lane, so the idle declaration above is the
 current truth. This block adds no pointer declaration, so that idle disposition remains the
 last-wins declaration for this lane.
+
+## Status — 2026-11-08 (LANE 2: control integrity in the opportunity entry-flow guard, no active PR declared)
+
+**Active branch:** `feat/prism-l2-opportunity-control-integrity-02` (recorded for provenance only).
+**Active PR:** none declared — the snapshot below is the judge.
+
+A lane PR cannot declare itself open at merge time: the merge that lands it closes it, so the
+snapshot would contradict live state the instant it merged. This section therefore declares no
+active PR and leaves the lane's status to the derived snapshot, the convention #638 set for
+lane 3 and #639 for lane 4.
+
+Lane 2's next bounded slice, opened from freshly fetched `main` `e14fd5d7` under
+`11 — LANE NEW-PR AUTHORIZATION`. It is the same defect class #631/#634/#636/#637 (Lane 1),
+#635 (Lane 2), #638 (Lane 3) and #639 (Lane 4) repaired. #635 bound two controls in this
+lane's guards; **three more** in the same file were not reached.
+
+**Objective.** Bind three vacuous `test_negative_control_*` nodes in
+`tests/test_prism_opportunity_entry_flow.py` to the detectors they claim to prove:
+
+- `test_negative_control_the_probe_detects_a_wrong_body_builder` built its own `wrong` dict and
+  asserted `"buyer_price" in wrong` — a fact about a literal it had just written, not about the
+  live assertion's detector.
+- `test_negative_control_the_authority_pins_are_not_vacuous` asserted its hand-written `injected`
+  string contained the forbidden tokens and that the tokens were absent from the real surfaces.
+  Neither half ran a detector, so the live assertion's own token lists could be emptied silently.
+- `test_negative_control_the_snapping_seed_would_have_rewritten_the_status` reconstructed the
+  pre-repair *body* from the Node probe and compared dicts; it never ran the source-level pin that
+  `test_the_frontend_seed_no_longer_snaps_an_unknown_status` depends on.
+
+Measured at `main` `e14fd5d7` by AST-scoped mutation — neuter the *live detector's own
+expression*, scoped to that function's span, then run the live node **and** its control: all
+three pairs returned `live=pass control=pass`. Nothing reddened, so each detector could be
+disarmed with no failing test.
+
+**The repair.** Each predicate moves to a module-level helper the live assertion **and** its
+control both call — `_asserted_facts`, `_transport_defects` / `_invented_authority_defects`, and
+`_snapping_seed_defects` — with the token lists and the pre-repair seed expression hoisted to
+named constants so the control can feed the detector the shape it must reject. Each control also
+asserts the repaired input is *not* reported, so a detector that matches everything cannot pass
+either.
+
+**Bounded scope.** `tests/test_prism_opportunity_entry_flow.py` only — lane-2 owned (opportunity
+tests). No console source, backend contract, registry, or other lane's file is touched. Node
+count unchanged at 88 (a strengthening, not an addition).
+
+**Evidence.** A **discriminating A/B** on the real file. Pre-repair, neutering the live detector
+left both nodes green (`live=pass control=pass`). On the repaired file, neutering the *shared
+helper* body reddens the control in **both** polarities — `always-dirty` → `live=FAIL
+control=FAIL`, `always-clean` → `live=pass control=FAIL` — which is the binding: the control can
+now fail for an edit to the detector it protects. The file was restored byte-identically after
+every mutation (asserted in the harness).
+
+Domain `10 failed, 1123 passed` — identical to `main` (the 10
+`test_mission_lifecycle_adapter_contract.py` failures are the documented missing-`node_modules`
+TypeScript-toolchain baseline). `tests/architecture` `11 passed`; lane suites `67 passed`;
+`scripts/lane_state.py --check` exit 0.
+
+Evidence: `docs/control-plane/evidence/lane2-opportunity-control-integrity-02/EVIDENCE.md`.
+
+Lane 2's next bounded PR opens only after this one merges. Merge, production deployment and
+acceptance remain human-only.
