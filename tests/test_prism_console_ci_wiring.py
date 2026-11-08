@@ -650,8 +650,8 @@ def test_authenticated_layout_installs_backend_runtime_before_starting_it():
     authenticated_run = steps[authenticated_index].get("run", "")
     assert "python -m uvicorn api.main:app" in authenticated_run
     assert "curl -sf http://127.0.0.1:8000/health" in authenticated_run
-    assert '--routes "/workspace,/arkana,/weaver"' in authenticated_run, (
-        "authenticated responsive coverage must include the Weaver canvas"
+    assert '--routes "/workspace,/arkana,/weaver,/engineering-lab"' in authenticated_run, (
+        "authenticated responsive coverage must include Weaver and the Engineering Lab mission workspace"
     )
     layout_harness = (ROOT / "web" / "arkadia_console" / "render_check_layout.py").read_text(encoding="utf-8")
     assert '"/weaver": {' in layout_harness and "requires_canvas_readout" in layout_harness, (
@@ -659,4 +659,10 @@ def test_authenticated_layout_installs_backend_runtime_before_starting_it():
     )
     assert "weaver-canvas-readout" in layout_harness, (
         "the Weaver browser gate must fail if the unified canvas does not hydrate"
+    )
+    assert '"/engineering-lab": {' in layout_harness and "requires_mission_workspace" in layout_harness, (
+        "the authenticated layout harness must measure the Engineering Lab mission workspace"
+    )
+    assert "mission-next-decision" in layout_harness, (
+        "the Engineering Lab layout gate must require the Mission Control next-decision panel"
     )

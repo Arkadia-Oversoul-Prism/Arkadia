@@ -27,8 +27,8 @@ labels which was used:
     real `Shell` and `WorkspaceShell` with a *stubbed* identity. It proves the
     layout primitives but NOT that the protected route renders authenticated.
 
-  * **test identity** (`--require-authenticated`, routes `/workspace`, `/arkana`
-    or `/weaver`): the real protected route renders under a **disposable test
+  * **test identity** (`--require-authenticated`, routes `/workspace`, `/arkana`,
+    `/weaver` or `/engineering-lab`): the real protected route renders under a **disposable test
     identity** (`lib/testIdentity.ts`), which authenticates through the backend's
     documented dev-mode seam (`api/auth.py`). This is genuine authenticated
     coverage of the real route components — but it is NOT real Firebase
@@ -120,6 +120,16 @@ ROUTES = {
         "composer_aligned": False,
         "requires_canvas_readout": True,
     },
+    "/engineering-lab": {
+        "label": "Engineering Lab",
+        "canvas": '[data-testid="mission-workspace"]',
+        "inspector": None,
+        "composer": None,
+        "workspace": '[data-testid="mission-workspace"]',
+        "grid": False,
+        "composer_aligned": False,
+        "requires_mission_workspace": True,
+    },
 }
 
 
@@ -182,6 +192,8 @@ def measure_js(route: dict) -> str:
       const composer = q(route.composer);
       const workspace = q(route.workspace);
       const rail = q('[data-testid="shell-surface-rail"]');
+      const missionWorkspace = q('[data-testid="mission-workspace"]');
+      const missionNextDecision = q('[data-testid="mission-next-decision"]');
 
       // Primary navigation landmarks: the shell owns exactly two (desktop
       // sidebar + mobile strip). A surface rail is NOT primary navigation.
@@ -211,6 +223,12 @@ def measure_js(route: dict) -> str:
         weaverCanvasSnapshot: Boolean(q('[data-testid="weaver-canvas-snapshot"]')),
         weaverCanvasReadout: Boolean(q('[data-testid="weaver-canvas-readout"]')),
         weaverCanvasUnknown: Boolean(q('[data-testid="weaver-canvas-unknown"]')),
+        missionWorkspace: Boolean(missionWorkspace),
+        missionNextDecision: missionNextDecision ? {
+          rect: rect(missionNextDecision),
+          scrollWidth: missionNextDecision.scrollWidth,
+          clientWidth: missionNextDecision.clientWidth,
+        } : null,
         mutations: window.__ao005Mutations ?? null,
       };
     }
@@ -260,6 +278,16 @@ def check(metrics: dict, viewport: dict, route: dict, require_authenticated: boo
             failures.append("Weaver canvas returned an incomplete or malformed payload")
         elif not metrics["weaverCanvasReadout"]:
             failures.append("Weaver canvas did not hydrate from the authenticated API read")
+
+    if route.get("requires_mission_workspace"):
+        if not metrics["missionWorkspace"]:
+            failures.append("Engineering Lab Mission Control did not mount")
+        if not metrics["missionNextDecision"]:
+            failures.append("Engineering Lab Next decision panel did not mount")
+        else:
+            panel_overflow = metrics["missionNextDecision"]["scrollWidth"] - metrics["missionNextDecision"]["clientWidth"]
+            if panel_overflow > 1:
+                failures.append(f"Mission Control Next decision panel has horizontal overflow: {panel_overflow}px")
 
     if not metrics["workspaceMounted"]:
         failures.append("workspace not mounted — layout unmeasured")
