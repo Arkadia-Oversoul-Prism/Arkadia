@@ -165,3 +165,33 @@ cleared by the same derivation.
 Lane 4 at zero open PRs is a **deficit**, not a resting state: the next action is to open lane 4's
 next bounded draft PR from freshly fetched `main`, inside the lane's owned paths
 (`SHARED-CONTRACTS.md` §1). Merge, production deployment and acceptance remain human-only.
+
+## Status — 2026-11-08 (LANE 4: control integrity in the two model-gateway guards, no active PR declared)
+
+**Active branch:** `feat/prism-w4-gateway-control-integrity-01` (recorded for provenance only).
+**Active PR:** none declared — the snapshot below is the judge.
+
+A lane PR cannot declare itself open at merge time: the merge that lands it closes it. This
+section therefore declares no active PR and leaves the lane's status to the derived snapshot,
+the convention #638 set for lane 3.
+
+Lane 4's next bounded slice, opened from freshly fetched `main` `14aa82e0` under
+`11 — LANE NEW-PR AUTHORIZATION`. It is the same defect class #631/#634/#636/#637 (Lane 1),
+#635 (Lane 2) and #638 (Lane 3) repaired, in the two lane-4 model-gateway guards those passes
+did not reach.
+
+**Objective.** Bind five vacuous `test_negative_control_*` nodes to the detectors they claim to
+prove, in `tests/test_lab_model_gateway_contract.py` and `tests/test_prism_w4_model_gateway.py`.
+
+Measured at `main` `14aa82e0`: neutering each live detector's own expression (AST-scoped to that
+function) left the live node red and its control **green** (`2 passed`) — the control could not
+fail for any edit to the detector it protects. One control additionally parsed a synthetic
+snippet and asserted on *that snippet*, never on the shipped `describe_gateway`.
+
+The detectors move to module-level functions (`_wiring_violations`, `_purity_violations`,
+`_projected_classes`, `_side_effects_in_function`) that the live assertions and their controls
+both call, and each control also asserts the repaired input is *not* reported. Node count is
+unchanged at 43 — this strengthens controls, it adds none.
+
+Lane 4's next bounded PR opens only after this one merges. Merge, production deployment and
+acceptance remain human-only.
