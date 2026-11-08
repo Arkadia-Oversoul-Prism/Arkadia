@@ -23,13 +23,13 @@ afterEach(() => {
   vi.resetModules();
 });
 
-function ProfileProbe({ useAuth }: { useAuth: () => { uid: string; isAuthenticated: boolean; testIdentity: boolean; identityState: string } }) {
+function ProfileProbe({ useAuth }: { useAuth: () => { user: { uid: string } | null; isAuthenticated: boolean; testIdentity: boolean; identityState: string } }) {
   const auth = useAuth();
   return (
     <div>
       <span data-testid="authed">{auth.isAuthenticated ? "yes" : "no"}</span>
       <span data-testid="test-identity">{auth.testIdentity ? "yes" : "no"}</span>
-      <span data-testid="uid">{auth.uid}</span>
+      <span data-testid="uid">{auth.user?.uid ?? ""}</span>
       <span data-testid="state">{auth.identityState}</span>
     </div>
   );
