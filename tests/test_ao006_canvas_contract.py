@@ -66,6 +66,27 @@ def _headers(uid: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {_token(uid)}"}
 
 
+# A caller-supplied scope parameter would let a request choose whose data is
+# read. Identity is the only scope, so no canvas route may accept one of these.
+_CALLER_SUPPLIED_SCOPE_PARAMETERS = frozenset(
+    {"subject", "subject_ref", "uid", "user_id", "owner", "owner_uid"}
+)
+
+
+def _caller_supplied_scope_offenders(routes) -> list[str]:
+    """Name every route that accepts a caller-supplied subject/owner parameter.
+
+    The live isolation assertion and its negative control both call this, so
+    neutering the detector reddens the control as well as the live node.
+    """
+    return [
+        f"{route.path} accepts {param.name!r}"
+        for route in routes
+        for param in (getattr(route, "dependant", None).query_params if route.dependant else [])
+        if param.name in _CALLER_SUPPLIED_SCOPE_PARAMETERS
+    ]
+
+
 @pytest.fixture(scope="module")
 def client():
     from fastapi.testclient import TestClient
@@ -144,12 +165,7 @@ def test_no_canvas_route_accepts_a_subject_parameter():
     """Cross-subject reads must be impossible by construction, not by a check."""
     from api.canvas_routes import router
 
-    forbidden = {"subject", "subject_ref", "uid", "user_id", "owner", "owner_uid"}
-    offenders = []
-    for route in router.routes:
-        for param in getattr(route, "dependant", None).query_params if route.dependant else []:
-            if param.name in forbidden:
-                offenders.append(f"{route.path} accepts {param.name!r}")
+    offenders = _caller_supplied_scope_offenders(router.routes)
     assert offenders == [], f"canvas route(s) accept a caller-supplied subject: {offenders}"
 
 
@@ -373,7 +389,13 @@ def test_an_empty_subject_gets_empty_collections_and_a_real_zero(client):
 
 
 def test_negative_control_a_subject_parameter_would_be_detected():
-    """The isolation detector is proven against the shape it exists to catch."""
+    """The isolation detector is proven against the shape it exists to catch.
+
+    Calls :func:`_caller_supplied_scope_offenders` — the same detector the live
+    assertion uses — so neutering the detector reddens this control too. It also
+    asserts a clean route is *not* reported, so a detector that flags everything
+    cannot pass either.
+    """
     from fastapi import APIRouter, Depends, Query
 
     from api.auth import require_auth
@@ -384,11 +406,14 @@ def test_negative_control_a_subject_parameter_would_be_detected():
     async def _probe(subject: str = Query(default=""), user: dict = Depends(require_auth)):
         return {}
 
-    forbidden = {"subject", "subject_ref", "uid", "user_id", "owner", "owner_uid"}
-    found = [
-        param.name
-        for route in probe.routes
-        for param in route.dependant.query_params
-        if param.name in forbidden
-    ]
-    assert found == ["subject"], "the detector did not report a caller-supplied subject"
+    @probe.get("/clean")
+    async def _clean(user: dict = Depends(require_auth)):
+        return {}
+
+    assert _caller_supplied_scope_offenders(probe.routes) == [
+        "/probe accepts 'subject'"
+    ], "the detector did not report a caller-supplied subject"
+    clean = [r for r in probe.routes if r.path == "/clean"]
+    assert _caller_supplied_scope_offenders(clean) == [], (
+        "the detector must not report a route that takes no scope parameter"
+    )

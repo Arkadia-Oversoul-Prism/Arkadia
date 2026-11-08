@@ -288,3 +288,41 @@ unchanged at 23 — this binds a control, it adds none.
 
 Lane 4's next bounded PR opens only after this one merges. Merge, production deployment and
 acceptance remain human-only.
+
+
+## Status — 2026-11-08 (LANE 4: AO-006 canvas control integrity, no active PR declared)
+
+**Active branch:** `lane4/ao006-canvas-control-integrity-01` (recorded for provenance only).
+**Active PR:** none declared — the snapshot below is the judge.
+
+A lane PR cannot declare itself open at merge time: the merge that lands it closes it. This
+section therefore declares no active PR and leaves the lane's status to the derived snapshot,
+the convention #638/#639/#641/#642/#643 set for lanes 3 and 4.
+
+Lane 4's next bounded slice, opened from freshly fetched `main` `d82c266c` under
+`11 — LANE NEW-PR AUTHORIZATION`. It is the same defect class #631/#634/#636/#637 (Lane 1),
+#635/#640 (Lane 2), #638 (Lane 3) and #639/#641/#642/#643 (Lane 4) repaired, in the newest
+guard on `main` — the one those passes did not reach because it arrived with the newest file.
+
+**Objective.** Bind the vacuous negative control
+`test_negative_control_a_subject_parameter_would_be_detected` in
+`tests/test_ao006_canvas_contract.py` to the detector its live assertion uses.
+
+Measured at `main` `d82c266c` with AST-scoped mutation: neutering the live node's own
+`offenders.append` expression left **both** the live node
+`test_no_canvas_route_accepts_a_subject_parameter` and its control **green**. The live assertion
+and the control each restated the same predicate inline, independently, so the control exercised
+only its own copy and could not fail for any edit to the detector the live assertion uses.
+
+The predicate now lives once in a module-level `_caller_supplied_scope_offenders(routes)` that
+both nodes call, and the control additionally asserts a route taking no scope parameter is *not*
+reported. Node count is unchanged at 16 — this binds a control, it adds none.
+
+Recorded, not repaired: this guard is executed by no effective gate (it is outside the derived
+console-contract domain, and the `sg-02-fe-2-v.yml` broad-suite step aborts at collection).
+Wiring it into a gate is a separate bounded workstream — see the evidence doc.
+
+Evidence: `docs/control-plane/evidence/lane4-ao006-canvas-control-integrity-01/EVIDENCE.md`.
+
+Lane 4's next bounded PR opens only after this one merges. Merge, production deployment and
+acceptance remain human-only.
