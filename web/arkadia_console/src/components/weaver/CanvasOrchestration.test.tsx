@@ -115,6 +115,15 @@ describe("CanvasOrchestration", () => {
     expect(screen.getByText("Backend unavailable")).toBeTruthy();
   });
 
+  it("renders rate limiting as a distinct contract state", () => {
+    setHydration("rate-limited", null, { message: "Rate limit exceeded. Slow down and retry." });
+    render(<CanvasOrchestration />);
+
+    expect(screen.getByText("Rate limited")).toBeTruthy();
+    expect(screen.getByText(/wait before retrying/)).toBeTruthy();
+    expect(screen.queryByText("Read failed")).toBeNull();
+  });
+
   it("renders valid empty collections as zero, not as unavailable", () => {
     setHydration("ready", canvasPayload(true));
     render(<CanvasOrchestration />);

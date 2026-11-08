@@ -72,6 +72,33 @@ export const TEST_IDENTITY_SUBJECT: string =
 /** A human-readable label for the identity, used in the DOM banner. */
 export const TEST_IDENTITY_LABEL = "DISPOSABLE TEST IDENTITY (dev-mode)";
 
+declare global {
+  interface Window {
+    /** Set only by the responsive layout harness to isolate its per-viewport rate-limit bucket. */
+    __ARKADIA_TEST_IDENTITY_SUBJECT__?: string;
+  }
+}
+
+/**
+ * Resolve the disposable subject. The layout harness may provide a unique
+ * ao005-layout-* subject per viewport so one viewport's request budget does
+ * not contaminate another's. The override is accepted only in the explicitly
+ * enabled dev/test seam and never when an explicit token is configured.
+ */
+export function testIdentitySubject(): string {
+  if (
+    !TEST_IDENTITY_ENABLED ||
+    typeof window === "undefined" ||
+    import.meta.env.VITE_ARKADIA_TEST_IDENTITY_TOKEN
+  ) {
+    return TEST_IDENTITY_SUBJECT;
+  }
+  const candidate = window.__ARKADIA_TEST_IDENTITY_SUBJECT__;
+  return typeof candidate === "string" && /^ao005-layout-[a-z0-9-]{1,48}$/.test(candidate)
+    ? candidate
+    : TEST_IDENTITY_SUBJECT;
+}
+
 function base64url(value: object): string {
   // `btoa` is available in the browser and in jsdom; the payload is ASCII JSON.
   return btoa(JSON.stringify(value)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
@@ -102,7 +129,7 @@ export function mintTestIdentityToken(subject: string = TEST_IDENTITY_SUBJECT): 
  * disabled. An explicit `VITE_ARKADIA_TEST_IDENTITY_TOKEN` wins so a caller can
  * pin a specific subject; otherwise one is minted from the configured subject.
  */
-export function testIdentityToken(): string | null {
+export function testIdentityToken(subject: string = testIdentitySubject()): string | null {
   if (!TEST_IDENTITY_ENABLED) return null;
-  return import.meta.env.VITE_ARKADIA_TEST_IDENTITY_TOKEN || mintTestIdentityToken();
+  return import.meta.env.VITE_ARKADIA_TEST_IDENTITY_TOKEN || mintTestIdentityToken(subject);
 }

@@ -206,6 +206,10 @@ export function ContractState({
       title: "Not authorized for this identity",
       body: "You are signed in, but this identity is not entitled to read this contract. Signing in again will not change the answer — the backend refused the read.",
     },
+    "rate-limited": {
+      title: "Rate limited",
+      body: "The backend asked this client to slow down. Wait before retrying; this response is not an empty result.",
+    },
     unavailable: {
       title: "Backend unavailable",
       body: "Arkadia is not reachable right now. The contract was not read — this is not an empty result.",

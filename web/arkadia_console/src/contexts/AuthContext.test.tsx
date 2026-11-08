@@ -17,17 +17,19 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 
 afterEach(() => {
+  if (typeof window !== "undefined") delete window.__ARKADIA_TEST_IDENTITY_SUBJECT__;
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
   vi.resetModules();
 });
 
-function ProfileProbe({ useAuth }: { useAuth: () => { isAuthenticated: boolean; testIdentity: boolean; identityState: string } }) {
+function ProfileProbe({ useAuth }: { useAuth: () => { uid: string; isAuthenticated: boolean; testIdentity: boolean; identityState: string } }) {
   const auth = useAuth();
   return (
     <div>
       <span data-testid="authed">{auth.isAuthenticated ? "yes" : "no"}</span>
       <span data-testid="test-identity">{auth.testIdentity ? "yes" : "no"}</span>
+      <span data-testid="uid">{auth.uid}</span>
       <span data-testid="state">{auth.identityState}</span>
     </div>
   );
@@ -60,6 +62,46 @@ describe("AuthContext — disposable test identity", () => {
 
     await waitFor(() => expect(screen.getByTestId("authed").textContent).toBe("yes"));
     expect(screen.getByTestId("test-identity").textContent).toBe("yes");
+    expect(screen.getByTestId("uid").textContent).toBe("ao005-test-identity");
+    expect(screen.getByTestId("state").textContent).toBe("ready");
+  });
+
+  it("binds the browser harness subject to both the frontend identity and bearer token", async () => {
+    vi.stubEnv("VITE_ARKADIA_TEST_IDENTITY", "1");
+    const subject = "ao005-layout-mobile-390x844";
+    Object.defineProperty(window, "__ARKADIA_TEST_IDENTITY_SUBJECT__", {
+      value: subject,
+      configurable: true,
+    });
+
+    const decodeBearerSubject = (init?: RequestInit): string | null => {
+      const token = new Headers(init?.headers).get("Authorization")?.replace(/^Bearer /, "");
+      if (!token) return null;
+      const part = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+      const padded = part + "=".repeat((4 - (part.length % 4)) % 4);
+      return JSON.parse(atob(padded)).user_id as string;
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+        expect(decodeBearerSubject(init)).toBe(subject);
+        return new Response(
+          JSON.stringify({ user: { uid: subject, display_name: "AO-005 Test Identity", role: "Guest" } }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }),
+    );
+
+    vi.resetModules();
+    const { AuthProvider, useAuth } = await import("./AuthContext");
+    render(
+      <AuthProvider>
+        <ProfileProbe useAuth={useAuth} />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId("authed").textContent).toBe("yes"));
+    expect(screen.getByTestId("uid").textContent).toBe(subject);
     expect(screen.getByTestId("state").textContent).toBe("ready");
   });
 

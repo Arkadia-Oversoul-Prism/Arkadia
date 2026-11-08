@@ -24,6 +24,7 @@ export type HydrationState =
   | "ready"
   | "auth-required"
   | "forbidden"
+  | "rate-limited"
   | "unavailable"
   | "error";
 
@@ -48,6 +49,7 @@ export function stateFor(error: ApiError): HydrationState {
   // `FORBIDDEN` is therefore its own state; mapping it to `auth-required` would
   // tell an already-signed-in viewer to sign in.
   if (error.kind === "FORBIDDEN") return "forbidden";
+  if (error.kind === "RATE_LIMITED") return "rate-limited";
   if (error.kind === "NETWORK_ERROR" || error.kind === "SERVER_ERROR") return "unavailable";
   return "error";
 }

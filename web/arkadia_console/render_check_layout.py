@@ -452,6 +452,14 @@ def main() -> int:
             page = ctx.new_page()
             page_errors: list[str] = []
             page.on("pageerror", lambda e: page_errors.append(str(e)[:200]))
+            if args.require_authenticated:
+                # The backend rate limiter is correctly keyed by authenticated
+                # subject. Give each viewport its own disposable subject so the
+                # desktop/tablet measurements do not consume the mobile bucket.
+                test_subject = f"ao005-layout-{vp['name'].replace('_', '-')}"
+                page.add_init_script(
+                    f"window.__ARKADIA_TEST_IDENTITY_SUBJECT__ = {json.dumps(test_subject)};"
+                )
             page.add_init_script(INSTALL_MUTATION_COUNTER)
 
             for route_index, route_path in enumerate(routes):
