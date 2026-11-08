@@ -194,6 +194,7 @@ def measure_js(route: dict) -> str:
       const rail = q('[data-testid="shell-surface-rail"]');
       const missionWorkspace = q('[data-testid="mission-workspace"]');
       const missionNextDecision = q('[data-testid="mission-next-decision"]');
+      const weaverCanvasState = q('[data-testid="weaver-canvas-state"]');
 
       // Primary navigation landmarks: the shell owns exactly two (desktop
       // sidebar + mobile strip). A surface rail is NOT primary navigation.
@@ -223,6 +224,7 @@ def measure_js(route: dict) -> str:
         weaverCanvasSnapshot: Boolean(q('[data-testid="weaver-canvas-snapshot"]')),
         weaverCanvasReadout: Boolean(q('[data-testid="weaver-canvas-readout"]')),
         weaverCanvasUnknown: Boolean(q('[data-testid="weaver-canvas-unknown"]')),
+        weaverCanvasState: weaverCanvasState ? weaverCanvasState.getAttribute('data-state') : null,
         missionWorkspace: Boolean(missionWorkspace),
         missionNextDecision: missionNextDecision ? {
           rect: rect(missionNextDecision),
@@ -277,7 +279,10 @@ def check(metrics: dict, viewport: dict, route: dict, require_authenticated: boo
         if metrics["weaverCanvasUnknown"]:
             failures.append("Weaver canvas returned an incomplete or malformed payload")
         elif not metrics["weaverCanvasReadout"]:
-            failures.append("Weaver canvas did not hydrate from the authenticated API read")
+            state = metrics.get("weaverCanvasState") or "unresolved"
+            failures.append(
+                f"Weaver canvas did not hydrate from the authenticated API read (state={state})"
+            )
 
     if route.get("requires_mission_workspace"):
         if not metrics["missionWorkspace"]:
@@ -359,6 +364,32 @@ def wait_for_authenticated_surface(page) -> None:
         )
     except PlaywrightTimeoutError:
         # The acceptance checks below report the missing authenticated render.
+        pass
+
+
+def wait_for_canvas_resolution(page) -> None:
+    """Wait for the authenticated canvas read to reach a measured terminal state.
+
+    Route mount is not data hydration. In particular, a mobile SPA transition can
+    mount the Weaver panel while its protected API request is still in flight.
+    Wait for a valid readout, an explicit UNKNOWN payload, or a terminal contract
+    state (auth/forbidden/unavailable/error). If the bounded wait expires, the
+    measurement retains the current loading state and fails with that evidence.
+    """
+    try:
+        page.wait_for_function(
+            """() => {
+                const readout = document.querySelector('[data-testid="weaver-canvas-readout"]');
+                const unknown = document.querySelector('[data-testid="weaver-canvas-unknown"]');
+                if (readout || unknown) return true;
+                const state = document.querySelector('[data-testid="weaver-canvas-state"]')
+                    ?.getAttribute('data-state');
+                return Boolean(state && state !== "idle" && state !== "loading");
+            }""",
+            timeout=20_000,
+        )
+    except PlaywrightTimeoutError:
+        # check() records the still-pending state; a timeout is never a pass.
         pass
 
 
@@ -449,6 +480,12 @@ def main() -> int:
                             arg=route["workspace"],
                             timeout=20_000,
                         )
+
+                # Route mount is not equivalent to an authenticated canvas read.
+                # Wait for the Weaver contract to resolve (or explicitly fail)
+                # before taking the responsive measurement.
+                if route.get("requires_canvas_readout"):
+                    wait_for_canvas_resolution(page)
 
                 # Let the mount settle, then read the mutation count. A loop
                 # keeps mutating through this window and blows the bound.

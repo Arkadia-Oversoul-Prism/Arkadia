@@ -672,3 +672,12 @@ def test_authenticated_layout_installs_backend_runtime_before_starting_it():
     assert "for route_index, route_path in enumerate(routes)" in layout_harness and "PopStateEvent('popstate')" in layout_harness, (
         "authenticated surface measurements must traverse the SPA with one verified identity per viewport"
     )
+    assert "wait_for_canvas_resolution(page)" in layout_harness and "weaverCanvasState" in layout_harness, (
+        "the Weaver browser gate must wait for a terminal API hydration state and report pending/failed state explicitly"
+    )
+    canvas_component = (
+        ROOT / "web" / "arkadia_console" / "src" / "components" / "weaver" / "CanvasOrchestration.tsx"
+    ).read_text(encoding="utf-8")
+    assert 'data-testid="weaver-canvas-state"' in canvas_component and "data-state={snapshot.state}" in canvas_component, (
+        "the Weaver surface must expose its real hydration state to browser acceptance, not infer readiness from mount"
+    )

@@ -374,7 +374,11 @@ export function CanvasOrchestration() {
       </div>
 
       {snapshot.state !== "ready" ? (
-        <div className="mt-4">
+        <div
+          className="mt-4"
+          data-testid="weaver-canvas-state"
+          data-state={snapshot.state}
+        >
           <ContractState
             state={snapshot.state}
             error={snapshot.error?.message}

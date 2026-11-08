@@ -102,6 +102,19 @@ describe("CanvasOrchestration", () => {
     expect(reload).toHaveBeenCalledTimes(1);
   });
 
+  it("exposes loading and terminal contract states to bounded browser acceptance", () => {
+    setHydration("loading", null);
+    const { rerender } = render(<CanvasOrchestration />);
+
+    expect(screen.getByTestId("weaver-canvas-state").getAttribute("data-state")).toBe("loading");
+
+    setHydration("unavailable", null, { message: "network unavailable" });
+    rerender(<CanvasOrchestration />);
+
+    expect(screen.getByTestId("weaver-canvas-state").getAttribute("data-state")).toBe("unavailable");
+    expect(screen.getByText("Backend unavailable")).toBeTruthy();
+  });
+
   it("renders valid empty collections as zero, not as unavailable", () => {
     setHydration("ready", canvasPayload(true));
     render(<CanvasOrchestration />);
