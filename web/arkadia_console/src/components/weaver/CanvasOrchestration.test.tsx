@@ -120,7 +120,7 @@ describe("CanvasOrchestration", () => {
     render(<CanvasOrchestration />);
 
     expect(screen.getByText("Rate limited")).toBeTruthy();
-    expect(screen.getByText(/wait before retrying/)).toBeTruthy();
+    expect(screen.getByText(/wait before retrying/i)).toBeTruthy();
     expect(screen.queryByText("Read failed")).toBeNull();
   });
 
