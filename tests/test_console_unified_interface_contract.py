@@ -584,7 +584,7 @@ def test_polling_remains_allowed_outside_the_weaver_composition():
     # the guard above does not constrain it. This asserts the scope itself, so a
     # future edit cannot quietly widen the ban to the whole console.
     assert "components/weaver/WeaverOrchestration.tsx" in WEAVER_COMPOSED_COMPONENTS
-    assert len(WEAVER_COMPOSED_COMPONENTS) == 5
+    assert len(WEAVER_COMPOSED_COMPONENTS) == 6
     for relative in WEAVER_COMPOSED_COMPONENTS:
         assert relative.startswith(("components/weaver/", "components/lab/")), (
             "the no-polling guard must stay scoped to the Weaver composition"
