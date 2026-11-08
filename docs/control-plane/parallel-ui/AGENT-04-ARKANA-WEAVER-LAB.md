@@ -195,3 +195,34 @@ unchanged at 43 — this strengthens controls, it adds none.
 
 Lane 4's next bounded PR opens only after this one merges. Merge, production deployment and
 acceptance remain human-only.
+
+## Status — 2026-11-08 (LANE 4: Arkana provenance control integrity, no active PR declared)
+
+**Active branch:** `feat/lane4-arkana-provenance-control-integrity-01` (recorded for provenance only).
+**Active PR:** none declared — the snapshot below is the judge.
+
+A lane PR cannot declare itself open at merge time: the merge that lands it closes it. This
+section therefore declares no active PR and leaves the lane's status to the derived snapshot,
+the convention #638/#639 set for lanes 3 and 4.
+
+Lane 4's next bounded slice, opened from freshly fetched `main` `d1d7c601` under
+`11 — LANE NEW-PR AUTHORIZATION`. It is the same defect class #631/#634/#636/#637 (Lane 1),
+#635 (Lane 2), #638 (Lane 3) and #639 (Lane 4) repaired, in the Arkana provenance guard those
+passes did not reach.
+
+**Objective.** Bind the orphaned detector `renders_provenance_from_a_constant` in
+`tests/test_prism_rec_arkana_provenance.py` to the live assertion it exists for.
+
+Measured at `main` `d1d7c601` with AST-scoped mutation: neutering the detector body
+(`return False`, `return True`, `return None`) reddened **only** the two `test_negative_control_*`
+nodes and **no live node**. Every other assertion in the file is a substring check, so the
+detector's property — the provenance the panel renders is normalised from the response, not
+invented — was guarded by nodes labelled as controls and by nothing else.
+
+The live `test_arkana_page_renders_the_provenance_panel` now also asserts
+`not renders_provenance_from_a_constant(page)`, and the second control asserts the opposite
+polarity. Node count is unchanged at 15 — this binds a control, it adds none.
+
+Lane 4's next bounded PR opens only after this one merges. Merge, production deployment and
+acceptance remain human-only.
+
