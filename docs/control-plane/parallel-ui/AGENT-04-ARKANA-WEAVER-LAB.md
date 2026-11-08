@@ -326,3 +326,44 @@ Evidence: `docs/control-plane/evidence/lane4-ao006-canvas-control-integrity-01/E
 
 Lane 4's next bounded PR opens only after this one merges. Merge, production deployment and
 acceptance remain human-only.
+
+
+## Status — 2026-11-08 (LANE 4: run-trace vocabulary control integrity, no active PR declared)
+
+**Active branch:** `lane4/run-trace-vocabulary-control-integrity-01` (recorded for provenance only).
+**Active PR:** none declared — the snapshot below is the judge.
+
+A lane PR cannot declare itself open at merge time: the merge that lands it closes it. This
+section therefore declares no active PR and leaves the lane's status to the derived snapshot,
+the convention #638/#639/#641/#642/#643/#645 set for lanes 3 and 4.
+
+Lane 4's next bounded slice, opened from freshly fetched `main` `f608ecd2` under
+`11 — LANE NEW-PR AUTHORIZATION`. Reconciliation was exhausted first (measured live: **0** open
+PRs repo-wide, all four lanes `doc_guard: idle`), so N1 holds. It is the same defect class
+#631/#634/#636/#637 (Lane 1), #635/#640 (Lane 2), #638 (Lane 3) and #639/#641/#642/#643/#645
+(Lane 4) repaired, in the run-trace guard those passes did not reach.
+
+**Objective.** Bind the vacuous negative control
+`test_negative_control_vocabulary_detector_sees_a_divergent_value` in
+`tests/test_lab_run_trace_contract.py` to the detector the live assertions use.
+
+Measured at `main` `f608ecd2` with AST-scoped mutation: neutering the live detector
+`projection_vocabulary` (`return set()`) reddened **both** live nodes
+(`test_verified_evidence_state_is_a_real_result_state`,
+`test_every_projection_state_vocabulary_is_a_substrate_vocabulary`) while the control stayed
+**green**. The control restated the set difference inline (`{"APPROVED"} - states == {"APPROVED"}`)
+and never called the detector, so it exercised only its own copy and could not fail for any edit
+to the code the live assertions use.
+
+The predicate now lives once in a module-level
+`_offending_vocabulary(source, name, allowed)` that both live assertions and the control call, and
+the control additionally asserts the repaired input is *not* reported, so a detector that matches
+everything cannot pass either. Node count is unchanged at 22 — this binds a control, it adds none.
+
+The guard **is** in the derived console-contract domain, so `.github/workflows/prism-console-contract.yml`
+executes it; no new wiring is needed.
+
+Evidence: `docs/control-plane/evidence/lane4-run-trace-vocabulary-control-integrity-01/EVIDENCE.md`.
+
+Lane 4's next bounded PR opens only after this one merges. Merge, production deployment and
+acceptance remain human-only.

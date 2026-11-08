@@ -87,6 +87,17 @@ def projection_vocabulary(source: str, name: str) -> set[str]:
     return set(re.findall(r'"([A-Z_]+)"', match.group(1)))
 
 
+def _offending_vocabulary(source: str, name: str, allowed: set[str]) -> set[str]:
+    """The values a projection constant names that its substrate cannot record.
+
+    Module level so the live assertions and their negative control exercise the
+    *same* code: a control that restates the predicate inline can stay green for
+    any edit to the detector the live assertions use, which is exactly what the
+    control here used to do.
+    """
+    return projection_vocabulary(source, name) - allowed
+
+
 # ---------------------------------------------------------------------------
 # Read-only ceiling
 # ---------------------------------------------------------------------------
@@ -187,7 +198,9 @@ def test_verified_evidence_state_is_a_real_result_state():
     assert states, "control premise: RESULT_STATES must be non-empty"
     claimed = projection_vocabulary(_read(TRACE_TS), "VERIFIED_EVIDENCE_STATES")
     assert claimed, "the projection declares no verified-state vocabulary"
-    assert claimed <= states, f"projection asserts state(s) outside RESULT_STATES: {claimed - states}"
+    assert _offending_vocabulary(_read(TRACE_TS), "VERIFIED_EVIDENCE_STATES", states) == set(), (
+        f"projection asserts state(s) outside RESULT_STATES: {claimed - states}"
+    )
 
 
 def test_every_projection_state_vocabulary_is_a_substrate_vocabulary():
@@ -212,7 +225,9 @@ def test_every_projection_state_vocabulary_is_a_substrate_vocabulary():
     ):
         claimed = projection_vocabulary(source, name)
         assert claimed, f"the projection declares no {name}"
-        assert claimed <= allowed, f"{name} names state(s) outside the substrate: {claimed - allowed}"
+        assert _offending_vocabulary(source, name, allowed) == set(), (
+            f"{name} names state(s) outside the substrate: {claimed - allowed}"
+        )
 
     # The acceptance reading is the *whole* human terminal vocabulary, so a new
     # human-only terminal state cannot be silently read as not-accepted.
@@ -266,10 +281,23 @@ def test_partial_and_empty_states_have_distinct_copy():
 
 
 def test_negative_control_vocabulary_detector_sees_a_divergent_value():
-    """The vocabulary detector must report a value the substrate cannot record."""
+    """The vocabulary detector must report a value the substrate cannot record.
+
+    The control calls :func:`_offending_vocabulary` — the same detector the two
+    live assertions use — so it can fail for an edit to the code it protects. It
+    also asserts the repaired input is *not* reported, so a detector that
+    reported everything could not pass either.
+    """
     states = declared_result_states(_read(CONTRACTS))
     assert "APPROVED" not in states
-    assert {"APPROVED"} - states == {"APPROVED"}
+
+    divergent = 'const VERIFIED_EVIDENCE_STATES: readonly string[] = ["VERIFIED", "APPROVED"];'
+    assert _offending_vocabulary(divergent, "VERIFIED_EVIDENCE_STATES", states) == {"APPROVED"}, (
+        "a console-invented state must be reported"
+    )
+    # The same detector on the real source reports nothing — the live assertion
+    # above is not passing because the detector matches everything.
+    assert _offending_vocabulary(_read(TRACE_TS), "VERIFIED_EVIDENCE_STATES", states) == set()
 
 
 def test_the_non_collapse_the_trace_renders_is_the_substrate_s_own():
