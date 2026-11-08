@@ -279,6 +279,14 @@ def test_session_report_surfaces_router_blockers(tmp_path: Path):
     step = _live_report_step()
     program = _report_program(step.get("run") or "")
     assert program, "the session report no longer embeds a blockers program"
+    # The same property through `_report_names_blockers` — the detector the file's
+    # own control is written against. Without this call the detector is reached only
+    # by its control, so weakening it reddens nothing but a node labelled a control.
+    assert _report_names_blockers(step.get("run") or ""), (
+        "the live report step no longer reads the session result and prints its "
+        "blockers; the pre-fix echo-only report this guard exists to catch would "
+        "pass unremarked"
+    )
 
     blocker = (
         "unrecognized move status: G12-A ('merged_acceptance_pending'), "

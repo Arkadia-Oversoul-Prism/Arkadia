@@ -256,3 +256,35 @@ unchanged at 29 — this binds a control, it adds none.
 
 Lane 4's next bounded PR opens only after this one merges. Merge, production deployment and
 acceptance remain human-only.
+
+
+## Status — 2026-11-08 (LANE 4: scheduler report control integrity, no active PR declared)
+
+**Active branch:** `feat/prism-l4-scheduler-report-control-integrity-01` (recorded for provenance only).
+**Active PR:** none declared — the snapshot below is the judge.
+
+A lane PR cannot declare itself open at merge time: the merge that lands it closes it. This
+section therefore declares no active PR and leaves the lane's status to the derived snapshot,
+the convention #638/#639/#641/#642 set for lanes 3 and 4.
+
+Lane 4's next bounded slice, opened from freshly fetched `main` `1550a5a1` under
+`11 — LANE NEW-PR AUTHORIZATION`. It is the same defect class #631/#634/#636/#637 (Lane 1),
+#635/#640 (Lane 2), #638 (Lane 3) and #639/#641/#642 (Lane 4) repaired, in the scheduler
+trajectory guard those passes did not reach.
+
+**Objective.** Bind the orphaned detector `_report_names_blockers` in
+`tests/test_scheduler_trajectory_conformance.py` to the live assertion it exists for.
+
+Measured at `main` `1550a5a1` with AST-scoped mutation: neutering the detector body
+(`return False`, `return True`, `return None`) reddened **only** the control node
+`test_negative_control_pre_fix_report_is_silent` and **no live node**. The live node that states
+the same property, `test_session_report_surfaces_router_blockers`, reached the workflow text only
+through the neighbouring `_report_program` helper, which returns the embedded program but does not
+assert it names the blockers — so the detector was guarded by a node labelled as a control and by
+nothing else.
+
+The live node now also asserts `_report_names_blockers(step.get("run") or "")`. Node count is
+unchanged at 23 — this binds a control, it adds none.
+
+Lane 4's next bounded PR opens only after this one merges. Merge, production deployment and
+acceptance remain human-only.
