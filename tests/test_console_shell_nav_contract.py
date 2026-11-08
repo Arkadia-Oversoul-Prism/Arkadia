@@ -301,6 +301,12 @@ def test_shell_is_mounted_exactly_once():
         str(APP_PATH.relative_to(ROOT)),
         "web/arkadia_console/src/layout-harness.tsx",
         "web/arkadia_console/src/lib/surfaceChrome.test.tsx",
+        # The global Arkana overlay's behavioural test mounts the real `Shell` to
+        # measure that the overlay is mounted exactly once and that its trigger is
+        # suppressed on the Arkana surface. It is test-only, is not reachable from
+        # `index.html`, and is not in the production entry graph — the same
+        # sanctioned exception as the two entries above.
+        "web/arkadia_console/src/components/arkana/ArkanaOverlay.test.tsx",
     }
     importers = [name for name, src in _ts_sources().items() if "<Shell" in src]
     assert set(importers) == sanctioned, f"<Shell> is mounted in {importers}"

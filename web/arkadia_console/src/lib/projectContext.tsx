@@ -229,3 +229,19 @@ export function useProjectContext(): ProjectContextValue {
   if (!ctx) throw new Error("useProjectContext must be used within ProjectProvider");
   return ctx;
 }
+
+/**
+ * The same context, tolerant of absence.
+ *
+ * The global Arkana overlay is mounted by the shell, and the shell is rendered
+ * in tests (and in any future embedding) without a `ProjectProvider`. The
+ * overlay must not crash the whole shell in that case: it degrades to "no
+ * project selected", which is the honest state when no provider is present.
+ *
+ * This is additive — `useProjectContext` keeps its strict contract, so a
+ * surface that *requires* the shared context still fails loudly if it is
+ * mounted outside the provider.
+ */
+export function useOptionalProjectContext(): ProjectContextValue | null {
+  return useContext(ProjectContext);
+}
