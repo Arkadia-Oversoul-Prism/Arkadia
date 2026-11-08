@@ -592,15 +592,39 @@ def contract_probe() -> dict:
     return json.loads(result.stdout.strip().splitlines()[-1])
 
 
+#: Fields a capture must omit rather than assert. The commercial ones carry the
+#: backend's `UNKNOWN` sentinel when written out; the evidence pair is never
+#: asserted by a capture at all.
+COMMERCIAL_OMITTED_FIELDS = (
+    "buyer_price",
+    "landed_cost",
+    "expected_gross_margin",
+    "supplier",
+    "quantity",
+)
+UNASSERTED_BODY_FIELDS = ("evidence", "evidence_status")
+
+
+def _asserted_facts(body: dict) -> list[str]:
+    """Fields a minimal capture asserted that it must have omitted.
+
+    Module level so the live assertion and its negative control call the *same*
+    code. The control previously built its own ``wrong`` dict and asserted on that
+    dict, so it could not fail for any edit to the live detector: the detector
+    could be disarmed with no red test (measured at `main` `e14fd5d7`).
+    """
+    return [f for f in COMMERCIAL_OMITTED_FIELDS + UNASSERTED_BODY_FIELDS if f in body]
+
+
 def test_executed_contract_minimal_create_asserts_no_commercial_fact(contract_probe):
     body = contract_probe["create_minimal"]
     assert body["prospect"] == "Buyer A"
     assert body["status"] == "UNCONTACTED"
-    # Every commercial field is omitted, so the backend default applies.
-    for field in ("buyer_price", "landed_cost", "expected_gross_margin", "supplier", "quantity"):
-        assert field not in body, f"{field} must be omitted rather than sent as a value"
-    # Evidence is never asserted by a capture.
-    assert "evidence" not in body and "evidence_status" not in body
+    # Every commercial field is omitted, so the backend default applies, and no
+    # capture asserts evidence.
+    assert _asserted_facts(body) == [], (
+        f"a minimal capture must assert nothing beyond the prospect: {_asserted_facts(body)}"
+    )
 
 
 def test_executed_contract_supplied_fields_are_sent(contract_probe):
@@ -656,12 +680,19 @@ def test_negative_control_the_probe_detects_a_wrong_body_builder(contract_probe)
     """Proves the executed probe can see a defect rather than passing vacuously.
 
     The pre-flow shape (send every field, including unverified ones) would put a
-    commercial sentinel on the wire. That shape is built here and must differ from
-    what the module produces.
+    commercial sentinel on the wire. That shape is built here and must be reported
+    by :func:`_asserted_facts` — the same detector the live assertion calls — while
+    the module's own minimal body is not.
     """
-    assert "buyer_price" not in contract_probe["create_minimal"]
+    assert _asserted_facts(contract_probe["create_minimal"]) == [], (
+        "the module's own minimal body must not be reported"
+    )
     wrong = {"prospect": "Buyer A", "buyer_price": "UNKNOWN", "landed_cost": "UNKNOWN"}
-    assert "buyer_price" in wrong, "the detector must distinguish the asserted-value shape"
+    reported = _asserted_facts(wrong)
+    assert "buyer_price" in reported, "the asserted-value shape must be reported"
+    assert "landed_cost" in reported
+    # The detector must not report the shape it is supposed to accept.
+    assert _asserted_facts({"prospect": "Buyer A"}) == []
 
 
 # ---------------------------------------------------------------------------
@@ -768,21 +799,50 @@ def test_surface_preserves_the_existing_read_contract_and_pinned_copy():
         assert state in surface, f"missing distinct state {state}"
 
 
+#: Transport resolvers and authority-implying tokens a feature surface must not
+#: carry. The console's shared client (`apiConfig` / `apiClient`) owns transport;
+#: a feature-local `fetch(` or a hardcoded origin is a second transport, and an
+#: "Execute"/"Approve"/budget token would imply authority this board declares
+#: (`execution_authority: "NONE"`, `budget_authority: "NONE"`).
+TRANSPORT_TOKENS = ("fetch(", "http://", "https://", "VITE_API_URL", "API_BASE")
+INVENTED_AUTHORITY_TOKENS = (
+    '"DELETE"',
+    "'DELETE'",
+    "onClick={handleExecute",
+    "handleApprove",
+    "budget_ngn",
+    "contract_value",
+    "revenue",
+)
+
+
+def _transport_defects(code: str) -> list[str]:
+    """Transport tokens present in ``code``.
+
+    Module level so the live assertion and its negative control call the *same*
+    code. The control previously asserted its hand-written ``injected`` string
+    contained the tokens and that the tokens were absent from the real surfaces —
+    two facts about text, neither of which ran a detector, so the live assertion
+    could be disarmed with no red test (measured at `main` `e14fd5d7`).
+    """
+    return [token for token in TRANSPORT_TOKENS if token in code]
+
+
+def _invented_authority_defects(code: str) -> list[str]:
+    """Authority-implying tokens present in ``code``."""
+    return [token for token in INVENTED_AUTHORITY_TOKENS if token in code]
+
+
 def test_surface_and_form_invent_no_authority_and_no_transport():
     for path in (SURFACE_TS, FORM_TS):
         text = _code_only(path)
-        for forbidden in ("fetch(", "http://", "https://", "VITE_API_URL", "API_BASE"):
-            assert forbidden not in text, f"{path.name} must not resolve transport ({forbidden})"
-        for invented in (
-            '"DELETE"',
-            "'DELETE'",
-            "onClick={handleExecute",
-            "handleApprove",
-            "budget_ngn",
-            "contract_value",
-            "revenue",
-        ):
-            assert invented not in text, f"{path.name} must not imply authority it does not have ({invented})"
+        assert _transport_defects(text) == [], (
+            f"{path.name} must not resolve transport ({_transport_defects(text)})"
+        )
+        assert _invented_authority_defects(text) == [], (
+            f"{path.name} must not imply authority it does not have "
+            f"({_invented_authority_defects(text)})"
+        )
 
 
 def test_form_states_distinct_save_outcomes_and_waits_for_confirmation():
@@ -813,12 +873,25 @@ def test_form_renders_unverified_commercial_facts_as_the_sentinel():
 
 
 def test_negative_control_the_authority_pins_are_not_vacuous():
-    """Prove the forbidden-token detectors fire on text that would carry the defect."""
+    """Prove the forbidden-token detectors fire on text that would carry the defect.
+
+    Calls the same ``_transport_defects`` / ``_invented_authority_defects`` the live
+    assertion uses, so a detector edit that stopped reporting reddens here too. Each
+    detector is also shown *silent* on clean text, so a detector that matches
+    everything cannot pass either.
+    """
     injected = 'await fetch("/x"); const m = "DELETE"; onClick={handleExecute}'
-    for forbidden in ("fetch(", '"DELETE"', "onClick={handleExecute}"):
-        assert forbidden in injected
-        assert forbidden not in _code_only(SURFACE_TS)
-        assert forbidden not in _code_only(FORM_TS)
+    assert _transport_defects(injected) == ["fetch("]
+    assert _invented_authority_defects(injected) == ['"DELETE"', "onClick={handleExecute"], (
+        "the injected text carries exactly the double-quoted DELETE and the execute handler"
+    )
+    # ...and the real surfaces, which the live assertion judges, are clean.
+    for path in (SURFACE_TS, FORM_TS):
+        assert _transport_defects(_code_only(path)) == []
+        assert _invented_authority_defects(_code_only(path)) == []
+    # A detector that reported everything would pass the defect assertion vacuously.
+    assert _transport_defects("const x = apiRequest(path);") == []
+    assert _invented_authority_defects("const x = apiRequest(path);") == []
 
     # ...and the comment stripper must not be able to hide a real control.
     assert "fetch(" in injected.split("//")[0]
@@ -1381,13 +1454,25 @@ def test_negative_control_the_snapping_seed_would_have_rewritten_the_status(cont
     Under the pre-change seed (`isKnownStatus(entry.status) ? entry.status :
     "UNCONTACTED"`) the draft read `UNCONTACTED` — which *is* settable — so the same
     notes-only edit would have emitted `{"notes": ..., "status": "UNCONTACTED"}` and
-    silently rewritten a recorded status. Reconstruct that shape and show it diverges
-    from the measured body.
+    silently rewritten a recorded status.
+
+    Two halves, both calling the code the live assertion calls: the *behaviour* is
+    measured from the probe (the snap target is settable, and the fixed seed does not
+    snap), and the *source* pin is exercised by feeding
+    :func:`_snapping_seed_defects` the pre-repair expression it exists to reject.
     """
     snap = "UNCONTACTED"
     assert snap in contract_probe["settable_statuses"], "the snap target must be settable to bite"
     assert contract_probe["off_seed_status"] != snap, "the fixed seed must not snap"
     assert contract_probe["off_seed_edit_body"] != {"notes": "Asked for 20t", "status": snap}
+
+    # The source detector, on the shape it must report and on the repaired source.
+    assert _snapping_seed_defects(SNAPPING_SEED_EXPRESSION) != [], (
+        "the pre-repair seed must be reported"
+    )
+    assert _snapping_seed_defects(_code_only(CONTRACT_TS)) == [], (
+        "the repaired contract must not be reported"
+    )
 
 
 def test_edit_form_states_an_off_vocabulary_status_instead_of_a_transaction_note():
@@ -1403,11 +1488,37 @@ def test_edit_form_states_an_off_vocabulary_status_instead_of_a_transaction_note
     assert "isKnownStatus," in form, "the predicate must be imported, not re-derived inline"
 
 
+#: The pre-repair seed expression, and the repaired one. `emptyDraft` must be
+#: seeded from the entry's stored status verbatim: the snapping form substituted
+#: `UNCONTACTED` for any status outside the declared vocabulary, so an unrelated
+#: edit silently rewrote a recorded off-vocabulary status into a declared one.
+SNAPPING_SEED_EXPRESSION = 'emptyDraft(isKnownStatus(entry.status) ? entry.status : "UNCONTACTED")'
+VERBATIM_SEED_EXPRESSION = "emptyDraft(entry.status)"
+
+
+def _snapping_seed_defects(contract_code: str) -> list[str]:
+    """Ways ``contract_code`` fails to carry the stored status verbatim.
+
+    Module level so the live assertion and its negative control call the *same*
+    code. The control previously reconstructed the pre-repair *body* from the
+    Node probe and compared two dicts, so it never ran a detector over the source
+    the live assertion judges: the source pin could be disarmed with no red test
+    (measured at `main` `e14fd5d7`).
+    """
+    problems: list[str] = []
+    if SNAPPING_SEED_EXPRESSION in contract_code:
+        problems.append("the seed must not snap an unknown status to UNCONTACTED")
+    if VERBATIM_SEED_EXPRESSION not in contract_code:
+        problems.append("the seed must carry the stored status verbatim")
+    return problems
+
+
 def test_the_frontend_seed_no_longer_snaps_an_unknown_status():
     """Source-level pin of the one-line change, so a revert is visible."""
     contract = _code_only(CONTRACT_TS)
-    assert 'emptyDraft(isKnownStatus(entry.status) ? entry.status : "UNCONTACTED")' not in contract
-    assert "emptyDraft(entry.status)" in contract, "the seed must carry the stored status verbatim"
+    assert _snapping_seed_defects(contract) == [], (
+        f"the seed must carry the stored status verbatim: {_snapping_seed_defects(contract)}"
+    )
 
 
 # ---------------------------------------------------------------------------
