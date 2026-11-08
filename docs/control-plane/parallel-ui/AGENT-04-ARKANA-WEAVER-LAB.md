@@ -367,3 +367,43 @@ Evidence: `docs/control-plane/evidence/lane4-run-trace-vocabulary-control-integr
 
 Lane 4's next bounded PR opens only after this one merges. Merge, production deployment and
 acceptance remain human-only.
+
+## Status — 2026-11-08 (LANE 4: N-ATLAS self-host route control integrity, no active PR declared)
+
+**Active branch:** `lane4/natlas-route-control-integrity-01` (recorded for provenance only).
+**Active PR:** none declared — the snapshot below is the judge.
+
+A lane PR cannot declare itself open at merge time: the merge that lands it closes it. This
+section therefore declares no active PR and leaves the lane's status to the derived snapshot,
+the convention #638/#639/#641/#642/#643/#645/#646 set for lanes 3 and 4.
+
+Lane 4's next bounded slice, opened from freshly fetched `main` `a2a0a085` under
+`11 — LANE NEW-PR AUTHORIZATION`. Reconciliation was exhausted first (measured live: **0** open
+PRs repo-wide, all four lanes `doc_guard: idle`, `lane_state.py --check` and `--check
+--verify-live` both exit 0), so N1 holds.
+
+**Objective.** Bind the vacuous negative control
+`test_negative_control_detector_flags_a_missing_route` in
+`tests/test_natlas_selfhost_contract.py` to the detector the live assertion uses.
+
+`_missing_contract_routes(src)` returns the required OpenAI routes absent from a gateway source.
+The live assertion `assert not missing` is *satisfied* by a detector neutered to `return set()`.
+The flagged control asserted only that its own hand-written string lacked
+`"@app.post('/v1/chat/completions')"` and never called the detector, so it could not fail for any
+edit to the code the live assertion uses.
+
+Measured at `main` `a2a0a085` with AST-scoped mutation: neutering `_missing_contract_routes`
+(`return set()`) left the flagged control **green** while the *bound* sibling control at line 63
+correctly **failed**. The file holds two controls for one detector; only one was bound.
+
+The control now calls `_missing_contract_routes` and asserts both polarities — the stripped source
+must be reported, and the real gateway source must not — so a detector that reports unconditionally
+cannot pass either. Node count is unchanged at 18 — this binds a control, it adds none.
+
+The file is executed by the whole-suite surfaces (`economic-seam-engine.yml` selects `tests/**`),
+so no new wiring is needed.
+
+Evidence: `docs/control-plane/evidence/lane4-natlas-route-control-integrity-01/EVIDENCE.md`.
+
+Lane 4's next bounded PR opens only after this one merges. Merge, production deployment and
+acceptance remain human-only.

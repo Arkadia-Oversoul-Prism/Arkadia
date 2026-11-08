@@ -186,9 +186,23 @@ def test_historical_gateway_api_key_is_optional_and_enforced_when_configured():
 
 
 def test_negative_control_detector_flags_a_missing_route():
-    """The route detector must actually detect absence, not just presence."""
-    src = "@app.get('/health')\ndef health(): ..."
-    assert "@app.post('/v1/chat/completions')" not in src
+    """The route detector must actually detect absence, not just presence.
+
+    Binds to :func:`_missing_contract_routes` — the detector the live assertion
+    calls — rather than restating the comparison inline, so it can fail for an edit
+    to that detector. Measured at `main` `a2a0a085`: neutering the detector to
+    ``return set()`` left this control green, because it asserted only that the
+    *input* lacked the literal and never that the detector reported it. The live
+    assertion ``assert not missing`` is *satisfied* by that neutered shape, so the
+    detector could be disarmed with no red test anywhere in the file.
+    """
+    stripped = "@app.get('/health')\ndef health(): ..."
+    missing = _missing_contract_routes(stripped)
+    assert missing, "a source without the required routes must be reported"
+    assert "@app.post('/v1/chat/completions')" in missing
+    # ...and a source carrying every route must not be reported, so a detector that
+    # reports unconditionally cannot pass either.
+    assert _missing_contract_routes(_source(APP)) == set()
 
 
 def test_dockerfile_pins_the_model_repo_and_serves_on_the_platform_port():
