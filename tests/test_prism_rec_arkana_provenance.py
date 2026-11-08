@@ -139,6 +139,13 @@ def test_arkana_page_renders_the_provenance_panel():
     page = _read(PAGE)
     assert 'import { ArkanaProvenancePanel }' in page
     assert "<ArkanaProvenancePanel provenance={turn.provenance} />" in page
+    # The panel is fed from the reply's own provenance, not from a literal the
+    # page authors. This is the live assertion `renders_provenance_from_a_constant`
+    # exists for; without it the detector is bound to nothing but its controls.
+    assert not renders_provenance_from_a_constant(page), (
+        "the Arkana page feeds the provenance panel from a literal rather than "
+        "the reply's normalised provenance"
+    )
 
 
 def test_page_holds_provenance_from_the_reply():
@@ -152,6 +159,8 @@ def test_negative_control_page_shape_is_flagged_as_constant_fed():
     assert renders_provenance_from_a_constant(
         "<ArkanaProvenancePanel provenance={{ rag_refs: reply.rag_refs }} />"
     ) is True
+    # The other polarity: a detector that reports everything must not pass either.
+    assert renders_provenance_from_a_constant(_read(PAGE)) is False
 
 
 # ---------------------------------------------------------------------------
