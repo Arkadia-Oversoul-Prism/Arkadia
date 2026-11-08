@@ -34,6 +34,22 @@ def _read(path: Path) -> str:
 # Read-only ceiling
 
 
+def _wiring_violations(surface_source: str) -> list[str]:
+    """Wiring defects in the surface: a missing registry read, or an inlined path.
+
+    Module level so the live assertion and its negative control call the *same*
+    detector. The control previously restated the comparison inline, which made it
+    vacuous: renaming the registry marker in the live test left the control
+    passing, so the detector could be disarmed with no red test.
+    """
+    violations: list[str] = []
+    if "endpoints.labGateway" not in surface_source:
+        violations.append("surface does not read endpoints.labGateway")
+    if "/api/lab/engineering/gateway" in surface_source:
+        violations.append("surface inlines the gateway path")
+    return violations
+
+
 def test_surface_is_wired_to_the_declared_registry_entry():
     """The surface must read the registry, not inline the path.
 
@@ -42,8 +58,7 @@ def test_surface_is_wired_to_the_declared_registry_entry():
     surface was chosen next.
     """
     source = _read(GATEWAY_TSX)
-    assert "endpoints.labGateway" in source
-    assert "/api/lab/engineering/gateway" not in source
+    assert _wiring_violations(source) == [], _wiring_violations(source)
     assert 'labGateway: "/api/lab/engineering/gateway"' in _read(ENDPOINTS_TS)
 
 
@@ -64,12 +79,25 @@ def test_surface_requests_no_mutating_method():
         assert path not in source
 
 
+def _purity_violations(projection_source: str) -> list[str]:
+    """Impurities in the projection: an import or any client/store reach.
+
+    Module level so the live assertion and its negative control call the same
+    detector; the control previously re-ran the regex inline, so renaming the
+    pattern in the live test left it passing.
+    """
+    violations: list[str] = []
+    if re.search(r"^\s*import\b", projection_source, re.MULTILINE):
+        violations.append("projection imports a module")
+    for token in ("fetch(", "apiRequest", "useHydration", "localStorage", "window."):
+        if token in projection_source:
+            violations.append(f"projection reaches {token}")
+    return violations
+
+
 def test_projection_is_pure():
     """The projection imports nothing — so it cannot reach a client or a store."""
-    source = _read(GATEWAY_TS)
-    assert not re.search(r"^\s*import\b", source, re.MULTILINE), "projection must import nothing"
-    for token in ("fetch(", "apiRequest", "useHydration", "localStorage", "window."):
-        assert token not in source
+    assert _purity_violations(_read(GATEWAY_TS)) == [], _purity_violations(_read(GATEWAY_TS))
 
 
 def test_no_control_that_could_select_or_run_a_model():
@@ -100,14 +128,21 @@ def _gateway_dict(source: str, name: str) -> dict[str, str]:
     return dict(re.findall(r'"([a-z_0-9]+)":\s*"([A-Z_]+)"', match.group(1)))
 
 
+def _projected_classes(projection_source: str) -> set[str]:
+    """The class vocabulary the projection declares, read from its own list."""
+    match = re.search(
+        r"CONFIG_CLASSES:\s*readonly string\[\]\s*=\s*\[(.*?)\]", projection_source, re.DOTALL
+    )
+    assert match, "the projection declares no CONFIG_CLASSES list"
+    return set(re.findall(r'"([A-Z_]+)"', match.group(1)))
+
+
 def test_projection_config_classes_equal_the_handler_s_classes():
     """Equality, not subset: a class the console adds would be an invented grouping."""
     handler_classes = set(_gateway_dict(_read(GATEWAY_HANDLER), "CONFIG_CLASSES").values())
     assert handler_classes, "control premise: CONFIG_CLASSES must be non-empty"
 
-    match = re.search(r"CONFIG_CLASSES:\s*readonly string\[\]\s*=\s*\[(.*?)\]", _read(GATEWAY_TS), re.DOTALL)
-    assert match, "the projection declares no CONFIG_CLASSES list"
-    projected = set(re.findall(r'"([A-Z_]+)"', match.group(1)))
+    projected = _projected_classes(_read(GATEWAY_TS))
     assert projected == handler_classes, f"class vocabulary drift: {projected ^ handler_classes}"
 
 
@@ -141,21 +176,30 @@ def test_projection_does_not_hardcode_a_provider_name():
 
 
 def test_negative_control_class_detector_sees_a_divergent_value():
+    """The class detector must report a class the gateway does not declare.
+
+    It calls the same ``_projected_classes`` the live assertion uses, so renaming
+    the marker there reddens this control too.
+    """
     handler_classes = set(_gateway_dict(_read(GATEWAY_HANDLER), "CONFIG_CLASSES").values())
-    assert "HYBRID" not in handler_classes
-    assert {"HYBRID"} - handler_classes == {"HYBRID"}
+    assert _projected_classes(_read(GATEWAY_TS)) == handler_classes
+    divergent = "CONFIG_CLASSES: readonly string[] = [\n  \"HYBRID\",\n];\n"
+    assert _projected_classes(divergent) - handler_classes == {"HYBRID"}
 
 
 def test_negative_control_purity_detector_sees_an_import():
     """The purity detector must fire on an import if one were added."""
     polluted = 'import { apiRequest } from "../../lib/apiClient";\nexport const x = 1;\n'
-    assert re.search(r"^\s*import\b", polluted, re.MULTILINE)
+    assert "projection imports a module" in _purity_violations(polluted)
+    assert _purity_violations("export const x = 1;\n") == []
 
 
 def test_negative_control_wiring_detector_sees_an_inlined_path():
     """The wiring detector must fire on an inlined path if one were added."""
     inlined = 'const p = "/api/lab/engineering/gateway";'
-    assert "endpoints.labGateway" not in inlined
+    assert _wiring_violations(inlined) != []
+    wired = 'useHydration(endpoints.labGateway, (p) => apiRequest(p));'
+    assert _wiring_violations(wired) == []
 
 
 # ---------------------------------------------------------------------------
@@ -179,6 +223,25 @@ def test_handler_route_and_auth_are_what_the_slice_claims():
     assert "/api/lab/engineering/gateway" not in public.group(1)
 
 
+def _side_effects_in_function(module_source: str, function_name: str) -> list[str]:
+    """Mutating calls found in *function_name*'s body, read with `ast`.
+
+    Module level so the live assertion and its negative control call the same
+    detector; the control previously parsed its own synthetic snippet and checked
+    that snippet, which never touched the live detector.
+    """
+    import ast
+
+    tree = ast.parse(module_source)
+    fn = next(
+        (node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef) and node.name == function_name),
+        None,
+    )
+    assert fn is not None, f"{function_name} is not declared"
+    body = ast.unparse(fn)
+    return [token for token in ("register_adapter", "generate(", "select(") if token in body]
+
+
 def test_handler_returns_a_description_not_an_authority():
     """`describe_gateway` must remain a description.
 
@@ -189,16 +252,13 @@ def test_handler_returns_a_description_not_an_authority():
     """
     import ast
 
-    tree = ast.parse(_read(GATEWAY_HANDLER))
-    fn = next(
-        (node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef) and node.name == "describe_gateway"),
-        None,
-    )
-    assert fn is not None, "gateway.py declares no describe_gateway"
+    source = _read(GATEWAY_HANDLER)
+    assert _side_effects_in_function(source, "describe_gateway") == []
 
-    body = ast.unparse(fn)
-    for side_effect in ("register_adapter", "generate(", "select("):
-        assert side_effect not in body, f"describe_gateway now performs {side_effect}"
+    tree = ast.parse(source)
+    fn = next(
+        node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef) and node.name == "describe_gateway"
+    )
     # It must return the gateway description, and nothing else.
     returns = [node for node in ast.walk(fn) if isinstance(node, ast.Return)]
     assert len(returns) == 1, "describe_gateway must have exactly one return"
@@ -207,11 +267,10 @@ def test_handler_returns_a_description_not_an_authority():
 
 def test_negative_control_the_side_effect_detector_sees_one():
     """The detector must fire on a function that does mutate."""
-    import ast
-
-    polluted = ast.parse("def describe_gateway():\n    get_gateway().register_adapter('ollama', None)\n    return {}\n")
-    fn = next(n for n in ast.walk(polluted) if isinstance(n, ast.FunctionDef))
-    assert "register_adapter" in ast.unparse(fn)
+    polluted = "def describe_gateway():\n    get_gateway().register_adapter('ollama', None)\n    return {}\n"
+    assert _side_effects_in_function(polluted, "describe_gateway") == ["register_adapter"]
+    clean = "def describe_gateway():\n    return get_gateway().to_dict()\n"
+    assert _side_effects_in_function(clean, "describe_gateway") == []
 
 
 # ---------------------------------------------------------------------------

@@ -133,6 +133,20 @@ def test_the_three_groups_partition_the_catalog():
     assert ledger["unknown_config_class"] == []
 
 
+def _projected_classes(projection_source: str) -> set[str]:
+    """The class vocabulary the projection declares, read from its own list.
+
+    Module level so the live assertion and its negative control call the *same*
+    detector. The control previously restated the comparison inline, which made it
+    vacuous: neutering the live assertion left the control green.
+    """
+    match = re.search(
+        r"CONFIG_CLASSES:\s*readonly string\[\]\s*=\s*\[(.*?)\]", projection_source, re.DOTALL
+    )
+    assert match, "the projection declares no CONFIG_CLASSES list"
+    return set(re.findall(r'"([A-Z_]+)"', match.group(1)))
+
+
 def test_config_class_vocabulary_is_the_gateway_s_own():
     """The projection's class list must be drawn from the handler's classes.
 
@@ -145,20 +159,22 @@ def test_config_class_vocabulary_is_the_gateway_s_own():
     declared_classes = set(CONFIG_CLASSES.values())
     assert declared_classes == {"LOCAL", "REMOTE", "AGENT_RUNTIME"}
 
-    source = PROJECTION.read_text(encoding="utf-8")
-    match = re.search(r"CONFIG_CLASSES:\s*readonly string\[\]\s*=\s*\[(.*?)\]", source, re.DOTALL)
-    assert match, "the projection declares no CONFIG_CLASSES list"
-    projected = set(re.findall(r'"([A-Z_]+)"', match.group(1)))
+    projected = _projected_classes(PROJECTION.read_text(encoding="utf-8"))
     assert projected == declared_classes, f"class vocabulary drift: {projected ^ declared_classes}"
 
 
 def test_negative_control_class_detector_sees_a_divergent_value():
-    """The class detector must report a class the gateway does not declare."""
+    """The class detector must report a class the gateway does not declare.
+
+    It calls the same ``_projected_classes`` the live assertion uses, so neutering
+    that helper reddens this control too.
+    """
     from lab.engineering_lab.gateway import CONFIG_CLASSES
 
     declared_classes = set(CONFIG_CLASSES.values())
-    assert "HYBRID" not in declared_classes
-    assert {"HYBRID"} - declared_classes == {"HYBRID"}
+    assert _projected_classes(PROJECTION.read_text(encoding="utf-8")) == declared_classes
+    divergent = "CONFIG_CLASSES: readonly string[] = [\n  \"HYBRID\",\n];\n"
+    assert _projected_classes(divergent) - declared_classes == {"HYBRID"}
 
 
 # ---------------------------------------------------------------------------
