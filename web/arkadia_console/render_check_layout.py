@@ -27,8 +27,8 @@ labels which was used:
     real `Shell` and `WorkspaceShell` with a *stubbed* identity. It proves the
     layout primitives but NOT that the protected route renders authenticated.
 
-  * **test identity** (`--require-authenticated`, route `/workspace` or
-    `/arkana`): the real protected route renders under a **disposable test
+  * **test identity** (`--require-authenticated`, routes `/workspace`, `/arkana`
+    or `/weaver`): the real protected route renders under a **disposable test
     identity** (`lib/testIdentity.ts`), which authenticates through the backend's
     documented dev-mode seam (`api/auth.py`). This is genuine authenticated
     coverage of the real route components — but it is NOT real Firebase
@@ -109,6 +109,16 @@ ROUTES = {
         "workspace": ".cg-workspace",
         "grid": True,
         "composer_aligned": True,
+    },
+    "/weaver": {
+        "label": "Weaver",
+        "canvas": ".page-column",
+        "inspector": None,
+        "composer": None,
+        "workspace": ".page-column",
+        "grid": False,
+        "composer_aligned": False,
+        "requires_canvas_readout": True,
     },
 }
 
@@ -198,6 +208,9 @@ def measure_js(route: dict) -> str:
         authThreshold: Boolean(q('[data-testid="auth-threshold-signin"]')),
         testIdentityBanner: Boolean(q('[data-testid="test-identity-banner"]')),
         stubIdentity: Boolean(q('[data-test-identity="stub"]')),
+        weaverCanvasSnapshot: Boolean(q('[data-testid="weaver-canvas-snapshot"]')),
+        weaverCanvasReadout: Boolean(q('[data-testid="weaver-canvas-readout"]')),
+        weaverCanvasUnknown: Boolean(q('[data-testid="weaver-canvas-unknown"]')),
         mutations: window.__ao005Mutations ?? null,
       };
     }
@@ -239,6 +252,14 @@ def check(metrics: dict, viewport: dict, route: dict, require_authenticated: boo
             failures.append("test-identity banner absent — not an authenticated render")
         if metrics["stubIdentity"]:
             failures.append("stub identity present in an authenticated run")
+
+    if route.get("requires_canvas_readout"):
+        if not metrics["weaverCanvasSnapshot"]:
+            failures.append("Weaver canvas panel did not mount")
+        if metrics["weaverCanvasUnknown"]:
+            failures.append("Weaver canvas returned an incomplete or malformed payload")
+        elif not metrics["weaverCanvasReadout"]:
+            failures.append("Weaver canvas did not hydrate from the authenticated API read")
 
     if not metrics["workspaceMounted"]:
         failures.append("workspace not mounted — layout unmeasured")

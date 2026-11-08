@@ -137,7 +137,7 @@ jobs:
           python -m pip install pytest
           python -c "import uvicorn; print('uvicorn', uvicorn.__version__)"
       - name: Workspace layout assertions (rendered, authenticated test identity)
-        # AO4-05/06: the *real* protected routes (`/workspace`, `/arkana`) render
+        # AO4-05/06 + DEA-01 canvas: the real protected routes (`/workspace`, `/arkana`, `/weaver`) render
         # under a disposable test identity and their layout is asserted. The
         # identity authenticates through the backend's documented dev-mode seam
         # (`api/auth.py` decodes the bearer payload without verifying its
@@ -169,7 +169,7 @@ jobs:
           done
           python render_check_layout.py \
             --base-url http://127.0.0.1:5200 \
-            --routes "/workspace,/arkana" \
+            --routes "/workspace,/arkana,/weaver" \
             --require-authenticated \
             --identity-label "DISPOSABLE TEST IDENTITY (dev-mode, not Firebase)"
       - name: Upload layout evidence

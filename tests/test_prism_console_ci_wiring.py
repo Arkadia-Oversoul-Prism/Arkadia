@@ -650,3 +650,13 @@ def test_authenticated_layout_installs_backend_runtime_before_starting_it():
     authenticated_run = steps[authenticated_index].get("run", "")
     assert "python -m uvicorn api.main:app" in authenticated_run
     assert "curl -sf http://127.0.0.1:8000/health" in authenticated_run
+    assert '--routes "/workspace,/arkana,/weaver"' in authenticated_run, (
+        "authenticated responsive coverage must include the Weaver canvas"
+    )
+    layout_harness = (ROOT / "web" / "arkadia_console" / "render_check_layout.py").read_text(encoding="utf-8")
+    assert '"/weaver": {' in layout_harness and "requires_canvas_readout" in layout_harness, (
+        "the layout harness must measure Weaver and require its authenticated canvas readout"
+    )
+    assert "weaver-canvas-readout" in layout_harness, (
+        "the Weaver browser gate must fail if the unified canvas does not hydrate"
+    )
