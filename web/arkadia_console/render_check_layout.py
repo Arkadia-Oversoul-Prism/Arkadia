@@ -27,8 +27,8 @@ labels which was used:
     real `Shell` and `WorkspaceShell` with a *stubbed* identity. It proves the
     layout primitives but NOT that the protected route renders authenticated.
 
-  * **test identity** (`--require-authenticated`, route `/workspace` or
-    `/arkana`): the real protected route renders under a **disposable test
+  * **test identity** (`--require-authenticated`, routes `/workspace`, `/arkana`,
+    `/weaver` or `/engineering-lab`): the real protected route renders under a **disposable test
     identity** (`lib/testIdentity.ts`), which authenticates through the backend's
     documented dev-mode seam (`api/auth.py`). This is genuine authenticated
     coverage of the real route components — but it is NOT real Firebase
@@ -51,7 +51,7 @@ import sys
 import threading
 from pathlib import Path
 
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError, sync_playwright
 
 HERE = Path(__file__).resolve().parent
 DIST = HERE / "dist"
@@ -109,6 +109,26 @@ ROUTES = {
         "workspace": ".cg-workspace",
         "grid": True,
         "composer_aligned": True,
+    },
+    "/weaver": {
+        "label": "Weaver",
+        "canvas": ".page-column",
+        "inspector": None,
+        "composer": None,
+        "workspace": ".page-column",
+        "grid": False,
+        "composer_aligned": False,
+        "requires_canvas_readout": True,
+    },
+    "/engineering-lab": {
+        "label": "Engineering Lab",
+        "canvas": '[data-testid="mission-workspace"]',
+        "inspector": None,
+        "composer": None,
+        "workspace": '[data-testid="mission-workspace"]',
+        "grid": False,
+        "composer_aligned": False,
+        "requires_mission_workspace": True,
     },
 }
 
@@ -172,6 +192,9 @@ def measure_js(route: dict) -> str:
       const composer = q(route.composer);
       const workspace = q(route.workspace);
       const rail = q('[data-testid="shell-surface-rail"]');
+      const missionWorkspace = q('[data-testid="mission-workspace"]');
+      const missionNextDecision = q('[data-testid="mission-next-decision"]');
+      const weaverCanvasState = q('[data-testid="weaver-canvas-state"]');
 
       // Primary navigation landmarks: the shell owns exactly two (desktop
       // sidebar + mobile strip). A surface rail is NOT primary navigation.
@@ -198,6 +221,16 @@ def measure_js(route: dict) -> str:
         authThreshold: Boolean(q('[data-testid="auth-threshold-signin"]')),
         testIdentityBanner: Boolean(q('[data-testid="test-identity-banner"]')),
         stubIdentity: Boolean(q('[data-test-identity="stub"]')),
+        weaverCanvasSnapshot: Boolean(q('[data-testid="weaver-canvas-snapshot"]')),
+        weaverCanvasReadout: Boolean(q('[data-testid="weaver-canvas-readout"]')),
+        weaverCanvasUnknown: Boolean(q('[data-testid="weaver-canvas-unknown"]')),
+        weaverCanvasState: weaverCanvasState ? weaverCanvasState.getAttribute('data-state') : null,
+        missionWorkspace: Boolean(missionWorkspace),
+        missionNextDecision: missionNextDecision ? {
+          rect: rect(missionNextDecision),
+          scrollWidth: missionNextDecision.scrollWidth,
+          clientWidth: missionNextDecision.clientWidth,
+        } : null,
         mutations: window.__ao005Mutations ?? null,
       };
     }
@@ -239,6 +272,27 @@ def check(metrics: dict, viewport: dict, route: dict, require_authenticated: boo
             failures.append("test-identity banner absent — not an authenticated render")
         if metrics["stubIdentity"]:
             failures.append("stub identity present in an authenticated run")
+
+    if route.get("requires_canvas_readout"):
+        if not metrics["weaverCanvasSnapshot"]:
+            failures.append("Weaver canvas panel did not mount")
+        if metrics["weaverCanvasUnknown"]:
+            failures.append("Weaver canvas returned an incomplete or malformed payload")
+        elif not metrics["weaverCanvasReadout"]:
+            state = metrics.get("weaverCanvasState") or "unresolved"
+            failures.append(
+                f"Weaver canvas did not hydrate from the authenticated API read (state={state})"
+            )
+
+    if route.get("requires_mission_workspace"):
+        if not metrics["missionWorkspace"]:
+            failures.append("Engineering Lab Mission Control did not mount")
+        if not metrics["missionNextDecision"]:
+            failures.append("Engineering Lab Next decision panel did not mount")
+        else:
+            panel_overflow = metrics["missionNextDecision"]["scrollWidth"] - metrics["missionNextDecision"]["clientWidth"]
+            if panel_overflow > 1:
+                failures.append(f"Mission Control Next decision panel has horizontal overflow: {panel_overflow}px")
 
     if not metrics["workspaceMounted"]:
         failures.append("workspace not mounted — layout unmeasured")
@@ -292,6 +346,53 @@ def check(metrics: dict, viewport: dict, route: dict, require_authenticated: boo
     return failures
 
 
+def wait_for_authenticated_surface(page) -> None:
+    """Wait for the disposable identity to finish backend verification.
+
+    The banner is present as soon as the test seam is enabled; it does not mean
+    the backend has accepted the token yet. Measuring immediately after
+    networkidle can therefore capture the transient sign-in threshold as if
+    it were the final protected-route render. Wait for the threshold to clear,
+    but retain the page if it times out so check() records the explicit
+    authentication failure and the screenshot/metrics remain available.
+    """
+    try:
+        page.wait_for_function(
+            """() => Boolean(document.querySelector('[data-testid=\"test-identity-banner\"]'))
+                && !document.querySelector('[data-testid=\"auth-threshold-signin\"]')""",
+            timeout=20_000,
+        )
+    except PlaywrightTimeoutError:
+        # The acceptance checks below report the missing authenticated render.
+        pass
+
+
+def wait_for_canvas_resolution(page) -> None:
+    """Wait for the authenticated canvas read to reach a measured terminal state.
+
+    Route mount is not data hydration. In particular, a mobile SPA transition can
+    mount the Weaver panel while its protected API request is still in flight.
+    Wait for a valid readout, an explicit UNKNOWN payload, or a terminal contract
+    state (auth/forbidden/unavailable/error). If the bounded wait expires, the
+    measurement retains the current loading state and fails with that evidence.
+    """
+    try:
+        page.wait_for_function(
+            """() => {
+                const readout = document.querySelector('[data-testid="weaver-canvas-readout"]');
+                const unknown = document.querySelector('[data-testid="weaver-canvas-unknown"]');
+                if (readout || unknown) return true;
+                const state = document.querySelector('[data-testid="weaver-canvas-state"]')
+                    ?.getAttribute('data-state');
+                return Boolean(state && state !== "idle" && state !== "loading");
+            }""",
+            timeout=20_000,
+        )
+    except PlaywrightTimeoutError:
+        # check() records the still-pending state; a timeout is never a pass.
+        pass
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -335,21 +436,65 @@ def main() -> int:
 
     with sync_playwright() as p:
         browser = p.chromium.launch()
-        for route_path in routes:
-            route = ROUTES[route_path]
-            for vp in VIEWPORTS:
-                ctx_args = {"viewport": {"width": vp["width"], "height": vp["height"]}}
-                if vp.get("dpr"):
-                    ctx_args["device_scale_factor"] = vp["dpr"]
-                if vp.get("touch"):
-                    ctx_args["has_touch"] = True
-                    ctx_args["is_mobile"] = True
-                ctx = browser.new_context(**ctx_args)
-                page = ctx.new_page()
-                page_errors: list[str] = []
-                page.on("pageerror", lambda e: page_errors.append(str(e)[:200]))
-                page.add_init_script(INSTALL_MUTATION_COUNTER)
-                page.goto(f"{base}{route_path}", wait_until="networkidle")
+        # One verified identity per viewport. Protected surfaces are then
+        # traversed through the same SPA router, as a real operator would do.
+        # Re-minting/fetching the same disposable identity for every route made
+        # the last route depend on repeated backend profile hydration rather
+        # than on the surface being measured.
+        for vp in VIEWPORTS:
+            ctx_args = {"viewport": {"width": vp["width"], "height": vp["height"]}}
+            if vp.get("dpr"):
+                ctx_args["device_scale_factor"] = vp["dpr"]
+            if vp.get("touch"):
+                ctx_args["has_touch"] = True
+                ctx_args["is_mobile"] = True
+            ctx = browser.new_context(**ctx_args)
+            page = ctx.new_page()
+            page_errors: list[str] = []
+            page.on("pageerror", lambda e: page_errors.append(str(e)[:200]))
+            if args.require_authenticated:
+                # The backend rate limiter is correctly keyed by authenticated
+                # subject. Give each viewport its own disposable subject so the
+                # desktop/tablet measurements do not consume the mobile bucket.
+                test_subject = f"ao005-layout-{vp['name'].replace('_', '-')}"
+                page.add_init_script(
+                    f"window.__ARKADIA_TEST_IDENTITY_SUBJECT__ = {json.dumps(test_subject)};"
+                )
+            page.add_init_script(INSTALL_MUTATION_COUNTER)
+
+            for route_index, route_path in enumerate(routes):
+                route = ROUTES[route_path]
+                if args.require_authenticated and route_index > 0:
+                    # Keep AuthProvider mounted while the canonical router
+                    # resolves the next protected surface.
+                    page.evaluate(
+                        "(path) => { window.history.pushState({}, '', path); window.dispatchEvent(new PopStateEvent('popstate')); }",
+                        route_path,
+                    )
+                    page.wait_for_function(
+                        """(args) => location.pathname === args.path
+                            && !document.querySelector('[data-testid="auth-threshold-signin"]')
+                            && Boolean(document.querySelector(args.selector))""",
+                        arg={"path": route_path, "selector": route["workspace"]},
+                        timeout=20_000,
+                    )
+                else:
+                    page.goto(f"{base}{route_path}", wait_until="networkidle")
+                    if args.require_authenticated:
+                        wait_for_authenticated_surface(page)
+                        page.wait_for_function(
+                            """(selector) => !document.querySelector('[data-testid="auth-threshold-signin"]')
+                                && Boolean(document.querySelector(selector))""",
+                            arg=route["workspace"],
+                            timeout=20_000,
+                        )
+
+                # Route mount is not equivalent to an authenticated canvas read.
+                # Wait for the Weaver contract to resolve (or explicitly fail)
+                # before taking the responsive measurement.
+                if route.get("requires_canvas_readout"):
+                    wait_for_canvas_resolution(page)
+
                 # Let the mount settle, then read the mutation count. A loop
                 # keeps mutating through this window and blows the bound.
                 page.wait_for_timeout(1500)
@@ -357,6 +502,7 @@ def main() -> int:
                 failures = check(metrics, vp, route, args.require_authenticated)
                 if page_errors:
                     failures.append(f"page errors: {page_errors[:3]}")
+                    page_errors.clear()
                 slug = route_path.strip("/").replace("/", "_") or "root"
                 shot = OUT / f"{slug}_{vp['name']}.png"
                 page.screenshot(path=str(shot), full_page=False)
@@ -372,7 +518,7 @@ def main() -> int:
                     }
                 )
                 all_failures.extend(f"{route_path} {vp['name']}: {f}" for f in failures)
-                ctx.close()
+            ctx.close()
         browser.close()
 
     report = {

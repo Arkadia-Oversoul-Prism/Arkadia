@@ -20,13 +20,22 @@
  *      live telemetry. There is no SSE/WebSocket transport for orchestration in
  *      this console, so nothing here claims to be live.
  *
- * The unavailable dimensions are not a UI gap to be papered over: they are a
- * contract gap. `api/lab_routes.py` and `lab/engineering_lab/runtime.py` publish
- * no dependency graph, no subtask decomposition and no retry-condition field, so
- * the smallest honest thing the console can do is say so and name the contract
- * change that would close it.
+ * AO-006 closed three of those four gaps at the contract level: the run record
+ * now publishes `depends_on`, `subtasks`, `attempt` and `retryable`, and the
+ * unified canvas (`/api/canvas`) projects them together with an explicit
+ * `updated_at`-based poll contract. Those three dimensions are therefore no
+ * longer declared unavailable here — they are read from the canvas. The one
+ * remaining declaration is live worker telemetry, which is still a real gap:
+ * no SSE/WebSocket orchestration transport is served, so the surface labels the
+ * read as polled rather than live.
+ *
+ * CanvasOrchestration now consumes the unified read and renders its server-reported
+ * cross-surface counts, dependency edges, subtasks and retry decisions. The
+ * existing detail panels remain attached to their owning contracts; the canvas
+ * does not replace their evidence or mutation boundaries.
  */
 import { Panel } from "../ui";
+import { CanvasOrchestration } from "./CanvasOrchestration";
 import { ApprovalLedger } from "./ApprovalLedger";
 import { LabWorkLoop } from "../lab/LabWorkLoop";
 import { LabSessionList } from "../lab/LabSessionList";
@@ -42,32 +51,11 @@ import { LabAgentRegistry } from "../lab/LabAgentRegistry";
  */
 const UNAVAILABLE_DIMENSIONS: Array<{ dimension: string; reason: string; contractChange: string }> = [
   {
-    dimension: "Task dependencies",
-    reason:
-      "No Lab or Weaver contract publishes a dependency edge between tasks or runs. A session view returns runs, events, evidence and artifacts — not a graph.",
-    contractChange:
-      "A `depends_on: string[]` field on the run record in the session view, or a dedicated `/engineering/sessions/{id}/dependencies` read.",
-  },
-  {
-    dimension: "Subtask decomposition",
-    reason:
-      "A run is the smallest unit the substrate records. There is no subtask record, so a per-subtask progress view would be invented.",
-    contractChange:
-      "A `subtasks: [{id, state, objective}]` array on the run record, written by the runtime as it decomposes work.",
-  },
-  {
-    dimension: "Retry conditions",
-    reason:
-      "The runtime records a run's terminal `state` and `result_state`, but not a retry counter or the condition that would permit a retry.",
-    contractChange:
-      "`attempt: number` and `retryable: boolean` on the run record, plus the policy reference that decided it.",
-  },
-  {
     dimension: "Live worker telemetry",
     reason:
-      "There is no SSE or WebSocket transport for orchestration state in this console. Polling the session view is the only real read, so no live indicator is shown.",
+      "There is no SSE or WebSocket transport for orchestration state. The canvas is a manually refreshed snapshot, not a live worker feed.",
     contractChange:
-      "An orchestration event stream, or an explicit `updated_at`-based poll contract the surface can honestly label as polled.",
+      "An authenticated event stream or durable push-based event cursor for worker and run updates.",
   },
 ];
 
@@ -75,6 +63,8 @@ export function WeaverOrchestration() {
   return (
     <div data-testid="weaver-orchestration">
       <ApprovalLedger />
+
+      <CanvasOrchestration />
 
       <LabWorkLoop />
 
@@ -87,9 +77,8 @@ export function WeaverOrchestration() {
           Not published by the contracts
         </p>
         <p className="mb-4 text-xs text-white/40">
-          These orchestration dimensions have no contract behind them. They are shown as
-          unavailable rather than as an empty list, because "the substrate does not record this" and
-          "there are none" are different facts.
+          Live worker telemetry remains unavailable because no event transport is served. The
+          canvas above is a manually refreshed snapshot; it does not imply that a worker is live.
         </p>
         <ul className="flex flex-col gap-3">
           {UNAVAILABLE_DIMENSIONS.map((item) => (

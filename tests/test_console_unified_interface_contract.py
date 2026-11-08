@@ -473,12 +473,34 @@ def _fabricated_worker_rosters(source: str) -> list[str]:
 def test_weaver_composes_real_read_models_and_declares_the_gaps():
     """Weaver surfaces real state and names what the contracts do not publish."""
     weaver = (SRC / "components" / "weaver" / "WeaverOrchestration.tsx").read_text(encoding="utf-8")
-    for component in ("ApprovalLedger", "LabWorkLoop", "LabSessionList", "LabAgentRegistry"):
+    for component in ("ApprovalLedger", "CanvasOrchestration", "LabWorkLoop", "LabSessionList", "LabAgentRegistry"):
         assert f"<{component}" in weaver, f"Weaver does not compose the existing {component}"
+    canvas = (SRC / "components" / "weaver" / "CanvasOrchestration.tsx").read_text(encoding="utf-8")
+    assert 'endpoints.canvas' in canvas and 'apiRequest<unknown>' in canvas, (
+        "the unified canvas must be read through the canonical endpoint registry and API client"
+    )
+    for field in ("dependencies", "subtasks", "retries", "threads", "updated_at", "read_only"):
+        assert field in canvas, f"the canvas consumer does not validate/render {field!r}"
+    assert "UNKNOWN" in canvas and "No dependency edges recorded" in canvas, (
+        "malformed responses and real empty collections must remain distinct"
+    )
+    assert "setInterval" not in canvas and "EventSource" not in canvas and "WebSocket(" not in canvas, (
+        "the canvas must not invent automatic polling or a transport the backend does not serve"
+    )
     # The unpublished dimensions are declared, not rendered as empty lists.
     assert "UNAVAILABLE_DIMENSIONS" in weaver, "Weaver declares no unavailable dimensions"
-    for dimension in ("Task dependencies", "Subtask decomposition", "Retry conditions"):
-        assert dimension in weaver, f"Weaver does not declare {dimension!r} as unavailable"
+    # AO-006 closed three of the four gaps at the contract level: the run record
+    # now publishes depends_on / subtasks / attempt / retryable and the unified
+    # canvas projects them. Declaring them unavailable would now be a false
+    # statement about the contracts, so the guard asserts the opposite: they are
+    # no longer declared, and the one remaining real gap (live telemetry) is.
+    for closed in ("Task dependencies", "Subtask decomposition", "Retry conditions"):
+        assert closed not in weaver, (
+            f"Weaver still declares {closed!r} unavailable, but AO-006 publishes it"
+        )
+    assert "Live worker telemetry" in weaver, (
+        "Weaver must still declare the live-telemetry gap it cannot close"
+    )
     # And it must not invent workers or live telemetry.
     assert _fabricated_worker_rosters(weaver) == [], (
         "Weaver declares a fabricated worker roster: " f"{_fabricated_worker_rosters(weaver)}"
@@ -495,6 +517,7 @@ def test_weaver_composes_real_read_models_and_declares_the_gaps():
 # legitimate polling in unrelated surfaces stays allowed.
 WEAVER_COMPOSED_COMPONENTS = (
     "components/weaver/WeaverOrchestration.tsx",
+    "components/weaver/CanvasOrchestration.tsx",
     "components/weaver/ApprovalLedger.tsx",
     "components/lab/LabWorkLoop.tsx",
     "components/lab/LabSessionList.tsx",
@@ -561,7 +584,7 @@ def test_polling_remains_allowed_outside_the_weaver_composition():
     # the guard above does not constrain it. This asserts the scope itself, so a
     # future edit cannot quietly widen the ban to the whole console.
     assert "components/weaver/WeaverOrchestration.tsx" in WEAVER_COMPOSED_COMPONENTS
-    assert len(WEAVER_COMPOSED_COMPONENTS) == 5
+    assert len(WEAVER_COMPOSED_COMPONENTS) == 6
     for relative in WEAVER_COMPOSED_COMPONENTS:
         assert relative.startswith(("components/weaver/", "components/lab/")), (
             "the no-polling guard must stay scoped to the Weaver composition"

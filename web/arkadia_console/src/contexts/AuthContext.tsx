@@ -19,7 +19,7 @@ import { apiRequest, ApiError, setApiAuthToken } from "../lib/apiClient";
 import { endpoints } from "../lib/endpoints";
 import {
   TEST_IDENTITY_ENABLED,
-  TEST_IDENTITY_SUBJECT,
+  testIdentitySubject,
   testIdentityToken,
 } from "../lib/testIdentity";
 import type { NodeProfile } from "../lib/types";
@@ -108,11 +108,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // It is NOT real Firebase authentication and NOT a production credential:
     // the token is unsigned and a production backend rejects it outright.
     if (TEST_IDENTITY_ENABLED) {
-      const token = testIdentityToken();
+      const subject = testIdentitySubject();
+      const token = testIdentityToken(subject);
       if (token) {
         setUser({
-          uid: TEST_IDENTITY_SUBJECT,
-          email: `${TEST_IDENTITY_SUBJECT}@test.invalid`,
+          uid: subject,
+          email: subject + "@test.invalid",
           displayName: "AO-005 Test Identity",
         });
         void fetchProfile(token).finally(() => setLoading(false));

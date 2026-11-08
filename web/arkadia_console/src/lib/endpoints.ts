@@ -42,6 +42,15 @@ export const endpoints = {
   labRepository: "/api/lab/engineering/repository",
   labEngineeringPr: "/api/lab/engineering/pr/{number}",
 
+  /**
+   * AO-006 — the Arkadia One canvas: one read over Engineering Lab, Arkana and
+   * Weaver. A projection over the canonical substrates, never a second store;
+   * every section is scoped to the authenticated subject. Read-only by
+   * construction, so no consequential act is reachable from it.
+   */
+  canvas: "/api/canvas",
+  canvasSurfaces: "/api/canvas/surfaces",
+
   solspireProjects: "/solspire/projects",
   solspireWorkspace: "/solspire/workspace",
   aisProfile: "/api/me/ais-profile",

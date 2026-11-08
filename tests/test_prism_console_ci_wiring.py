@@ -650,3 +650,34 @@ def test_authenticated_layout_installs_backend_runtime_before_starting_it():
     authenticated_run = steps[authenticated_index].get("run", "")
     assert "python -m uvicorn api.main:app" in authenticated_run
     assert "curl -sf http://127.0.0.1:8000/health" in authenticated_run
+    assert '--routes "/workspace,/arkana,/weaver,/engineering-lab"' in authenticated_run, (
+        "authenticated responsive coverage must include Weaver and the Engineering Lab mission workspace"
+    )
+    layout_harness = (ROOT / "web" / "arkadia_console" / "render_check_layout.py").read_text(encoding="utf-8")
+    assert '"/weaver": {' in layout_harness and "requires_canvas_readout" in layout_harness, (
+        "the layout harness must measure Weaver and require its authenticated canvas readout"
+    )
+    assert "weaver-canvas-readout" in layout_harness, (
+        "the Weaver browser gate must fail if the unified canvas does not hydrate"
+    )
+    assert '"/engineering-lab": {' in layout_harness and "requires_mission_workspace" in layout_harness, (
+        "the authenticated layout harness must measure the Engineering Lab mission workspace"
+    )
+    assert "mission-next-decision" in layout_harness, (
+        "the Engineering Lab layout gate must require the Mission Control next-decision panel"
+    )
+    assert "wait_for_authenticated_surface(page)" in layout_harness and "page.wait_for_function" in layout_harness, (
+        "authenticated layout measurements must wait for backend identity hydration, not capture the transient threshold"
+    )
+    assert "for route_index, route_path in enumerate(routes)" in layout_harness and "PopStateEvent('popstate')" in layout_harness, (
+        "authenticated surface measurements must traverse the SPA with one verified identity per viewport"
+    )
+    assert "wait_for_canvas_resolution(page)" in layout_harness and "weaverCanvasState" in layout_harness, (
+        "the Weaver browser gate must wait for a terminal API hydration state and report pending/failed state explicitly"
+    )
+    canvas_component = (
+        ROOT / "web" / "arkadia_console" / "src" / "components" / "weaver" / "CanvasOrchestration.tsx"
+    ).read_text(encoding="utf-8")
+    assert 'data-testid="weaver-canvas-state"' in canvas_component and "data-state={snapshot.state}" in canvas_component, (
+        "the Weaver surface must expose its real hydration state to browser acceptance, not infer readiness from mount"
+    )

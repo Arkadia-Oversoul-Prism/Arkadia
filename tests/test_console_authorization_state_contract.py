@@ -80,6 +80,22 @@ def test_state_classifier_covers_the_repair():
     assert 'if (error.kind === "AUTH_REQUIRED") return "auth-required";' in source
 
 
+def test_rate_limited_is_a_distinct_hydration_state():
+    source = _read(HOOK)
+    assert '| "rate-limited"' in source
+    assert 'if (error.kind === "RATE_LIMITED") return "rate-limited";' in source
+
+
+def test_rate_limit_copy_is_not_a_generic_read_failure():
+    source = _read(UI)
+    start = source.index('"rate-limited": {')
+    end = source.index('unavailable: {', start)
+    block = source[start:end]
+    assert "Rate limited" in block
+    assert "wait before retrying" in block.lower()
+    assert "not an empty result" in block.lower()
+
+
 def test_classifier_is_exported_for_direct_testing():
     # `stateFor` must be exported so a future DOM-level test can call it without a
     # render harness; a private classifier is only reachable through the hook.
