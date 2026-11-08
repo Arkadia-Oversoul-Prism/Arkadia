@@ -140,17 +140,23 @@ function parseCanvas(payload: unknown): CanvasProjection | null {
     return null;
   }
 
-  const dependencies = orchestration.dependencies;
-  const subtasks = orchestration.subtasks;
-  const retries = orchestration.retries;
+  const dependencyRows =
+    isRecordArray(orchestration.dependencies) && orchestration.dependencies.every(isDependency)
+      ? (orchestration.dependencies as CanvasDependency[])
+      : null;
+  const subtaskRows =
+    isRecordArray(orchestration.subtasks) && orchestration.subtasks.every(isSubtask)
+      ? (orchestration.subtasks as CanvasSubtask[])
+      : null;
+  const retryRows =
+    isRecordArray(orchestration.retries) && orchestration.retries.every(isRetry)
+      ? (orchestration.retries as CanvasRetry[])
+      : null;
   const poll = orchestration.poll;
   if (
-    !isRecordArray(dependencies) ||
-    !dependencies.every(isDependency) ||
-    !isRecordArray(subtasks) ||
-    !subtasks.every(isSubtask) ||
-    !isRecordArray(retries) ||
-    !retries.every(isRetry) ||
+    dependencyRows === null ||
+    subtaskRows === null ||
+    retryRows === null ||
     !isRecord(poll) ||
     poll.mode !== "poll" ||
     poll.cursor_field !== "updated_at" ||
@@ -168,9 +174,9 @@ function parseCanvas(payload: unknown): CanvasProjection | null {
       sessions: weaverSessions,
       runs,
       orchestration: {
-        dependencies,
-        subtasks,
-        retries,
+        dependencies: dependencyRows,
+        subtasks: subtaskRows,
+        retries: retryRows,
         poll: {
           mode: "poll",
           cursor_field: "updated_at",
