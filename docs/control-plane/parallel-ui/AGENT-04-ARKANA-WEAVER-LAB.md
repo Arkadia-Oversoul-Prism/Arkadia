@@ -226,3 +226,33 @@ polarity. Node count is unchanged at 15 — this binds a control, it adds none.
 Lane 4's next bounded PR opens only after this one merges. Merge, production deployment and
 acceptance remain human-only.
 
+
+## Status — 2026-11-08 (LANE 4: Lab resume control integrity, no active PR declared)
+
+**Active branch:** `feat/prism-l4-lab-resume-control-integrity-01` (recorded for provenance only).
+**Active PR:** none declared — the snapshot below is the judge.
+
+A lane PR cannot declare itself open at merge time: the merge that lands it closes it. This
+section therefore declares no active PR and leaves the lane's status to the derived snapshot,
+the convention #638/#639/#641 set for lanes 3 and 4.
+
+Lane 4's next bounded slice, opened from freshly fetched `main` `e07ee81e` under
+`11 — LANE NEW-PR AUTHORIZATION`. It is the same defect class #631/#634/#636/#637 (Lane 1),
+#635/#640 (Lane 2), #638 (Lane 3) and #639/#641 (Lane 4) repaired, in the Lab mission-workspace
+guard those passes did not reach.
+
+**Objective.** Bind the orphaned detector `_resume_reconstructs_authorization` in
+`tests/test_lab_mission_workspace_contract.py` to the live assertion it exists for.
+
+Measured at `main` `e07ee81e` with AST-scoped mutation: neutering the detector body
+(`return False`, `return True`, `return None`) reddened **only** the control node
+`test_negative_control_resume_detector_flags_a_reconstructed_authorization` and **no live node**.
+The live node that states the same property, `test_resume_never_reconstructs_an_authorization`,
+restates it inline (`assert "setAuthorization" not in body`), so the detector was guarded by a
+node labelled as a control and by nothing else.
+
+The live node now also asserts `not _resume_reconstructs_authorization(workspace)`. Node count is
+unchanged at 29 — this binds a control, it adds none.
+
+Lane 4's next bounded PR opens only after this one merges. Merge, production deployment and
+acceptance remain human-only.

@@ -295,6 +295,13 @@ def test_resume_never_reconstructs_an_authorization():
     assert "setAuthorization" not in body, (
         "resume must not reconstruct an authorization; no route can read one back"
     )
+    # The same property through `_resume_reconstructs_authorization` — the
+    # detector the file's own control is written against. Without this call the
+    # detector is reached only by its control, so weakening the shared detector
+    # reddens nothing but a node labelled a control.
+    assert not _resume_reconstructs_authorization(workspace), (
+        "the resume path reconstructs an authorization it cannot have read"
+    )
     assert "applySessionView(view)" in body and "getSessionView" in body, (
         "resume must apply the session view re-read from the server"
     )
