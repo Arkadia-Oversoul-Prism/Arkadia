@@ -101,21 +101,22 @@ function isRetry(value: JsonRecord): value is JsonRecord & CanvasRetry {
 
 /** Return null for a malformed response; never turn a missing collection into zero. */
 function parseCanvas(payload: unknown): CanvasProjection | null {
-  if (!isRecord(payload) || payload.read_only !== true || !Array.isArray(payload.surfaces)) {
-    return null;
-  }
+  if (!isRecord(payload) || payload.read_only !== true) return null;
+  const surfaces = payload.surfaces;
+  const sections = payload.sections;
   const expectedSurfaces = ["engineering-lab", "arkana", "weaver"];
   if (
-    payload.surfaces.length !== expectedSurfaces.length ||
-    !expectedSurfaces.every((surface, index) => payload.surfaces[index] === surface) ||
-    !isRecord(payload.sections)
+    !Array.isArray(surfaces) ||
+    surfaces.length !== expectedSurfaces.length ||
+    !expectedSurfaces.every((surface, index) => surfaces[index] === surface) ||
+    !isRecord(sections)
   ) {
     return null;
   }
 
-  const lab = payload.sections["engineering-lab"];
-  const arkana = payload.sections.arkana;
-  const weaver = payload.sections.weaver;
+  const lab = sections["engineering-lab"];
+  const arkana = sections.arkana;
+  const weaver = sections.weaver;
   if (!isRecord(lab) || !isRecord(arkana) || !isRecord(weaver)) return null;
 
   const labSessions = lab.sessions;
