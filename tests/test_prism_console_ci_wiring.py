@@ -669,3 +669,6 @@ def test_authenticated_layout_installs_backend_runtime_before_starting_it():
     assert "wait_for_authenticated_surface(page)" in layout_harness and "page.wait_for_function" in layout_harness, (
         "authenticated layout measurements must wait for backend identity hydration, not capture the transient threshold"
     )
+    assert "for route_index, route_path in enumerate(routes)" in layout_harness and "PopStateEvent('popstate')" in layout_harness, (
+        "authenticated surface measurements must traverse the SPA with one verified identity per viewport"
+    )

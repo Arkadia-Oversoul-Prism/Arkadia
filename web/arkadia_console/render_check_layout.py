@@ -405,23 +405,51 @@ def main() -> int:
 
     with sync_playwright() as p:
         browser = p.chromium.launch()
-        for route_path in routes:
-            route = ROUTES[route_path]
-            for vp in VIEWPORTS:
-                ctx_args = {"viewport": {"width": vp["width"], "height": vp["height"]}}
-                if vp.get("dpr"):
-                    ctx_args["device_scale_factor"] = vp["dpr"]
-                if vp.get("touch"):
-                    ctx_args["has_touch"] = True
-                    ctx_args["is_mobile"] = True
-                ctx = browser.new_context(**ctx_args)
-                page = ctx.new_page()
-                page_errors: list[str] = []
-                page.on("pageerror", lambda e: page_errors.append(str(e)[:200]))
-                page.add_init_script(INSTALL_MUTATION_COUNTER)
-                page.goto(f"{base}{route_path}", wait_until="networkidle")
-                if args.require_authenticated:
-                    wait_for_authenticated_surface(page)
+        # One verified identity per viewport. Protected surfaces are then
+        # traversed through the same SPA router, as a real operator would do.
+        # Re-minting/fetching the same disposable identity for every route made
+        # the last route depend on repeated backend profile hydration rather
+        # than on the surface being measured.
+        for vp in VIEWPORTS:
+            ctx_args = {"viewport": {"width": vp["width"], "height": vp["height"]}}
+            if vp.get("dpr"):
+                ctx_args["device_scale_factor"] = vp["dpr"]
+            if vp.get("touch"):
+                ctx_args["has_touch"] = True
+                ctx_args["is_mobile"] = True
+            ctx = browser.new_context(**ctx_args)
+            page = ctx.new_page()
+            page_errors: list[str] = []
+            page.on("pageerror", lambda e: page_errors.append(str(e)[:200]))
+            page.add_init_script(INSTALL_MUTATION_COUNTER)
+
+            for route_index, route_path in enumerate(routes):
+                route = ROUTES[route_path]
+                if args.require_authenticated and route_index > 0:
+                    # Keep AuthProvider mounted while the canonical router
+                    # resolves the next protected surface.
+                    page.evaluate(
+                        "(path) => { window.history.pushState({}, '', path); window.dispatchEvent(new PopStateEvent('popstate')); }",
+                        route_path,
+                    )
+                    page.wait_for_function(
+                        """(args) => location.pathname === args.path
+                            && !document.querySelector('[data-testid="auth-threshold-signin"]')
+                            && Boolean(document.querySelector(args.selector))""",
+                        arg={"path": route_path, "selector": route["workspace"]},
+                        timeout=20_000,
+                    )
+                else:
+                    page.goto(f"{base}{route_path}", wait_until="networkidle")
+                    if args.require_authenticated:
+                        wait_for_authenticated_surface(page)
+                        page.wait_for_function(
+                            """(selector) => !document.querySelector('[data-testid="auth-threshold-signin"]')
+                                && Boolean(document.querySelector(selector))""",
+                            arg=route["workspace"],
+                            timeout=20_000,
+                        )
+
                 # Let the mount settle, then read the mutation count. A loop
                 # keeps mutating through this window and blows the bound.
                 page.wait_for_timeout(1500)
@@ -429,6 +457,7 @@ def main() -> int:
                 failures = check(metrics, vp, route, args.require_authenticated)
                 if page_errors:
                     failures.append(f"page errors: {page_errors[:3]}")
+                    page_errors.clear()
                 slug = route_path.strip("/").replace("/", "_") or "root"
                 shot = OUT / f"{slug}_{vp['name']}.png"
                 page.screenshot(path=str(shot), full_page=False)
@@ -444,7 +473,7 @@ def main() -> int:
                     }
                 )
                 all_failures.extend(f"{route_path} {vp['name']}: {f}" for f in failures)
-                ctx.close()
+            ctx.close()
         browser.close()
 
     report = {
