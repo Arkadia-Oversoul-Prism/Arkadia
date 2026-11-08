@@ -477,8 +477,18 @@ def test_weaver_composes_real_read_models_and_declares_the_gaps():
         assert f"<{component}" in weaver, f"Weaver does not compose the existing {component}"
     # The unpublished dimensions are declared, not rendered as empty lists.
     assert "UNAVAILABLE_DIMENSIONS" in weaver, "Weaver declares no unavailable dimensions"
-    for dimension in ("Task dependencies", "Subtask decomposition", "Retry conditions"):
-        assert dimension in weaver, f"Weaver does not declare {dimension!r} as unavailable"
+    # AO-006 closed three of the four gaps at the contract level: the run record
+    # now publishes depends_on / subtasks / attempt / retryable and the unified
+    # canvas projects them. Declaring them unavailable would now be a false
+    # statement about the contracts, so the guard asserts the opposite: they are
+    # no longer declared, and the one remaining real gap (live telemetry) is.
+    for closed in ("Task dependencies", "Subtask decomposition", "Retry conditions"):
+        assert closed not in weaver, (
+            f"Weaver still declares {closed!r} unavailable, but AO-006 publishes it"
+        )
+    assert "Live worker telemetry" in weaver, (
+        "Weaver must still declare the live-telemetry gap it cannot close"
+    )
     # And it must not invent workers or live telemetry.
     assert _fabricated_worker_rosters(weaver) == [], (
         "Weaver declares a fabricated worker roster: " f"{_fabricated_worker_rosters(weaver)}"

@@ -185,9 +185,31 @@ class AgentRun:
     result_state: str | None = None
     evidence_refs: tuple[str, ...] = ()
     artifact_refs: tuple[str, ...] = ()
+    # -- AO-006: the four orchestration dimensions Weaver declared unpublished --
+    #
+    # Weaver's orchestration surface refused to render task dependencies, subtask
+    # decomposition, retry conditions and a poll contract because no Lab record
+    # published them. These fields publish them from the substrate that already
+    # knows the answer, so the surface can stop declaring a gap:
+    #
+    #   depends_on  the run(s) this run was sequenced after in its session. A
+    #               session is a sequential chain, so the edge is real, not
+    #               inferred from timestamps.
+    #   subtasks    the bounded operations the run was asked to perform, each
+    #               with its own observed state. The decomposition is the task's
+    #               own operation set -- never a fabricated plan.
+    #   attempt     the 1-based attempt number for this objective in this
+    #               session, so a retry is a fact rather than a guess.
+    #   retryable   whether the substrate's own policy permits another attempt,
+    #               with the policy reference that decided it.
+    depends_on: tuple[str, ...] = ()
+    subtasks: tuple[dict[str, Any], ...] = ()
+    attempt: int = 1
+    retryable: bool = False
+    retry_policy: str = ""
     created_at: str = field(default_factory=utc_now)
     updated_at: str = field(default_factory=utc_now)
-    schema_version: str = "1"
+    schema_version: str = "2"
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -200,6 +222,11 @@ class AgentRun:
             "result_state": self.result_state,
             "evidence_refs": list(self.evidence_refs),
             "artifact_refs": list(self.artifact_refs),
+            "depends_on": list(self.depends_on),
+            "subtasks": [dict(s) for s in self.subtasks],
+            "attempt": self.attempt,
+            "retryable": self.retryable,
+            "retry_policy": self.retry_policy,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
             "schema_version": self.schema_version,

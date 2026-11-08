@@ -2131,6 +2131,11 @@ app.include_router(_loop_router)
 from api.economic_seam_routes import router as _economic_seam_router
 app.include_router(_economic_seam_router)
 
+# ── AO-006 Arkadia One canvas (one read over Lab + Arkana + Weaver) ──────────
+# Extracted to api/canvas_routes.py to hold the 2600-line budget on this file.
+from api.canvas_routes import router as _canvas_router
+app.include_router(_canvas_router)
+
 
 # ── Tools ─────────────────────────────────────────────────────────────────────
 

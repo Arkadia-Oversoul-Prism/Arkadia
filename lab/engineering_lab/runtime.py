@@ -74,6 +74,99 @@ WRITE_OPERATIONS: frozenset[str] = frozenset({"write"})
 #: authorization names ``test``. It never widens the L1 terminal grammar.
 TEST_OPERATIONS: frozenset[str] = frozenset({TEST_OPERATION})
 
+#: AO-006 — the retry policy the substrate actually applies, published on every
+#: run so a surface can render "retryable" as a decision with a named rule
+#: instead of a guess.
+#:
+#: Retryability is *computed from the state machine*, not asserted. A run is
+#: retryable only when the session can legally reach a state that
+#: ``execute_bounded_task`` accepts (``AUTHORIZED`` or ``QUEUED``). Measured on
+#: this revision, ``REVISION_REQUIRED`` can reach ``RUNNING`` but never
+#: ``AUTHORIZED``/``QUEUED``, so no run is currently retryable — and the policy
+#: string says exactly that rather than promising a retry the API would refuse.
+#: When a re-authorization edge is added to ``LEGAL_TRANSITIONS``, this function
+#: starts reporting ``retryable: true`` with no change here.
+RETRY_POLICY_REF: str = "AEAS-5/REVISION_REQUIRED"
+RETRYABLE_RUN_STATES: frozenset[str] = frozenset({"BLOCKED", "FAILED"})
+NON_RETRYABLE_RESULT_STATES: frozenset[str] = frozenset({"BOUNDARY_REFUSED"})
+#: The session states ``execute_bounded_task`` accepts. Kept beside the policy so
+#: the two cannot drift: the retry decision is derived from this set.
+EXECUTABLE_SESSION_STATES: frozenset[str] = frozenset({"AUTHORIZED", "QUEUED"})
+
+
+def _reachable_states(start: str) -> set[str]:
+    """Every session state reachable from *start* through legal transitions."""
+    from .contracts import LEGAL_TRANSITIONS
+
+    seen: set[str] = {start}
+    frontier = [start]
+    while frontier:
+        current = frontier.pop()
+        for nxt in LEGAL_TRANSITIONS.get(current, frozenset()):
+            if nxt not in seen:
+                seen.add(nxt)
+                frontier.append(nxt)
+    return seen
+
+
+def _retry_decision(
+    state: str, result_state: str | None, session_state: str | None = None
+) -> tuple[bool, str]:
+    """Whether the substrate's policy permits another attempt, and why.
+
+    Returns ``(retryable, policy_ref)``. A boundary refusal is never retryable:
+    the grant, not the work, is what failed, and a retry would be an attempt to
+    widen authority rather than to redo the work.
+
+    When *session_state* is supplied the decision is derived from the state
+    machine: a retry is only possible if an executable state is reachable from
+    where the session now stands. Without it the decision falls back to the
+    run-state rule, which is the weaker claim and is labelled as such.
+    """
+    if (result_state or "") in NON_RETRYABLE_RESULT_STATES:
+        return False, f"{RETRY_POLICY_REF}:boundary-refusal"
+    if state not in RETRYABLE_RUN_STATES:
+        return False, f"{RETRY_POLICY_REF}:terminal"
+    if session_state is None:
+        return True, f"{RETRY_POLICY_REF}:run-state-only"
+    if _reachable_states(session_state) & EXECUTABLE_SESSION_STATES:
+        return True, RETRY_POLICY_REF
+    return False, f"{RETRY_POLICY_REF}:no-reauthorization-path"
+
+
+def _subtask_records(
+    operations: tuple["BoundedOperation", ...],
+    observations: list[dict[str, Any]] | None = None,
+) -> tuple[dict[str, Any], ...]:
+    """The run's real decomposition: one subtask per bounded operation.
+
+    The decomposition is the task's own operation set — the substrate never
+    invents a plan. When observations are supplied (after execution) each
+    subtask carries the state that operation actually reached; before execution
+    every subtask is ``PENDING``, which is a distinct state from "succeeded".
+    """
+    observed = observations or []
+    records: list[dict[str, Any]] = []
+    for index, op in enumerate(operations):
+        record: dict[str, Any] = {
+            "id": f"SUB-{index + 1}",
+            "index": index,
+            "kind": op.kind,
+            "target": op.target,
+            "description": op.description,
+            "state": "PENDING",
+        }
+        if index < len(observed):
+            result = observed[index] or {}
+            if result.get("error"):
+                record["state"] = "FAILED"
+            elif result.get("ok"):
+                record["state"] = "SUCCEEDED"
+            else:
+                record["state"] = "UNKNOWN"
+        records.append(record)
+    return tuple(records)
+
 
 @dataclass(frozen=True)
 class BoundedOperation:
@@ -386,6 +479,16 @@ class EngineeringLabRuntime:
         agent = self._find_agent(subject_ref, session["agent_id"])
         run_id = f"RUN-{uuid.uuid4().hex[:12]}"
 
+        # AO-006 — publish the run's real position in the session chain and its
+        # real decomposition. A session is a sequential chain, so the dependency
+        # edge is the previous run in this session, not an inferred timestamp
+        # ordering. The attempt number counts prior runs of the same objective.
+        prior_runs = self._store.list_runs(session_id, subject_ref)
+        depends_on = (prior_runs[-1]["run_id"],) if prior_runs else ()
+        attempt = 1 + sum(
+            1 for r in prior_runs if r.get("objective") == task.objective
+        )
+
         # --- PLAN ------------------------------------------------------------
         plan = {
             "task": task.to_dict(),
@@ -401,6 +504,9 @@ class EngineeringLabRuntime:
             objective=task.objective,
             subject_ref=subject_ref,
             plan=plan,
+            depends_on=depends_on,
+            subtasks=_subtask_records(task.operations),
+            attempt=attempt,
         )
         self._store.create_run(run)
         self._emit(subject_ref, session_id, "PLAN_PRODUCED", plan, run_id=run_id)
@@ -507,6 +613,7 @@ class EngineeringLabRuntime:
             summary=f"bounded task reached review boundary: {task.objective}",
             evidence_refs=(evidence.evidence_id,),
             artifact_refs=tuple(a["artifact_id"] for a in artifacts),
+            subtasks=_subtask_records(task.operations, observations),
         )
 
     # -- EL-10: operational surface ------------------------------------------
@@ -579,11 +686,14 @@ class EngineeringLabRuntime:
                                 summary=f"sandbox unavailable: {exc}")
 
         run_id = f"RUN-{uuid.uuid4().hex[:12]}"
+        prior_runs = self._store.list_runs(session_id, subject_ref)
         run = AgentRun(
             run_id, session_id, session["agent_id"], "RUNNING", objective, subject_ref,
             plan={"loop_stage": "MODEL", "objective": objective,
                   "provider": provider, "model": model or "(selected)",
                   "effective_tools": list(effective)},
+            depends_on=(prior_runs[-1]["run_id"],) if prior_runs else (),
+            attempt=1 + sum(1 for r in prior_runs if r.get("objective") == objective),
         )
         self._store.create_run(run)
         self._emit(subject_ref, session_id, "RUN_STARTED",
@@ -891,16 +1001,34 @@ class EngineeringLabRuntime:
         summary: str,
         evidence_refs: tuple[str, ...] = (),
         artifact_refs: tuple[str, ...] = (),
+        subtasks: tuple[dict[str, Any], ...] | None = None,
     ) -> dict[str, Any]:
-        self._store.update_run(
-            run_id, subject_ref, state=state, result_state=result_state,
-            evidence_refs=list(evidence_refs), artifact_refs=list(artifact_refs),
-        )
         # Advance the session through the canonical AEAS state chain rather than
         # collapsing states. A successful run ends READY_FOR_REVIEW; a failed
         # run ends BLOCKED. Neither is COMPLETED — that is a human act.
         target = "READY_FOR_REVIEW" if state != "BLOCKED" else "BLOCKED"
         self._advance(session_id, subject_ref, target)
+        # AO-006 / S1 — the retry decision is taken *after* the advance, from the
+        # state the session actually reached, so the persisted `retryable` is a
+        # fact about where the session now stands rather than a prediction made
+        # before the transition. Reading it before `_advance` measured the
+        # pre-advance state, which is the wrong side of the transition the
+        # decision is about.
+        session_after = self._store.get_session(session_id, subject_ref)
+        retryable, retry_policy = _retry_decision(
+            state, result_state, (session_after or {}).get("state")
+        )
+        update: dict[str, Any] = {
+            "state": state,
+            "result_state": result_state,
+            "evidence_refs": list(evidence_refs),
+            "artifact_refs": list(artifact_refs),
+            "retryable": retryable,
+            "retry_policy": retry_policy,
+        }
+        if subtasks is not None:
+            update["subtasks"] = [dict(s) for s in subtasks]
+        self._store.update_run(run_id, subject_ref, **update)
         self._emit(
             subject_ref, session_id, "RUN_FINISHED",
             {"run_id": run_id, "state": state, "result_state": result_state},

@@ -20,11 +20,19 @@
  *      live telemetry. There is no SSE/WebSocket transport for orchestration in
  *      this console, so nothing here claims to be live.
  *
- * The unavailable dimensions are not a UI gap to be papered over: they are a
- * contract gap. `api/lab_routes.py` and `lab/engineering_lab/runtime.py` publish
- * no dependency graph, no subtask decomposition and no retry-condition field, so
- * the smallest honest thing the console can do is say so and name the contract
- * change that would close it.
+ * AO-006 closed three of those four gaps at the contract level: the run record
+ * now publishes `depends_on`, `subtasks`, `attempt` and `retryable`, and the
+ * unified canvas (`/api/canvas`) projects them together with an explicit
+ * `updated_at`-based poll contract. Those three dimensions are therefore no
+ * longer declared unavailable here — they are read from the canvas. The one
+ * remaining declaration is live worker telemetry, which is still a real gap:
+ * no SSE/WebSocket orchestration transport is served, so the surface labels the
+ * read as polled rather than live.
+ *
+ * The frontend wiring of the canvas sections into this component is declared
+ * deferred in the AO-006 PR body: the backend contract and its guard land here,
+ * and the surface consumes them in the follow-up. Until then this component
+ * keeps its existing real read models and declares only the telemetry gap.
  */
 import { Panel } from "../ui";
 import { ApprovalLedger } from "./ApprovalLedger";
@@ -41,27 +49,6 @@ import { LabAgentRegistry } from "../lab/LabAgentRegistry";
  * state from "empty" and from "unknown".
  */
 const UNAVAILABLE_DIMENSIONS: Array<{ dimension: string; reason: string; contractChange: string }> = [
-  {
-    dimension: "Task dependencies",
-    reason:
-      "No Lab or Weaver contract publishes a dependency edge between tasks or runs. A session view returns runs, events, evidence and artifacts — not a graph.",
-    contractChange:
-      "A `depends_on: string[]` field on the run record in the session view, or a dedicated `/engineering/sessions/{id}/dependencies` read.",
-  },
-  {
-    dimension: "Subtask decomposition",
-    reason:
-      "A run is the smallest unit the substrate records. There is no subtask record, so a per-subtask progress view would be invented.",
-    contractChange:
-      "A `subtasks: [{id, state, objective}]` array on the run record, written by the runtime as it decomposes work.",
-  },
-  {
-    dimension: "Retry conditions",
-    reason:
-      "The runtime records a run's terminal `state` and `result_state`, but not a retry counter or the condition that would permit a retry.",
-    contractChange:
-      "`attempt: number` and `retryable: boolean` on the run record, plus the policy reference that decided it.",
-  },
   {
     dimension: "Live worker telemetry",
     reason:

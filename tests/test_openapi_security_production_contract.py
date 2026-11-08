@@ -67,7 +67,26 @@ def test_all_composed_operations_have_adjudicated_security_boundaries():
     assert stream_op, "the A2 SSE resonance stream is no longer served"
     assert stream_op.get("x-arkadia-auth-boundary", {}).get("classification") == "optional_firebase_bearer"
     assert stream_op.get("security") == [{"FirebaseBearer": []}, {}]
-    assert len(operations) == 333, f"Expected captured 333-operation inventory; got {len(operations)}"
+    # Inventory 333 -> 336 is the same reviewable act for AO-006 (issue #590):
+    # the Arkadia One canvas mounted three read-only operations on the
+    # composition root in `api/canvas_routes.py`. Each is named here for the
+    # same reason as the entries above, so the count cannot drift onto an
+    # operation nobody adjudicated.
+    canvas_ops = {
+        ("get", "/api/canvas"): "firebase_bearer",
+        ("get", "/api/canvas/surfaces"): "firebase_bearer",
+        ("get", "/api/canvas/sessions/{session_id}"): "firebase_bearer",
+    }
+    for (method, path), classification in canvas_ops.items():
+        op = schema["paths"].get(path, {}).get(method, {})
+        assert op, f"the AO-006 canvas operation {method.upper()} {path} is no longer served"
+        assert op.get("x-arkadia-auth-boundary", {}).get("classification") == classification, (
+            f"{method.upper()} {path} boundary drifted from {classification!r}"
+        )
+        assert op.get("security") == [{"FirebaseBearer": []}], (
+            f"{method.upper()} {path} must require the Firebase bearer"
+        )
+    assert len(operations) == 336, f"Expected captured 336-operation inventory; got {len(operations)}"
     assert "FirebaseBearer" in schema["components"]["securitySchemes"]
     assert "SovereignKeyHeader" in schema["components"]["securitySchemes"]
     assert "GitHubWebhookHMAC" in schema["components"]["securitySchemes"]
