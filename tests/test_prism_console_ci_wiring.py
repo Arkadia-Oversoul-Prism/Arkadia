@@ -666,3 +666,6 @@ def test_authenticated_layout_installs_backend_runtime_before_starting_it():
     assert "mission-next-decision" in layout_harness, (
         "the Engineering Lab layout gate must require the Mission Control next-decision panel"
     )
+    assert "wait_for_authenticated_surface(page)" in layout_harness and "page.wait_for_function" in layout_harness, (
+        "authenticated layout measurements must wait for backend identity hydration, not capture the transient threshold"
+    )

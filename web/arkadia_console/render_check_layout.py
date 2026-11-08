@@ -51,7 +51,7 @@ import sys
 import threading
 from pathlib import Path
 
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError, sync_playwright
 
 HERE = Path(__file__).resolve().parent
 DIST = HERE / "dist"
@@ -341,6 +341,27 @@ def check(metrics: dict, viewport: dict, route: dict, require_authenticated: boo
     return failures
 
 
+def wait_for_authenticated_surface(page) -> None:
+    """Wait for the disposable identity to finish backend verification.
+
+    The banner is present as soon as the test seam is enabled; it does not mean
+    the backend has accepted the token yet. Measuring immediately after
+    networkidle can therefore capture the transient sign-in threshold as if
+    it were the final protected-route render. Wait for the threshold to clear,
+    but retain the page if it times out so check() records the explicit
+    authentication failure and the screenshot/metrics remain available.
+    """
+    try:
+        page.wait_for_function(
+            """() => Boolean(document.querySelector('[data-testid=\"test-identity-banner\"]'))
+                && !document.querySelector('[data-testid=\"auth-threshold-signin\"]')""",
+            timeout=20_000,
+        )
+    except PlaywrightTimeoutError:
+        # The acceptance checks below report the missing authenticated render.
+        pass
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -399,6 +420,8 @@ def main() -> int:
                 page.on("pageerror", lambda e: page_errors.append(str(e)[:200]))
                 page.add_init_script(INSTALL_MUTATION_COUNTER)
                 page.goto(f"{base}{route_path}", wait_until="networkidle")
+                if args.require_authenticated:
+                    wait_for_authenticated_surface(page)
                 # Let the mount settle, then read the mutation count. A loop
                 # keeps mutating through this window and blows the bound.
                 page.wait_for_timeout(1500)
