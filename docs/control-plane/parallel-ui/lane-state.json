@@ -1,7 +1,7 @@
 {
  "schema": "arkadia.lane-state/1.2",
- "observed_at": "2026-11-09T01:22:47Z",
- "base_main": "24f0c9e1a295b1578720879cdaf0812193543709",
+ "observed_at": "2026-11-09T05:19:08Z",
+ "base_main": "327187d23c7e4ad32efc61aed91f912de084e07d",
  "source": "GitHub REST reads API (Arkadia-Oversoul-Prism/Arkadia), read-only, derived by scripts/lane_state_refresh.py",
  "note": "Machine-readable mirror of the four Prism UI lane threads, DERIVED from live PR state rather than hand-transcribed. Lane assignment is by exclusive path ownership (SHARED-CONTRACTS.md section 1); a PR touching more than one lane's owned paths appears in each. scripts/lane_state.py judges the docs against this file; --verify-live additionally requires every claimed-open PR to be authoritatively open. Refresh with scripts/lane_state_refresh.py --write.",
  "lanes": {
@@ -118,7 +118,16 @@
    "doc_guard": "idle"
   }
  },
- "unassigned_open_prs": [],
+ "unassigned_open_prs": [
+  {
+   "number": 650,
+   "branch": "feat/prism-l3-knowledge-status-control-binding-03",
+   "head_sha": "184a681cb76330a43210dc580ab8f0e22e621a19",
+   "draft": true,
+   "updated_at": "2026-11-09T04:25:40Z",
+   "title": "Lane 3: bind the knowledge status-read controls to their detectors"
+  }
+ ],
  "closed_unmerged": [
   {
    "number": 499,
