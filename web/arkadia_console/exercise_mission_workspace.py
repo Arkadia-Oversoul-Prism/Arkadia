@@ -87,7 +87,8 @@ def main() -> int:
                 failures.append("protected Engineering Lab route remained at the sign-in threshold")
 
             scope = page.locator('[data-testid="mission-scope-preview"]').inner_text()
-            if "LOCAL DRAFT" not in scope or "Operation ceiling" not in scope:
+            normalized_scope = scope.casefold()
+            if "local draft" not in normalized_scope or "operation ceiling" not in normalized_scope:
                 failures.append("plain-language intent and scoped plan preview did not render")
 
             page.locator('[data-testid="mission-objective"]').fill(OBJECTIVE)
@@ -142,22 +143,40 @@ def main() -> int:
 
             # 4. Execute one read-only operation and inspect the server-returned evidence.
             with page.expect_response(
-                lambda response: response.request.method == "POST"
-                and urlparse(response.url).path.endswith("/execute")
-            ) as authorized_response_info:
-                page.locator('[data-testid="mission-execute"]').click()
-            authorized_response = authorized_response_info.value
+                lambda response: response.request.method == "GET"
+                and urlparse(response.url).path == f"/api/lab/engineering/sessions/{session_id}"
+            ) as session_view_info:
+                with page.expect_response(
+                    lambda response: response.request.method == "POST"
+                    and urlparse(response.url).path.endswith("/execute")
+                ) as authorized_response_info:
+                    page.locator('[data-testid="mission-execute"]').click()
+                authorized_response = authorized_response_info.value
+            session_view_response = session_view_info.value
+            session_view_payload = session_view_response.json()
+            session_view_session = session_view_payload.get("session", {})
+            session_view_runs = session_view_payload.get("runs", [])
+            session_view_evidence = session_view_payload.get("evidence", [])
+            session_view_events = session_view_payload.get("events", [])
+            if session_view_response.status != 200:
+                failures.append(f"canonical session-view read returned HTTP {session_view_response.status}")
+            if session_view_session.get("state") != "READY_FOR_REVIEW":
+                failures.append(f"canonical session view did not reach READY_FOR_REVIEW: {session_view_session.get('state')}")
+            if not session_view_runs or session_view_runs[-1].get("state") != "VERIFYING":
+                failures.append("canonical session view did not expose the VERIFYING run")
+            if not session_view_evidence:
+                failures.append("canonical session view did not expose the run evidence")
+            page.wait_for_selector('[data-testid="mission-run-id"]', timeout=20_000)
             page.wait_for_function(
-                """() => {
-                    const meta = document.querySelector('[data-testid="mission-session-meta"]')?.innerText || '';
-                    const run = document.querySelector('[data-testid="mission-run-id"]')?.textContent?.trim() || '';
-                    const trace = document.querySelector('[data-testid="lab-trace-runs"]');
-                    const evidence = document.querySelector('[data-testid="mission-evidence-ref"]')?.textContent?.trim() || '';
-                    const records = document.querySelector('[data-testid="mission-recorded-evidence"]')?.innerText || '';
-                    return meta.includes('READY_FOR_REVIEW') && Boolean(run) && Boolean(trace)
-                        && Boolean(evidence) && records.includes('Evidence records');
-                }""",
-                timeout=45_000,
+                """() => (document.querySelector('[data-testid="mission-session-meta"]')?.innerText || '')
+                    .includes('READY_FOR_REVIEW')""",
+                timeout=20_000,
+            )
+            page.wait_for_selector('[data-testid="lab-trace-runs"]', timeout=20_000)
+            page.wait_for_function(
+                """() => (document.querySelector('[data-testid="mission-recorded-evidence"]')?.innerText || '')
+                    .includes('Evidence records')""",
+                timeout=20_000,
             )
 
             run_id = page.locator('[data-testid="mission-run-id"]').inner_text().strip()
@@ -231,6 +250,12 @@ def main() -> int:
             evidence["trace_acceptance"] = "not recorded"
             evidence["api_execute_statuses"] = [item["status"] for item in execute_responses]
             evidence["preauthorization_refusal"] = preauth_response_body[:700]
+            evidence["canonical_session_view"] = {
+                "session_state": session_view_session.get("state"),
+                "run_states": [run.get("state") for run in session_view_runs],
+                "evidence_ids": [record.get("evidence_id") for record in session_view_evidence],
+                "event_types": [event.get("event_type") for event in session_view_events],
+            }
 
             flow_shot = OUT / "mission_flow.png"
             page.screenshot(path=str(flow_shot), full_page=True)
@@ -283,11 +308,29 @@ def main() -> int:
         failures.append(f"{type(exc).__name__}: {exc}")
         if page is not None:
             try:
+                selectors = {
+                    "scope_preview": '[data-testid="mission-scope-preview"]',
+                    "session_meta": '[data-testid="mission-session-meta"]',
+                    "mission_steps": '[data-testid="mission-steps"]',
+                    "run_id": '[data-testid="mission-run-id"]',
+                    "evidence_ref": '[data-testid="mission-evidence-ref"]',
+                    "trace_review": '[data-testid="mission-trace-review"]',
+                    "recorded_evidence": '[data-testid="mission-recorded-evidence"]',
+                    "backend_events": '[data-testid="mission-backend-events"]',
+                }
+                evidence["failure_dom"] = {
+                    key: page.locator(selector).inner_text(timeout=2_000)
+                    for key, selector in selectors.items()
+                    if page.locator(selector).count()
+                }
+            except Exception as diagnostic_error:
+                evidence["failure_dom_error"] = str(diagnostic_error)[:500]
+            try:
                 failure_shot = OUT / "mission_flow_failure.png"
-                page.screenshot(path=str(failure_shot), full_page=True)
+                page.screenshot(path=str(failure_shot), full_page=False, timeout=10_000)
                 evidence["screenshots"].append(str(failure_shot.relative_to(HERE)))
-            except Exception:
-                pass
+            except Exception as screenshot_error:
+                evidence["failure_screenshot_error"] = str(screenshot_error)[:500]
     finally:
         if context is not None:
             try:
