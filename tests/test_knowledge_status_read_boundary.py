@@ -225,45 +225,153 @@ def test_the_reader_refuses_a_body_missing_a_reading_block(contract_probe):
 
 
 # ---------------------------------------------------------------------------
+# Detectors — each bound to a live assertion *and* a negative control
+# ---------------------------------------------------------------------------
+#
+# The controls below previously restated their predicates inline: they asserted
+# facts about the probe they had just built, and each named no detector the live
+# assertion also called. A control that shares no predicate with the live
+# assertion cannot fail when that predicate is edited, so the "the oracle can
+# bite" property was carried only by inline expressions and by the name of the
+# node. The predicates now live in one place, and the live assertions and their
+# controls both call them.
+
+
+def _contract_refusal_defects(probe: dict) -> list[str]:
+    """Every boundary the status contract must refuse, measured through Node.
+
+    The reader either yields a validated reading or throws, so each boundary is a
+    *refusal* the module must perform: a 200 ``status: error`` envelope, a body
+    missing a reading block, and a non-object body. Accepting any of them is the
+    defect this guard exists for. A detector that reports unconditionally is
+    caught by the control's positive half.
+    """
+    defects: list[str] = []
+    if probe["error_envelope_validates"]:
+        defects.append("the 200 status:error envelope was accepted as a reading")
+    if probe["vault_missing_validates"]:
+        defects.append("a body missing a reading block was accepted")
+    if probe["empty_object_validates"] or probe["null_body_validates"]:
+        defects.append("a non-object body was accepted")
+    if not probe["healthy_validates"]:
+        defects.append("a healthy reading was refused")
+    return defects
+
+
+def _reader_wiring_defects(body: str) -> list[str]:
+    """The page's fetch wrapper must validate through the shared contract reader.
+
+    ``body`` is the ``readStatus`` function source. An unvalidated typed read
+    dereferences the handler's failure envelope, which is the defect this guard
+    exists for.
+    """
+    defects: list[str] = []
+    if "requireKnowledgeStatusReading(" not in body:
+        defects.append("readStatus does not validate through the shared contract reader")
+    if "apiRequest<KnowledgeStatus>" in body:
+        defects.append("readStatus performs an unvalidated typed read")
+    return defects
+
+
+def _blanket_refusal_defects(source: str) -> list[str]:
+    """A reader that refuses every body satisfies the defect assertion vacuously."""
+    if "return payload;" in source:
+        return []
+    return ["the reader never returns a validated reading"]
+
+
+def _naive_reader_defects(probe: dict) -> list[str]:
+    """A body-shape-blind reader must crash on the failure envelope."""
+    if probe["naive_reader_on_error_envelope"].startswith("threw:"):
+        return []
+    return ["a body-shape-blind reader did not crash on the failure envelope"]
+
+
+def _read_status_body() -> str:
+    page = (CONSOLE / "src" / "pages" / "KnowledgePage.tsx").read_text(encoding="utf-8")
+    return page[page.index("async function readStatus"): page.index("export function KnowledgePage")]
+
+
+def test_the_contract_module_refuses_every_failure_shape(contract_probe):
+    assert _contract_refusal_defects(contract_probe) == [], _contract_refusal_defects(contract_probe)
+
+
+def test_the_status_surface_routes_through_the_shared_reader():
+    assert _reader_wiring_defects(_read_status_body()) == [], _reader_wiring_defects(_read_status_body())
+
+
+def test_the_reader_is_not_a_blanket_refusal():
+    source = CONTRACT_TS.read_text(encoding="utf-8")
+    assert _blanket_refusal_defects(source) == [], _blanket_refusal_defects(source)
+
+
+def test_a_body_shape_blind_reader_crashes_on_the_failure_envelope(contract_probe):
+    assert _naive_reader_defects(contract_probe) == [], _naive_reader_defects(contract_probe)
+
+
+# ---------------------------------------------------------------------------
 # Negative controls
 # ---------------------------------------------------------------------------
 
 
-def test_negative_control_the_naive_reader_dereferences_the_error_envelope(contract_probe):
-    """Proves the oracle can bite: the pre-fix reader crashes on this very body.
+def test_negative_control_a_shape_blind_validator_is_reported(contract_probe):
+    """The pre-repair validator accepted every body it was handed."""
+    shape_blind = dict(contract_probe)
+    shape_blind.update(
+        error_envelope_validates=True,
+        vault_missing_validates=True,
+        empty_object_validates=True,
+        null_body_validates=True,
+    )
+    assert _contract_refusal_defects(shape_blind) != [], (
+        "a validator that accepts the failure envelope must be reported"
+    )
+    assert _contract_refusal_defects(contract_probe) == [], (
+        "the shipped module must not be reported"
+    )
 
-    The pre-fix page read ``status.data.vault.notes`` after only a status-code
-    check, which is what ``errorEnvelope.vault.notes`` reproduces. If this control
-    ever stops throwing, the defect's shape has moved and the guard is stale.
+
+def test_negative_control_a_blind_typed_read_is_reported():
+    """The pre-repair page read the status body through an unvalidated typed call."""
+    pre_repair = (
+        "async function readStatus(path: string): Promise<KnowledgeStatus> {\n"
+        "  return await apiRequest<KnowledgeStatus>(path);\n"
+        "}\n"
+    )
+    assert _reader_wiring_defects(pre_repair) != [], (
+        "an unvalidated typed read must be reported"
+    )
+    assert _reader_wiring_defects(_read_status_body()) == [], (
+        "the shipped readStatus must not be reported"
+    )
+
+
+def test_negative_control_a_blanket_refusal_is_reported():
+    """A reader that throws for every body is not the contract's reader."""
+    blanket = (
+        "export function requireKnowledgeStatusReading(payload: unknown): never {\n"
+        "  throw new Error('unrecognised');\n"
+        "}\n"
+    )
+    assert _blanket_refusal_defects(blanket) != [], (
+        "a reader that refuses every body must be reported"
+    )
+    assert _blanket_refusal_defects(CONTRACT_TS.read_text(encoding="utf-8")) == [], (
+        "the shipped reader must not be reported"
+    )
+
+
+def test_negative_control_a_reader_that_did_not_crash_is_reported(contract_probe):
+    """The pre-fix reader dereferenced ``vault.notes`` on the failure envelope.
+
+    If the naive read ever stops throwing, the defect's shape has moved and this
+    guard is stale -- so the *absence* of the crash is what the detector reports.
     """
-    assert contract_probe["naive_reader_on_error_envelope"] == "threw: TypeError", (
-        "a body-shape-blind reader must crash on the failure envelope; "
-        "the guard's oracle is otherwise unfalsifiable"
+    did_not_crash = dict(contract_probe)
+    did_not_crash["naive_reader_on_error_envelope"] = "RETURNED (defect)"
+    assert _naive_reader_defects(did_not_crash) != [], (
+        "a body-shape-blind reader that did not crash must be reported"
     )
-
-
-def test_negative_control_the_status_surface_routes_through_the_shared_reader():
-    """The page's fetch wrapper must call the validated reader, not read blindly.
-
-    Asserted structurally rather than by an exact literal, so a cosmetic rewrite
-    of the line cannot silently drop the guard: the seam is that ``readStatus``
-    validates its payload through the shared contract reader before returning it.
-    """
-    page = (CONSOLE / "src" / "pages" / "KnowledgePage.tsx").read_text(encoding="utf-8")
-    body = page[page.index("async function readStatus"): page.index("export function KnowledgePage")]
-    assert "requireKnowledgeStatusReading(" in body, (
-        "readStatus must validate the status body through the shared contract reader; "
-        "without it the page dereferences the handler's failure envelope"
-    )
-    assert "apiRequest<KnowledgeStatus>" not in body, (
-        "an unvalidated typed read is the defect this guard exists for"
-    )
-
-
-def test_negative_control_the_reader_is_not_a_blanket_refusal():
-    """A reader that rejected everything would pass the defect assertion vacuously."""
-    source = CONTRACT_TS.read_text(encoding="utf-8")
-    assert "return payload;" in source, (
-        "the reader must return a validated reading, or the guard could be satisfied "
-        "by a reader that refuses all bodies"
+    assert _naive_reader_defects(contract_probe) == [], (
+        "the shipped probe must show the crash"
     )

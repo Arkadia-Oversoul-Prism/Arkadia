@@ -165,3 +165,42 @@ Evidence: `docs/control-plane/evidence/lane3-knowledge-timeline-control-binding-
 
 Lane 3's next bounded PR opens only after this one merges. Merge, production deployment and
 acceptance remain human-only.
+
+## Status — 2026-11-09 (LANE 3: knowledge status-read control binding, no active PR declared)
+
+**Active branch:** `feat/prism-l3-knowledge-status-control-binding-03` (recorded for provenance only).
+**Active PR:** none declared — the snapshot below is the judge.
+
+A lane PR cannot declare itself open at merge time: the merge that lands it closes it. This
+section therefore declares no active PR and leaves the lane's status to the derived snapshot,
+the convention #638/#639/#641/#642/#643/#645/#646/#647/#649 set for lanes 3 and 4.
+
+Lane 3's next bounded slice, opened from freshly fetched `main` `9ba62a01` under
+`11 — LANE NEW-PR AUTHORIZATION`. Reconciliation was exhausted first (measured live: **0** open
+PRs repo-wide after #649 merged, all four lanes `doc_guard: idle`, `lane_state.py --check` exit
+0), so N1 holds.
+
+**Objective.** Bind the three `test_negative_control_*` nodes in
+`tests/test_knowledge_status_read_boundary.py` to the predicates the live assertions use.
+
+Each control restated its predicate inline and called no detector: the first asserted a probe
+value it had just built, the second was **orphaned** (its structural assertion had no live
+partner in the file), and the third restated a substring check of the contract module. A
+control that shares no predicate with a live assertion cannot fail when that predicate is
+edited. Measured at `main` `9ba62a01` by AST-scoped mutation of the live expression: neutering
+the live `readStatus` check left the live node green.
+
+Four module-level detectors now hold the predicates — `_contract_refusal_defects`,
+`_reader_wiring_defects`, `_blanket_refusal_defects` and `_naive_reader_defects` — and the live
+assertions and their controls both call them. Each control feeds its detector the pre-repair
+shape and asserts it is reported, **and** feeds it the live input and asserts it is *not*
+reported, so a detector that reports unconditionally cannot pass either. Node count 14 → 19
+(+4 live assertions that give the previously orphaned predicate a live partner, +1 control).
+
+The file is executed by the derived console-contract domain
+(`scripts/console_contract_domain.py`), so no new wiring is needed.
+
+Evidence: `docs/control-plane/evidence/lane3-knowledge-status-control-binding-01/EVIDENCE.md`.
+
+Lane 3's next bounded PR opens only after this one merges. Merge, production deployment and
+acceptance remain human-only.
