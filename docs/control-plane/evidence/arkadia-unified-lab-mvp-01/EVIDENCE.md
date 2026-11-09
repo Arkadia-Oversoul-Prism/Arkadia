@@ -1516,3 +1516,57 @@ No local checkout/test execution is claimed; verification above is from the name
 ### Next concrete step
 
 The CI repair is implementation-complete and ready for human review on PR #632. Await the human review/merge decision, then continue the next verified Engineering Lab MVP acceptance gap. This infrastructure repair does **not** by itself establish full Engineering Lab MVP acceptance.
+
+
+## DEA-01 — mission authorization gate and authenticated browser lifecycle — 2026-11-09
+
+### Existing bounded authorization/CI work — PR #653
+
+**PR:** [#653 — fix(lab): keep authorization labels and API gates truthful](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/653)  
+**Base/main:** `327187d23c7e4ad32efc61aed91f912de084e07d`  
+**Observed branch head:** `28aab09494b4063dc94fbdcab441b6639000a456`
+
+This existing PR makes the Mission Control wording match the endpoint's actual operation (Lab session authorization, not a separate `/api/approvals` ledger decision), corrects the Lab API boundary tests for the existing `require_lab_auth` wrapper and its narrow N-ATLaS public exceptions, and makes focused CP10-A Lab tests gating rather than `continue-on-error`.
+
+Fresh checks observed:
+
+- Prism Console Contract [run 42588937862](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/42588937862): **8 Vitest files / 61 tests passed**; TypeScript passed; Vite production build passed (169 modules); derived console-contract domain **1,150 passed in 48.56s**; CI-wiring guard **31 passed in 5.93s**.
+- Authenticated layout measurement passed for `/workspace`, `/arkana`, `/weaver`, and `/engineering-lab` at desktop 1440×900, tablet 1024×768 and mobile 390×844. The Engineering Lab-specific check requires Mission Control and the Next decision panel to mount and rejects both panel-level and document horizontal overflow.
+- Layout evidence artifact: [workspace-layout-evidence, artifact 13660626705](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/42588937862/artifacts/13660626705).
+- SG-02-FE.2-V [run 42588937928](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/42588937928): focused CP10-A Lab suite **12 passed**; API verification, browser-route verification and mutation-boundary steps completed successfully.
+- **Important non-green diagnostic:** CP10-B broader backend regression reported **9 failed, 4,023 passed, 17 skipped, 3 warnings and 1 collection error**. That step remains `continue-on-error`; the overall workflow success does not mean the broad backend suite is green.
+
+PR #653 remains open and unmerged. The disposable development identity is not Firebase. No production identity, merge, deployment or production configuration change is claimed.
+
+### New end-to-end mission browser acceptance — PR #654
+
+**PR:** [#654 — test(lab): exercise authenticated mission lifecycle end to end](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/654)  
+**Branch:** `dea-01/mission-lifecycle-browser-acceptance-01`  
+**Base/main:** `327187d23c7e4ad32efc61aed91f912de084e07d`  
+**Latest implementation commits at evidence authoring:** `a096bd01f6df94e4dcea54cc472be0f509300d02` (browser driver), `5f185e7396c0fc0596397f258cbd7681ebc14c73` (workflow wiring), `f4ea1754210eec169deaa0785026c1ae9330512c` (CI guard), followed by response-capture hardening and this evidence update.
+
+The new Playwright driver uses the same explicitly enabled, disposable dev-mode identity and already-started CI backend/Vite server as the authenticated console gate. It exercises the real visible MissionWorkspace controls and canonical API:
+
+1. Register a bounded `SENTINEL` agent and create a `PROPOSED` session.
+2. Attempt execution before authorization; require the actual HTTP 400 and `SESSION != AUTHORIZATION` response.
+3. Record a separate human-originated Lab session authorization.
+4. Execute one read-only `README.md` operation.
+5. Require the server-returned `READY_FOR_REVIEW` session, `VERIFYING` run, substrate event sequence, linked evidence record and unrecorded human acceptance.
+6. Reload, re-read the session from the server, resume, and require the same session/run/evidence plus the user-scoped target hint.
+
+**Changed paths in PR #654:**
+
+- `web/arkadia_console/exercise_mission_workspace.py`
+- `.github/workflows/prism-console-contract.yml`
+- `tests/test_prism_console_ci_wiring.py`
+- This existing evidence record.
+
+The script writes structured API/session evidence and screenshots to the workflow's existing `render_evidence/` directory for upload by the existing artifact step. The browser response body is read after the awaited response, outside the Playwright event callback.
+
+**Verification status:** fresh PR-head CI for #654 is **PENDING / NOT OBSERVED** at this evidence snapshot. No local checkout or test execution is claimed. Do not treat the code or workflow wiring as verified until the new browser step, derived console-contract domain, typecheck and build complete on the final PR head.
+
+**Acceptance boundary:** the test identity is the documented disposable dev-mode seam, not Firebase; the backend is ephemeral CI; no production integration, database, credential, configuration, deployment, merge, human acceptance or release is exercised. The test proves the mission execution/review boundary and continuity only if its fresh run passes. It does not prove Firebase identity or production acceptance.
+
+### Next concrete step
+
+Inspect PR #654's fresh Prism Console Contract run and uploaded `mission_flow.json` / screenshots. If the browser flow fails, repair only the measured defect on the same branch and rerun the gate. If it passes, update this record with the final head and exact output, then leave merge and deployment to the human authority. Continue the next DEA-01 product gap only after this lifecycle evidence is green or the human explicitly blocks/supersedes it.
