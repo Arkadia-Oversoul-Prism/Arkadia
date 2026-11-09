@@ -59,7 +59,7 @@ ALLOWED_MUTATION_ENDPOINTS = {
 }
 
 
-def test_lab_router_authentication_is_scoped_to_the_declared_natlas_public_paths(monkeypatch):
+def test_lab_router_auth_wrapper_only_exempts_natlas_public_paths(monkeypatch):
     routes = {route.path: route for route in router.routes}
     assert "/api/lab/overview" in routes
     assert routes["/api/lab/overview"].methods == {"GET"}
@@ -110,8 +110,8 @@ def test_lab_router_authentication_is_scoped_to_the_declared_natlas_public_paths
 
     run_route = routes["/api/lab/engineering/n-atlas/run"]
     route_dependency_names = {
-        getattr(getattr(dep, "dependency", None), "__name__", "")
-        for dep in run_route.dependencies
+        getattr(dep.call, "__name__", "")
+        for dep in run_route.dependant.dependencies
     }
     assert "require_auth" in route_dependency_names
 
