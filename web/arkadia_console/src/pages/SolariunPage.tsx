@@ -6,9 +6,11 @@
  * (the same contract `SurfaceLenses` already enforces for NovaNet). The archived
  * Prism declared these lenses as routed sub-views of `/solariun`
  * (`SolariunConsole` → `SolSpireExperience`, lenses overview/projects/knowledge/
- * memory/weaver/…); the console reconciles that vocabulary to four lenses and
- * gives each one a truthful state:
+ * memory/weaver/engineering-lab/opportunity-radar/…); the console reconciles
+ * that vocabulary and gives each lens a truthful state:
  *
+ *  - `overview`  — the archived Home cockpit ("What matters now?"), composing
+ *                  the page's own project read and the personal field read only.
  *  - `projects`  — the real `/solspire/projects` read (owner-scoped), plus the
  *                  per-project runtime-context canvas over its bounded
  *                  projection contract.
@@ -16,6 +18,11 @@
  *                  this lens points there instead of duplicating its read.
  *  - `weaver`    — the governance authority is the canonical Weaver surface;
  *                  same rule: point, do not fork.
+ *  - `engineering-lab` — the Lab authority is the canonical Engineering Lab
+ *                  surface; same rule: point, do not fork.
+ *  - `field`     — the archived `opportunity-radar` lens; the console expresses
+ *                  the opportunity field on the SolSpire surface, so this lens
+ *                  points there rather than forking the radar.
  *  - `memory`    — the personal Echofeild read model (`/api/me/field`), with
  *                  per-source provenance from the canonical contract.
  *
@@ -28,6 +35,7 @@ import { SurfaceLenses } from "../components/SurfaceLenses";
 import { ProjectRuntimeCanvas } from "../components/solariun/ProjectRuntimeCanvas";
 import { PersonalFieldPanel } from "../components/solariun/PersonalFieldPanel";
 import { SolariunWorkspace } from "../components/solariun/SolariunWorkspace";
+import { SolariunOverview } from "../components/solariun/SolariunOverview";
 import { useAuth } from "../contexts/AuthContext";
 import { useProjectContext } from "../lib/projectContext";
 import { useHydration } from "../lib/useHydration";
@@ -45,10 +53,13 @@ import type { NodeProfile, ProjectList } from "../lib/types";
 const UNKNOWN_CONTRACT = "UNKNOWN";
 
 const LENSES = [
+  { id: "overview", label: "Overview" },
   { id: "projects", label: "Projects" },
   { id: "knowledge", label: "Knowledge" },
   { id: "memory", label: "Memory" },
   { id: "weaver", label: "Weaver" },
+  { id: "engineering-lab", label: "Engineering Lab" },
+  { id: "field", label: "Field" },
 ];
 
 /** The lens ids this surface declares; a section outside this set is not a lens. */
@@ -69,6 +80,16 @@ const OWNING_SURFACE: Record<string, { surface: SurfaceId; name: string; body: s
     surface: "weaver",
     name: "Weaver",
     body: "Proposal, approval, execution, and verification are read from the canonical Weaver surface over /api/approvals and the Lab session view. This lens does not duplicate that read.",
+  },
+  "engineering-lab": {
+    surface: "engineering-lab",
+    name: "Engineering Lab",
+    body: "Task state, provider status, and evidence are read from the canonical Engineering Lab surface over /api/lab/engineering/*. This lens does not duplicate that read.",
+  },
+  field: {
+    surface: "solspire",
+    name: "SolSpire field",
+    body: "The archived opportunity-radar lens is expressed on the SolSpire surface, where the Opportunity Radar reads the project field. This lens points there rather than forking the radar.",
   },
 };
 
@@ -123,6 +144,18 @@ export function SolariunPage({
           </div>
         )}
       </Panel>
+
+      {section === "overview" && (
+        <SolariunOverview
+          projects={projects}
+          activeProjectName={
+            projects.state === "ready" && projects.data
+              ? (projects.data.projects.find((p) => p.id === activeProjectId)?.name ?? null)
+              : null
+          }
+          onNavigate={onNavigate}
+        />
+      )}
 
       {section === "projects" && (
         <Panel>

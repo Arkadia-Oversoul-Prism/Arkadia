@@ -145,7 +145,10 @@ ARCHIVE_NON_MAP_INBOUND = {
 #: the guard does not redden a *correct* sibling reconciliation.
 LEGACY_GAP_DISPOSITIONS = {
     "/codex": "names the Solariun `knowledge` lens *and* the distinct `knowledge` surface",
-    "/dashboard": "addressed a Solariun `overview` lens the console does not declare",
+    "/dashboard": (
+        "addressed a Solariun `overview` lens the console now declares at "
+        "`/solariun/overview`; the legacy path itself is not aliased"
+    ),
     "/loops": "addressed a Solariun `tasks` lens the console does not declare",
     "/personal-echofeild": "addressed a Solariun `observatory` lens the console does not declare",
     "/echofeild-matrix": "same absent Solariun `observatory` lens as `/personal-echofeild`",
@@ -957,6 +960,11 @@ def test_recorded_solariun_lens_absences_agree_with_the_surface_that_declares_le
     `{projects, knowledge, memory, weaver}`, and the claimed-absent ones are
     `{settings, overview, observatory, tasks}` — disjoint, so every absence claim
     holds. The assertion is what keeps that true, and the controls prove it can fail.
+
+    ARK-UI-UNIFICATION-002 reconciled the `overview` lens into the surface, so the
+    `/dashboard` record no longer makes an absence claim (it now states the lens is
+    declared and the legacy path is unaliased). Three absence claims remain —
+    `{tasks, observatory}` — and the premise below still holds for them.
     """
     declared = _declared_lens_ids(SOLARIUN_PAGE)
     assert declared, "no lens ids parsed from SolariunPage.tsx -- the guard would be vacuous"
@@ -968,8 +976,8 @@ def test_recorded_solariun_lens_absences_agree_with_the_surface_that_declares_le
         for m in [re.search(r"Solariun\s+`([a-z-]+)`\s+lens", disposition)]
         if m
     }
-    assert len(claims) == 4, (
-        "all four remaining explicit and alias-form Solariun lens-absence claims must be "
+    assert len(claims) == 3, (
+        "all three remaining explicit and alias-form Solariun lens-absence claims must be "
         f"bound: {sorted(claims.items())}"
     )
     # Premise: the bound claims really are about lenses the surface does not declare,

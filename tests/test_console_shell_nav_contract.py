@@ -1020,7 +1020,18 @@ def test_the_lens_check_is_decided_against_declared_lenses_not_surface_ids():
     assert _lens_alias_defects(ROUTER, SURFACES, APP) == []
     # The declared set is derived from the composed page module, not restated.
     assert _declared_lenses("novanet", APP) == {"field", "echoes", "codex", "hub"}
-    assert _declared_lenses("solariun", APP) == {"projects", "knowledge", "memory", "weaver"}
+    # ARK-UI-UNIFICATION-002 reconciled the archived Solariun vocabulary into the
+    # surface: `overview` (the Home cockpit), `engineering-lab` and `field` (the
+    # archived `opportunity-radar` lens) join the four the console already declared.
+    assert _declared_lenses("solariun", APP) == {
+        "overview",
+        "projects",
+        "knowledge",
+        "memory",
+        "weaver",
+        "engineering-lab",
+        "field",
+    }
     # A surface with no lens strip declares none: any section is discarded.
     assert _declared_lenses("home", APP) == set()
 

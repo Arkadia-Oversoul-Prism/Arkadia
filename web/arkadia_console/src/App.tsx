@@ -91,7 +91,7 @@ function Surfaces() {
       case "engineering-lab":
         return <EngineeringLabPage />;
       case "solspire":
-        return <SolSpirePage />;
+        return <SolSpirePage section={route.section} onNavigate={navigate} />;
       case "knowledge":
         return <KnowledgePage />;
       case "projects":
