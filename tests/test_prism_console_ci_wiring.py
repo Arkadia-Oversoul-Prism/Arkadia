@@ -682,6 +682,72 @@ def test_authenticated_layout_installs_backend_runtime_before_starting_it():
         "the Weaver surface must expose its real hydration state to browser acceptance, not infer readiness from mount"
     )
 
+
+#: A literal compared through ``.includes('...')`` in the browser script.
+_INCLUDES_LITERAL = re.compile(r"\.includes\(\s*'([^']*)'\s*\)")
+
+
+def _rendered_text_defects(script: str) -> list[str]:
+    """Detectors for the `innerText` case-sensitivity defect.
+
+    ``innerText`` applies CSS ``text-transform``, so a source-case literal read
+    back from an ``uppercase`` label is unobservable (measured in Chromium:
+    ``Evidence records (1)`` reads back as ``EVIDENCE RECORDS (1)``, while
+    ``textContent`` keeps the source case). A comparison of that text against a
+    literal that is *not already all-uppercase* can therefore never satisfy.
+
+    A literal that is already uppercase (``PROPOSED``, ``READY_FOR_REVIEW``) is
+    unaffected by the transform, so it is not reported: flagging it would make the
+    detector fire on correct code and stop meaning anything.
+    """
+    defects: list[str] = []
+    for match in _INCLUDES_LITERAL.finditer(script):
+        literal = match.group(1)
+        if literal == literal.upper():
+            continue
+        window = script[max(0, match.start() - 400): match.start()]
+        if "innerText" not in window:
+            continue
+        if "toLowerCase" in window or "toUpperCase" in window:
+            continue
+        defects.append(f"source-case comparison against rendered innerText: {literal!r}")
+    return defects
+
+
+def test_mission_browser_acceptance_reads_rendered_text_case_insensitively():
+    """Rendered `innerText` must not be compared case-sensitively to source copy."""
+    script = (
+        ROOT / "web" / "arkadia_console" / "exercise_mission_workspace.py"
+    ).read_text(encoding="utf-8")
+
+    defects = _rendered_text_defects(script)
+    assert defects == [], (
+        "the browser acceptance script compares text read from the rendered DOM "
+        f"against source-case literals, which CSS text-transform makes unmatchable: {defects}"
+    )
+    assert ".toLowerCase()).includes('evidence records')" in script, (
+        "the recorded-evidence wait must compare case-insensitively"
+    )
+
+
+def test_negative_control_the_rendered_text_detector_flags_the_pre_repair_wait():
+    """The detector must report the exact pre-repair wait it was written for."""
+    pre_repair = (
+        """            page.wait_for_function(
+                \"\"\"() => (document.querySelector('[data-testid="mission-recorded-evidence"]')?.innerText || '')
+                    .includes('Evidence records')\"\"\",
+                timeout=20_000,
+            )"""
+    )
+    defects = _rendered_text_defects(pre_repair)
+    assert defects, "the detector must flag a source-case comparison against rendered text"
+
+    repaired = pre_repair.replace(".includes('Evidence records')", ".toLowerCase()).includes('evidence records')")
+    assert _rendered_text_defects(repaired) == [], (
+        "the detector must be silent once the comparison is case-insensitive"
+    )
+
+
 def test_engineering_lab_mission_lifecycle_runs_in_authenticated_browser():
     """The protected Lab route must exercise the actual mission path, not only mount."""
     workflow = _load(WORKFLOWS / Path(_WORKFLOW_FILE).name)

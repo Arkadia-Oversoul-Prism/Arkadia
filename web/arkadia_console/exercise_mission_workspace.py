@@ -24,6 +24,18 @@ OBJECTIVE = "DEA-01 mission lifecycle browser acceptance"
 TARGET = "README.md"
 
 
+def _contains(haystack: str, needle: str) -> bool:
+    """Case-insensitive containment for text read out of the rendered DOM.
+
+    ``innerText`` returns the text as *rendered*, so a CSS
+    ``text-transform: uppercase`` label reads back uppercased
+    (``Evidence records`` -> ``EVIDENCE RECORDS``). The source-case literal is
+    therefore unobservable through ``innerText`` and a case-sensitive comparison
+    against it can never match.
+    """
+    return needle.casefold() in haystack.casefold()
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--base-url", required=True, help="Existing authenticated-test Vite server.")
@@ -138,7 +150,7 @@ def main() -> int:
                 timeout=20_000,
             )
             authorization_timeline = page.locator('[data-testid="mission-steps"]').inner_text()
-            if "originated_by human" not in authorization_timeline:
+            if not _contains(authorization_timeline, "originated_by human"):
                 failures.append("authorization record did not report human origin")
 
             # 4. Execute one read-only operation and inspect the server-returned evidence.
@@ -174,8 +186,8 @@ def main() -> int:
             )
             page.wait_for_selector('[data-testid="lab-trace-runs"]', timeout=20_000)
             page.wait_for_function(
-                """() => (document.querySelector('[data-testid="mission-recorded-evidence"]')?.innerText || '')
-                    .includes('Evidence records')""",
+                """() => ((document.querySelector('[data-testid="mission-recorded-evidence"]')?.innerText || '')
+                    .toLowerCase()).includes('evidence records')""",
                 timeout=20_000,
             )
 
@@ -190,7 +202,7 @@ def main() -> int:
                 failures.append("the session did not reach READY_FOR_REVIEW")
             if "VERIFYING" not in trace_text:
                 failures.append("the run was not presented at the VERIFYING review boundary")
-            if "acceptance: not recorded" not in trace_text:
+            if not _contains(trace_text, "acceptance: not recorded"):
                 failures.append("the trace did not preserve the human-acceptance boundary")
             if evidence_id == "—" or evidence_id not in evidence_text:
                 failures.append("the run evidence reference did not resolve to a server-returned evidence record")

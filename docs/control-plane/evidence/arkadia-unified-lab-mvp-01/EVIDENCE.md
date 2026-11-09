@@ -1570,3 +1570,61 @@ The script writes structured API/session evidence and screenshots to the workflo
 ### Next concrete step
 
 Inspect PR #654's fresh Prism Console Contract run and uploaded `mission_flow.json` / screenshots. If the browser flow fails, repair only the measured defect on the same branch and rerun the gate. If it passes, update this record with the final head and exact output, then leave merge and deployment to the human authority. Continue the next DEA-01 product gap only after this lifecycle evidence is green or the human explicitly blocks/supersedes it.
+
+### Measured root cause of the #654 browser failure — `innerText` case, repaired
+
+**Defect (measured, not inferred).** The first fresh run of the new browser step
+([run 42596832761](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/42596832761),
+head `c4506128`) failed with `TimeoutError: Page.wait_for_function: Timeout 20000ms exceeded.`
+The run's own `mission_flow.json` shows the whole canonical API path **succeeded**:
+`POST /agents` 200, `POST /sessions` 200, pre-authorization `POST …/execute` **400**, `POST
+…/authorize` 200, authorized `POST …/execute` 200, three session `GET`s 200, and `page_errors: []`.
+Every Python-side assertion on the **server** payload therefore passed; the timeout was in a
+**DOM** wait.
+
+**Cause.** `innerText` returns text as *rendered*, so CSS `text-transform: uppercase` is applied
+to it. The wait compared that rendered text against the **source-case** literal
+`'Evidence records'`, which can never match. Proven in Chromium in this environment:
+
+| read | source | value |
+|---|---|---|
+| `innerText` | `<p style="text-transform:uppercase">Evidence records (1)</p>` | `EVIDENCE RECORDS (1)` |
+| `textContent` | same element | `Evidence records (1)` |
+
+The label is rendered with `uppercase` (`MissionWorkspace.tsx:1118`, inside the
+`mission-recorded-evidence` testid the wait reads), so the wait was unsatisfiable by construction.
+Two further assertions had the same latent defect and would have failed next
+(`originated_by human` against an `uppercase` step label; `acceptance: not recorded` against an
+`uppercase` trace paragraph).
+
+**Repair (this commit).** A module-level `_contains()` helper compares case-insensitively, used by
+both Python-side assertions; the in-page `wait_for_function` lower-cases its `innerText` before
+`.includes()`. A new detector `_rendered_text_defects()` in
+`tests/test_prism_console_ci_wiring.py` flags any `.includes('<not-uppercase>')` comparison whose
+window reads `innerText` without a case fold — already-uppercase literals such as
+`READY_FOR_REVIEW` are **not** reported, because the transform cannot alter them and flagging them
+would make the detector fire on correct code.
+
+**Evidence.**
+
+- Live negative control on the **real** script: restoring the pre-repair wait reddens exactly
+  `test_mission_browser_acceptance_reads_rendered_text_case_insensitively`
+  (`1 failed, 33 passed`); the file was then restored byte-identically
+  (`sha256 202e51bc…` before and after) and the guard is `34 passed`.
+- `--collect-only` attributes the delta: 32 → 34 nodes (+2 = the new detector assertion and its
+  negative control).
+- Derived console-contract domain, same environment, node identity compared:
+  `main` `327187d2` → **10 failed / 1139 passed**; PR head without this change → **10 failed /
+  1140 passed** (+1, the PR's own wiring node); PR head with this change → **10 failed / 1142
+  passed** (+2). The 10 failures are the documented missing-`node_modules` TypeScript-toolchain
+  baseline and are identical in all three runs.
+
+**Boundary.** This is a harness defect in the PR's own browser driver, not a product defect:
+`MissionWorkspace.tsx` is byte-identical to `main` (blob `8867748b…` on both). The repair touches
+only `web/arkadia_console/exercise_mission_workspace.py` and
+`tests/test_prism_console_ci_wiring.py` — both already in this PR's diff. No console source,
+backend contract, authority surface, or another lane's file is touched.
+
+**Not claimed.** The repaired browser step has **not** been observed green in CI from here: this
+environment has no CI runner, so the fresh PR-head run is the verification. Merge, deployment and
+acceptance remain human-only.
