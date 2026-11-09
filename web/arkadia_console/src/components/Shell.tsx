@@ -21,7 +21,8 @@ import { SURFACES, SURFACE_BY_ID, SURFACE_GROUPS, type SurfaceId, type SurfaceGr
 import { useAuth } from "../contexts/AuthContext";
 import { usePublishedChrome } from "../lib/surfaceChrome";
 import { TEST_IDENTITY_ENABLED } from "../lib/testIdentity";
-import { SURFACE_ICONS, IconMenu, IconClose, IconShield } from "./Icons";
+import { SURFACE_ICONS, IconMenu, IconClose, IconShield, IconArkana } from "./Icons";
+import { ArkanaOverlay } from "./arkana/ArkanaOverlay";
 
 const NAV_SURFACES = SURFACES.filter((s) => s.nav !== false);
 
@@ -186,6 +187,12 @@ export function Shell({
   const mainRef = useRef<HTMLElement>(null);
   const mobileNavRef = useRef<HTMLElement>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  // The global Arkana overlay: one shell-level conversational surface, reachable
+  // from every lens. It is mounted exactly once, here, and never by a page — a
+  // page that mounted its own would be a second conversation surface. The
+  // Arkana surface itself is the full-page conversation, so the overlay is
+  // suppressed there to avoid two live conversations on one screen.
+  const [arkanaOpen, setArkanaOpen] = useState(false);
   const surface = SURFACE_BY_ID[current];
   // The one shell renders the chrome a surface publishes. A surface never
   // renders its own rail or header — it contributes them here, so there is
@@ -258,6 +265,13 @@ export function Shell({
   // surface would hide the thing the user just asked for.
   useEffect(() => {
     setDrawerOpen(false);
+  }, [current]);
+
+  // Navigating to the Arkana surface closes the overlay: the full-page
+  // conversation is now the thing on screen, and leaving the overlay open would
+  // put two live Arkana conversations in front of the user at once.
+  useEffect(() => {
+    if (current === "arkana") setArkanaOpen(false);
   }, [current]);
 
   // Escape closes the drawer, and the body does not scroll behind it.
@@ -375,6 +389,24 @@ export function Shell({
             </h2>
           </div>
 
+          {/* The global Arkana trigger. One control, in the one header, on every
+              surface except Arkana itself (where the full-page conversation is
+              already the surface). It opens the shell-level overlay, so a
+              question about the view in front of you never means leaving it. */}
+          {current !== "arkana" ? (
+            <button
+              type="button"
+              onClick={() => setArkanaOpen(true)}
+              aria-haspopup="dialog"
+              aria-expanded={arkanaOpen}
+              data-testid="arkana-overlay-open"
+              className="flex flex-none items-center gap-2 rounded-full border border-emerald/25 bg-emerald/5 px-3 py-1.5 font-mono text-[9px] uppercase tracking-[0.18em] text-emerald/80 transition hover:border-emerald/50 hover:text-emerald"
+            >
+              <IconArkana />
+              <span className="hidden sm:inline">Ask Arkana</span>
+            </button>
+          ) : null}
+
           {/* The surface's live status, published to the one header. A surface
               that publishes none renders nothing here — no placeholder. */}
           {chrome.status ? (
@@ -487,6 +519,12 @@ export function Shell({
           </aside>
         </div>
       )}
+
+      {/* The global Arkana overlay. Mounted once, by the shell, so there is
+          exactly one conversational surface in the product. It is a real
+          dialog: Escape and a backdrop click close it, focus moves into the
+          composer on open and returns to the trigger on close. */}
+      <ArkanaOverlay open={arkanaOpen} onClose={() => setArkanaOpen(false)} surface={current} />
     </div>
   );
 }
