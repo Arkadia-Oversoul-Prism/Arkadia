@@ -681,3 +681,40 @@ def test_authenticated_layout_installs_backend_runtime_before_starting_it():
     assert 'data-testid="weaver-canvas-state"' in canvas_component and "data-state={snapshot.state}" in canvas_component, (
         "the Weaver surface must expose its real hydration state to browser acceptance, not infer readiness from mount"
     )
+
+def test_engineering_lab_mission_lifecycle_runs_in_authenticated_browser():
+    """The protected Lab route must exercise the actual mission path, not only mount."""
+    workflow = _load(WORKFLOWS / Path(_WORKFLOW_FILE).name)
+    steps = workflow["jobs"]["console-contract"]["steps"]
+    authenticated = next(
+        step for step in steps
+        if step.get("name") == "Workspace layout assertions (rendered, authenticated test identity)"
+    )
+    run = authenticated.get("run", "")
+    layout_command = "python render_check_layout.py"
+    mission_command = "python exercise_mission_workspace.py --base-url http://127.0.0.1:5200"
+    assert layout_command in run and mission_command in run
+    assert run.index(layout_command) < run.index(mission_command), (
+        "mission lifecycle browser acceptance must use the same already-authenticated test runtime"
+    )
+
+    script = (
+        ROOT / "web" / "arkadia_console" / "exercise_mission_workspace.py"
+    ).read_text(encoding="utf-8")
+    for marker in (
+        '"/engineering-lab"',
+        "ao005-layout-mission-flow-",
+        "mission-deploy-agent",
+        "mission-create",
+        "mission-attempt",
+        "mission-authorize",
+        "mission-execute",
+        "SESSION != AUTHORIZATION",
+        "READY_FOR_REVIEW",
+        "VERIFYING",
+        "mission-trace-review",
+        "mission-recorded-evidence",
+        "mission-resume-offer",
+        "mission-resume",
+    ):
+        assert marker in script, f"browser acceptance is missing required mission contract: {marker}"
