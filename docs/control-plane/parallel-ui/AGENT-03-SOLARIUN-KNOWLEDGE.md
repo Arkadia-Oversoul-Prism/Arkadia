@@ -127,3 +127,41 @@ control also asserts the repaired input is *not* reported, so a detector that ma
 everything cannot pass either. Node count is unchanged in both files (7 and 24).
 
 Lane 3's next bounded PR opens only after this one merges.
+
+## Status — 2026-11-09 (LANE 3: timeline paging control binding, no active PR declared)
+
+**Active branch:** `feat/prism-l3-knowledge-control-binding-02` (recorded for provenance only).
+**Active PR:** none declared — the snapshot below is the judge.
+
+A lane PR cannot declare itself open at merge time: the merge that lands it closes it. This
+section therefore declares no active PR and leaves the lane's status to the derived snapshot,
+the convention #638/#639/#641/#642/#643/#645/#646/#647 set for lanes 3 and 4.
+
+Lane 3's next bounded slice, opened from freshly fetched `main` `24f0c9e1` under
+`11 — LANE NEW-PR AUTHORIZATION`. Reconciliation was exhausted first (measured live: **0** open
+PRs repo-wide, all four lanes `doc_guard: idle`, `lane_state.py --check` and `--check
+--verify-live` both exit 0), so N1 holds.
+
+**Objective.** Bind the vacuous negative control
+`test_detector_flags_the_pre_repair_two_state_viewer` in
+`tests/test_knowledge_timeline_paging.py` to the detectors the live assertions use.
+
+The control restated the live assertions' regexes inline and ran no detector: it asserted
+facts about strings it had just written, so it could not fail for any edit to the predicates it
+names. Measured at `main` `24f0c9e1` with AST-scoped mutation: neutering the live detector's own
+regex left the live node **and** its control both green.
+
+Three module-level detectors now hold the predicates — `_pending_scope_defects`,
+`_pending_classifier_defects` and `_pending_viewer_defects` — and the live assertions and their
+control both call them. The control feeds each detector the pre-repair shape and asserts it is
+reported, **and** feeds it the live input and asserts it is *not* reported, so a detector that
+reports unconditionally cannot pass either. Node count is unchanged at 19 — this binds a control,
+it adds none.
+
+The file is executed by the derived console-contract domain
+(`scripts/console_contract_domain.py`), so no new wiring is needed.
+
+Evidence: `docs/control-plane/evidence/lane3-knowledge-timeline-control-binding-01/EVIDENCE.md`.
+
+Lane 3's next bounded PR opens only after this one merges. Merge, production deployment and
+acceptance remain human-only.

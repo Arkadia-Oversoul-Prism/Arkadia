@@ -271,26 +271,53 @@ def test_panel_opens_no_new_transport_or_authority():
 # scope vocabulary therefore carries a third value, `pending`, derived from the
 # auth context's own `identityState`.
 
-_PENDING_LITERAL = re.compile(r'"pending"')
+def _pending_scope_defects(contracts: str) -> list[str]:
+    """Reasons the scope vocabulary fails to carry the unresolved-identity state.
+
+    Module level, so the live assertions and their negative control call the
+    *same* code. The control previously restated these regexes inline and ran no
+    detector, so each predicate could be deleted with no red test (measured at
+    ``main`` ``24f0c9e1``: neutering the live regex left the live node and its
+    control both green).
+    """
+    problems: list[str] = []
+    if not re.search(r'export type TimelineScope = [^;]*"pending"', contracts):
+        problems.append("TimelineScope does not name the unresolved-identity state")
+    if not re.search(r'export type TimelineViewer = ViewerKind \| "pending"', contracts):
+        problems.append("TimelineViewer does not extend the shared ViewerKind with pending")
+    return problems
+
+
+def _pending_classifier_defects(contracts: str) -> list[str]:
+    """Reasons the scope classifier would fold pending into unscoped."""
+    if re.search(r'viewer === "pending"\s*\?\s*"pending"', contracts):
+        return []
+    return ["classifyTimelineScope must return the pending scope, not fall through to unscoped"]
+
+
+def _pending_viewer_defects(panel: str) -> list[str]:
+    """Reasons the panel's viewer never consults the auth identity state."""
+    problems: list[str] = []
+    if "identityState" not in panel:
+        problems.append("the panel does not read the auth context's identity state")
+    if not re.search(r'identityState === "loading"', panel):
+        problems.append("an unresolved session is the auth context's loading state")
+    if not re.search(r':\s*"anonymous"', panel):
+        problems.append("a resolved signed-out viewer must stay anonymous")
+    return problems
 
 
 def test_scope_vocabulary_carries_the_pending_state():
     contracts = CONTRACTS.read_text(encoding="utf-8")
-    assert re.search(r'export type TimelineScope = [^;]*"pending"', contracts), (
-        "the reader's scope must name the unresolved-identity state explicitly"
-    )
-    assert re.search(r'export type TimelineViewer = ViewerKind \| "pending"', contracts), (
-        "the viewer type must extend the shared ViewerKind rather than replace it"
-    )
+    defects = _pending_scope_defects(contracts)
+    assert defects == [], defects
 
 
 def test_classify_timeline_scope_resolves_pending_distinctly():
     contracts = CONTRACTS.read_text(encoding="utf-8")
     # The classifier must *branch* on the pending viewer; a ternary with only two
     # arms would silently fold pending into unscoped.
-    assert re.search(r'viewer === "pending"\s*\?\s*"pending"', contracts), (
-        "classifyTimelineScope must return the pending scope, not fall through to unscoped"
-    )
+    assert _pending_classifier_defects(contracts) == [], _pending_classifier_defects(contracts)
 
 
 def test_empty_copy_gives_pending_its_own_wording():
@@ -306,25 +333,51 @@ def test_empty_copy_gives_pending_its_own_wording():
 
 def test_panel_derives_pending_from_the_auth_identity_state():
     panel = PANEL.read_text(encoding="utf-8")
-    assert "identityState" in panel, "the panel must read the auth context's identity state"
-    assert re.search(r'identityState === "loading"', panel), (
-        "an unresolved session is the auth context's loading state"
-    )
-    assert re.search(r':\s*"anonymous"', panel), "a resolved signed-out viewer stays anonymous"
+    assert _pending_viewer_defects(panel) == [], _pending_viewer_defects(panel)
 
 
 def test_detector_flags_the_pre_repair_two_state_viewer():
-    """Negative control: the shape before this slice folds pending into anonymous."""
+    """Negative control: the shape before this slice folds pending into anonymous.
+
+    Calls the same module-level detectors the live assertions use —
+    :func:`_pending_viewer_defects` and :func:`_pending_scope_defects` — so the
+    control fails when either predicate is disarmed. It previously restated the
+    regexes inline and called no detector, so the live assertions could be
+    neutered with the control staying green (measured at ``main`` ``24f0c9e1``).
+    Each detector must also stay silent on the repaired input, so a detector that
+    reports unconditionally cannot pass either.
+    """
     pre_repair_panel = (
         'const { isAuthenticated } = useAuth();\n'
         'const viewer: ViewerKind = isAuthenticated ? "authenticated" : "anonymous";\n'
     )
-    assert "identityState" not in pre_repair_panel
-    assert not re.search(r'identityState === "loading"', pre_repair_panel), (
-        "the detector must not pass a viewer that never consults the identity state"
+    panel_defects = _pending_viewer_defects(pre_repair_panel)
+    assert any("identity state" in d for d in panel_defects), panel_defects
+    assert any("loading state" in d for d in panel_defects), panel_defects
+    assert _pending_viewer_defects(PANEL.read_text(encoding="utf-8")) == [], (
+        "the detector must not report the repaired panel"
     )
+
     pre_repair_contracts = 'export type TimelineScope = "owner" | "unscoped";'
-    assert not _PENDING_LITERAL.search(pre_repair_contracts), (
-        "the detector must not pass a scope vocabulary with no pending member"
+    scope_defects = _pending_scope_defects(pre_repair_contracts)
+    assert any("TimelineScope" in d for d in scope_defects), scope_defects
+    assert any("TimelineViewer" in d for d in scope_defects), scope_defects
+    assert _pending_scope_defects(CONTRACTS.read_text(encoding="utf-8")) == [], (
+        "the detector must not report the repaired contract"
+    )
+
+    # The classifier detector needs its own binding: `assert defects == []` is
+    # satisfied by a detector neutered to `return []`, so without this the live
+    # classifier assertion is vacuously true (measured at ``main`` ``24f0c9e1``).
+    pre_repair_classifier = (
+        "export function classifyTimelineScope(viewer: TimelineViewer): TimelineScope {\n"
+        '  return viewer === "authenticated" ? "owner" : "unscoped";\n'
+        "}"
+    )
+    assert _pending_classifier_defects(pre_repair_classifier), (
+        "the classifier detector must flag a two-arm ternary that folds pending into unscoped"
+    )
+    assert _pending_classifier_defects(CONTRACTS.read_text(encoding="utf-8")) == [], (
+        "the detector must not report the repaired classifier"
     )
 
