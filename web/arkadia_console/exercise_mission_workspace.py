@@ -61,16 +61,11 @@ def main() -> int:
                 path = urlparse(response.url).path
                 if not path.startswith("/api/lab/engineering/"):
                     return
-                try:
-                    body = response.text()[:700] if response.status >= 400 else ""
-                except Exception:
-                    body = ""
                 api_responses.append(
                     {
                         "method": response.request.method,
                         "path": path,
                         "status": response.status,
-                        "error_body": body,
                     }
                 )
 
@@ -118,7 +113,13 @@ def main() -> int:
             evidence["session_state_after_create"] = "PROPOSED" if "PROPOSED" in session_meta else "UNKNOWN"
 
             # 2. Prove the backend refuses execution before human authorization.
-            page.locator('[data-testid="mission-attempt"]').click()
+            with page.expect_response(
+                lambda response: response.request.method == "POST"
+                and urlparse(response.url).path.endswith("/execute")
+            ) as preauth_response_info:
+                page.locator('[data-testid="mission-attempt"]').click()
+            preauth_response = preauth_response_info.value
+            preauth_response_body = preauth_response.text()
             page.locator('[data-testid="mission-steps"]').get_by_text(
                 "Execution refused (expected)", exact=False
             ).wait_for(timeout=20_000)
@@ -140,7 +141,12 @@ def main() -> int:
                 failures.append("authorization record did not report human origin")
 
             # 4. Execute one read-only operation and inspect the server-returned evidence.
-            page.locator('[data-testid="mission-execute"]').click()
+            with page.expect_response(
+                lambda response: response.request.method == "POST"
+                and urlparse(response.url).path.endswith("/execute")
+            ) as authorized_response_info:
+                page.locator('[data-testid="mission-execute"]').click()
+            authorized_response = authorized_response_info.value
             page.wait_for_function(
                 """() => {
                     const meta = document.querySelector('[data-testid="mission-session-meta"]')?.innerText || '';
@@ -193,8 +199,10 @@ def main() -> int:
                     "expected exactly one pre-authorization HTTP 400 followed by one authorized HTTP 200 "
                     f"for execute; observed {[item['status'] for item in execute_responses]}"
                 )
-            elif "SESSION != AUTHORIZATION" not in str(execute_responses[0]["error_body"]):
+            if preauth_response.status != 400 or "SESSION != AUTHORIZATION" not in preauth_response_body:
                 failures.append("pre-authorization refusal did not report the canonical SESSION != AUTHORIZATION boundary")
+            if authorized_response.status != 200:
+                failures.append(f"authorized read-only execution returned HTTP {authorized_response.status}")
 
             agent_posts = [
                 item for item in api_responses
@@ -222,6 +230,7 @@ def main() -> int:
             evidence["observed_events"] = observed_events
             evidence["trace_acceptance"] = "not recorded"
             evidence["api_execute_statuses"] = [item["status"] for item in execute_responses]
+            evidence["preauthorization_refusal"] = preauth_response_body[:700]
 
             flow_shot = OUT / "mission_flow.png"
             page.screenshot(path=str(flow_shot), full_page=True)
@@ -231,6 +240,11 @@ def main() -> int:
             # restore the same mission, run and evidence without reconstructing
             # an authorization record.
             page.reload(wait_until="networkidle", timeout=60_000)
+            page.wait_for_function(
+                """() => Boolean(document.querySelector('[data-testid="test-identity-banner"]'))
+                    && !document.querySelector('[data-testid="auth-threshold-signin"]')""",
+                timeout=20_000,
+            )
             page.wait_for_selector('[data-testid="mission-resume-offer"]', timeout=20_000)
             resume_offer = page.locator('[data-testid="mission-resume-offer"]').inner_text()
             if session_id and session_id not in resume_offer:
