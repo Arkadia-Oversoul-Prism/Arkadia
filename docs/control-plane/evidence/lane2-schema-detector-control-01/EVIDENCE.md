@@ -123,6 +123,25 @@ So the repair strengthens the guard without weakening its teeth.
 | `python scripts/cp10_mutation_boundary_policy.py --judge` on the changed path | **PASS** |
 | `git diff --name-only` | lane-2 owned files only |
 
+## CI on the PR (head `29ec8782`)
+
+All **10** checks `completed/success`, including `console-contract`, which executes
+the derived guard domain (`python -m pytest -q $(python scripts/console_contract_domain.py)`).
+
+Two N-ATLAS external-beta jobs failed on the first attempt and **passed on a plain
+re-run with no code change** — a transient external-runtime fault, not a
+branch-caused regression. Classified by control, not by narrative:
+
+- the diff touches neither the workflow nor anything it reads (`git diff --name-only`
+  above: two lane-2 files);
+- a same-instant read-only probe of the external Space root returned `HTTP 200` while
+  the inference job reported `external runtime did not return usable inference` — the
+  ZeroGPU admission class already recorded in this repository;
+- dispatching the *same* workflow against `main` (`workflow_dispatch`) succeeded
+  two minutes later, and re-running the failed job on this branch succeeded too.
+
+So the failure is attributable to the external runtime, not to this change.
+
 **Baseline (measured this pulse, `main` `327187d2`, one full run):**
 `21 failed, 4009 passed, 18 skipped, 3 warnings, 1 error in 278.42s`.
 Canonical fingerprint re-derived from that log with the repository's own script
