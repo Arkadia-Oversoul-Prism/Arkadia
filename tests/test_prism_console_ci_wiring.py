@@ -716,5 +716,7 @@ def test_engineering_lab_mission_lifecycle_runs_in_authenticated_browser():
         "mission-recorded-evidence",
         "mission-resume-offer",
         "mission-resume",
+        "page.expect_response",
+        "preauthorization_refusal",
     ):
         assert marker in script, f"browser acceptance is missing required mission contract: {marker}"
