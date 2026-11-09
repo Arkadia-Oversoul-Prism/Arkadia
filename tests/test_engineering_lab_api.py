@@ -13,6 +13,13 @@ boundary that must actually hold.
 """
 from __future__ import annotations
 
+import asyncio
+from pathlib import Path
+
+import yaml
+from starlette.requests import Request
+
+import api.lab_routes as lab_routes
 from api.lab_routes import router
 
 #: Substrings that would indicate a repository-mutation or authority surface.
@@ -44,20 +51,69 @@ ALLOWED_MUTATION_ENDPOINTS = {
     "/api/lab/engineering/automations",
     "/api/lab/engineering/automations/{automation_id}/state",
     "/api/lab/engineering/voice/resolve",
+    # The anonymous tester-session endpoint grants only a short-lived N-ATLaS
+    # run capability; the run endpoint writes only the Lab session/run/evidence
+    # records and remains subject-authenticated.
+    "/api/lab/engineering/n-atlas/test-session",
+    "/api/lab/engineering/n-atlas/run",
 }
 
 
-def test_lab_router_is_read_only_and_authenticated():
+def test_lab_router_authentication_is_scoped_to_the_declared_natlas_public_paths(monkeypatch):
     routes = {route.path: route for route in router.routes}
     assert "/api/lab/overview" in routes
-    route = routes["/api/lab/overview"]
-    assert route.methods == {"GET"}
-    assert router.dependencies
+    assert routes["/api/lab/overview"].methods == {"GET"}
+
     dependency_names = {
         getattr(getattr(dep, "dependency", None), "__name__", "")
         for dep in router.dependencies
     }
-    assert "require_auth" in dependency_names
+    assert "require_lab_auth" in dependency_names
+    assert lab_routes._PUBLIC_NATLAS_PATHS == {
+        "/api/lab/engineering/n-atlas/catalog",
+        "/api/lab/engineering/n-atlas/test-session",
+    }
+
+    calls = []
+
+    async def require_auth_spy(request):
+        calls.append(request.url.path)
+        return {"uid": "test-subject"}
+
+    def request_for(path: str) -> Request:
+        return Request({
+            "type": "http",
+            "asgi": {"version": "3.0"},
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": path,
+            "raw_path": path.encode("utf-8"),
+            "query_string": b"",
+            "headers": [],
+            "client": ("test", 1234),
+            "server": ("test", 80),
+        })
+
+    monkeypatch.setattr(lab_routes, "require_auth", require_auth_spy)
+
+    async def exercise_auth_boundary():
+        for public_path in lab_routes._PUBLIC_NATLAS_PATHS:
+            await lab_routes.require_lab_auth(request_for(public_path))
+        assert calls == [], "only the two declared N-ATLaS paths may bypass account auth"
+
+        protected_path = "/api/lab/engineering/overview"
+        await lab_routes.require_lab_auth(request_for(protected_path))
+        assert calls == [protected_path], "all other Lab routes must pass through require_auth"
+
+    asyncio.run(exercise_auth_boundary())
+
+    run_route = routes["/api/lab/engineering/n-atlas/run"]
+    route_dependency_names = {
+        getattr(getattr(dep, "dependency", None), "__name__", "")
+        for dep in run_route.dependencies
+    }
+    assert "require_auth" in route_dependency_names
 
 
 def test_lab_route_has_no_repository_mutation_surface():
@@ -106,3 +162,15 @@ def test_agent_loop_route_is_authenticated_and_bounded():
         pass
     else:
         raise AssertionError("max_turns above 8 must be rejected by request validation")
+
+
+
+def test_cp10_a_lab_test_gate_fails_on_pytest_failure():
+    """The focused Lab boundary suite must be a required CI step, not best-effort."""
+    workflow_path = Path(__file__).resolve().parents[1] / ".github" / "workflows" / "sg-02-fe-2-v.yml"
+    workflow = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
+    steps = workflow["jobs"]["validate"]["steps"]
+    lab_step = next(step for step in steps if step.get("name") == "CP10-A Lab tests")
+
+    assert lab_step.get("continue-on-error") is not True
+    assert "set -o pipefail" in lab_step["run"]
