@@ -108,6 +108,12 @@ def fresh_db(tmp_path, monkeypatch):
     return db
 
 
+#: The constraint the migration must *remove*: uniqueness on the subject alone.
+LEGACY_UNIQUE_SCOPE = frozenset({"subject_ref"})
+#: The constraint the migration must *install*: uniqueness on the composite scope.
+MIGRATED_UNIQUE_SCOPE = frozenset({"workspace_ref", "subject_ref"})
+
+
 def _unique_index_column_sets(db: str) -> list[set[str]]:
     conn = sqlite3.connect(db)
     conn.row_factory = sqlite3.Row
@@ -119,6 +125,29 @@ def _unique_index_column_sets(db: str) -> list[set[str]]:
         return sets
     finally:
         conn.close()
+
+
+def _scope_defects(unique_sets: list[set[str]]) -> list[str]:
+    """Report the unique-constraint shapes the migration must not leave behind.
+
+    Module level so the live assertions and the negative control call the *same*
+    code: a control that restated this predicate inline could not fail for an
+    edit to the live detector — the vacuous-control defect this lane repaired in
+    #635/#640. Both polarities are reported, so a predicate that matched nothing
+    (or everything) fails one half or the other.
+    """
+    present = [set(scope) for scope in unique_sets]
+    problems: list[str] = []
+    if set(MIGRATED_UNIQUE_SCOPE) not in present:
+        problems.append(
+            "the composite (workspace_ref, subject_ref) unique scope is missing"
+        )
+    if set(LEGACY_UNIQUE_SCOPE) in present:
+        problems.append(
+            "the legacy subject-only unique constraint is still present, so one "
+            "subject still cannot hold both a workspace and a project board"
+        )
+    return problems
 
 
 # ---------------------------------------------------------------------------
@@ -182,9 +211,10 @@ def test_fresh_database_allows_workspace_and_project_boards(fresh_db):
 
 def test_unique_scope_is_the_composite_not_the_subject(fresh_db):
     buyer_recon._db()
-    assert {"workspace_ref", "subject_ref"} in _unique_index_column_sets(fresh_db)
-    # The legacy subject-only uniqueness must be gone.
-    assert {"subject_ref"} not in _unique_index_column_sets(fresh_db)
+    observed = _unique_index_column_sets(fresh_db)
+    assert _scope_defects(observed) == [], (
+        f"the fresh schema must carry the composite scope and drop the legacy one: {observed}"
+    )
 
 
 def test_negative_control_a_duplicate_composite_scope_is_still_rejected(fresh_db):
@@ -218,8 +248,40 @@ def test_migration_preserves_the_existing_board_and_entries(legacy_db):
 
 def test_migration_removes_the_subject_only_constraint(legacy_db):
     buyer_recon._db()  # the migration runs on first touch
-    assert {"subject_ref"} not in _unique_index_column_sets(legacy_db)
-    assert {"workspace_ref", "subject_ref"} in _unique_index_column_sets(legacy_db)
+    observed = _unique_index_column_sets(legacy_db)
+    assert _scope_defects(observed) == [], (
+        f"the migrated legacy schema must carry the composite scope and drop the legacy one: {observed}"
+    )
+
+
+def test_negative_control_the_scope_detector_flags_the_pre_migration_schema(legacy_db):
+    """Prove `_scope_defects` is not vacuous: the legacy shape must be reported.
+
+    The legacy DDL declares `subject_ref TEXT NOT NULL UNIQUE`, so before the
+    module touches the database the detector must report both halves — the
+    composite scope missing *and* the subject-only constraint present. Read
+    through the same helper and the same predicate the live assertions use, so an
+    edit that disarms either reddens this node.
+
+    Measured at `main` `327187d2`: the pre-migration legacy schema reports
+    `[{'subject_ref'}, {'workspace_ref'}, {'id'}]` and the post-migration schema
+    reports `[{'subject_ref', 'workspace_ref'}, {'id'}]`.
+    """
+    before = _unique_index_column_sets(legacy_db)
+    assert set(LEGACY_UNIQUE_SCOPE) in [set(scope) for scope in before], (
+        "the fixture must be in the pre-repair shape for this control to bite"
+    )
+    reported = _scope_defects(before)
+    assert any("composite" in p for p in reported), (
+        "the pre-migration schema must be reported as missing the composite scope"
+    )
+    assert any("subject-only" in p for p in reported), (
+        "the pre-migration schema must be reported as still subject-only"
+    )
+    # ...and the detector is silent on the repaired schema, so it is not matching
+    # everything. Without this half, a predicate that always reported would pass.
+    buyer_recon._db()
+    assert _scope_defects(_unique_index_column_sets(legacy_db)) == []
 
 
 def test_migration_lets_a_legacy_subject_gain_a_project_board(legacy_db):
