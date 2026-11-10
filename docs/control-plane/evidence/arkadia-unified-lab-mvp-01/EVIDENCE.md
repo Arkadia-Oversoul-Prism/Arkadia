@@ -1569,11 +1569,17 @@ The script writes structured API/session evidence and screenshots to the workflo
 
 **Measured — the repaired browser step is green on this PR's exact head.** Re-derived read-only from the GitHub Actions API, not from prose:
 
-- Head `c4bba04fa055c39ac8bb9f82d3ef49b4f6524b34` — the head the run below executed on, and the `innerText`-repair commit itself. This evidence-only revision advances the head without touching any path the console gate is filtered to (`web/arkadia_console/**`, `api/frontend_routes.py`, `scripts/console_contract_domain.py`, `tests/**`, the workflow), so the measured run binds to `c4bba04f` and is not re-executed for a docs-only commit.
+- Head `c4bba04fa055c39ac8bb9f82d3ef49b4f6524b34` — the head the run below executed on, and the `innerText`-repair commit itself.
 - [Prism Console Contract run 42634648835](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/42634648835) — `event=pull_request`, `status=completed`, `conclusion=success`, `run_attempt=1`, `head_sha=c4bba04f…`, `head_branch=dea-01/mission-lifecycle-browser-acceptance-01`. Every step in the job is `success`, including `Workspace layout assertions (rendered, authenticated test identity)` and `Console-contract CI-wiring guard`.
 - Read from that job's own step log: Vitest **8 files / 61 tests passed**; `tsc --noEmit` passed; Vite production build **169 modules**, `dist/assets/index-AsgrXWi2.js` 424.43 kB; derived console-contract domain **1152 passed in 45.03s**.
 - The uploaded `mission_flow.json` in that run reports `"verdict": "PASS"`, `"failures": []`, `"page_errors": []`, session `SES-b17015453b16` reaching `READY_FOR_REVIEW`, run `RUN-6938c5418cc4` in `VERIFYING`, evidence `EVD-5833cb7132c2`, `"trace_acceptance": "not recorded"`, `"api_execute_statuses": [400, 200]`, and the pre-authorization refusal `session must be AUTHORIZED or QUEUED to execute (currently PROPOSED); SESSION != AUTHORIZATION`. The reload/resume half re-read the same session, run and evidence (`resume_session_state: READY_FOR_REVIEW`). Screenshots `render_evidence/mission_flow.png` and `render_evidence/mission_flow_resumed.png` were captured and the artifact uploaded (13,090,883 bytes, artifact `13682561721`).
 - Every one of the **18** check-runs on that head is `completed/success` (`GET /commits/c4bba04f…/check-runs` → `total_count: 18`): `console-contract`, `validate`, `test`, `frontend`, `backend`, `boot-syntax`, `Full-history secret scan`, `Build canonical Render image`, `Build and smoke-test the N-ATLAS self-host image`, `verdict-step-integrity`, `trigger-coverage`, `posture-currency`, `production-read-only-probe`, `provider-forensics`, `native-arkadia-golden-workflow`, `bundle-beta-evidence`, `beta-beta-01-english`, `beta-beta-02-hausa`.
+
+**Re-measured on the evidence-revision head.** A correction to this record does re-trigger the console gate: a `pull_request` `paths` filter selects the PR's **cumulative** changed-file set, not the files in the pushed commit, and this PR already changes `web/arkadia_console/**` and `tests/**`. Measured at head `5ae1e191b208dc71c63ceee519a042608554f049`:
+
+- [Prism Console Contract run 42807171119](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/42807171119) — `event=pull_request`, `status=completed`, `conclusion=success`, `run_attempt=1`, all 14 executed steps `success`.
+- From its step log: Vitest **8 files / 61 tests passed**; production build **169 modules**; derived console-contract domain **1153 passed in 40.19s** (one more than the earlier run because this revision's own node is collected); CI-wiring guard **34 passed in 4.58s**; and a fresh `mission_flow.json` with `"verdict": "PASS"`, `"failures": []`, session `SES-0946c90db638` at `READY_FOR_REVIEW`, run `RUN-a9991c41efd3`, evidence `EVD-ad5ece10e535`.
+- Two independent executions of the same acceptance step, on two heads, both `PASS`. That is a stronger observation than the single run the earlier paragraph described.
 
 **What this does and does not establish.** It establishes that the added browser acceptance step executes and passes in the gate, and that the mission lifecycle boundary it asserts — refusal before authorization, a separate human-originated authorization, then `READY_FOR_REVIEW` with unrecorded acceptance — holds on this head. It is a CI observation of an ephemeral backend under the disposable dev-mode identity.
 
@@ -1582,6 +1588,8 @@ The script writes structured API/session evidence and screenshots to the workflo
 ### Next concrete step
 
 This section's stated next step — "if it passes, update this record with the final head and exact output" — is what this revision does. Merge and deployment remain human-only. The next DEA-01 product gap may be taken up; the lane's one-open-PR constraint and the human merge decision on #654 are unchanged.
+
+**Corrected reasoning, recorded rather than quietly dropped.** The commit that introduced this section (`5ae1e191`) asserted in its message that the console gate would *not* re-execute for a documentation-only commit. That is false, and the run above is the measurement that disproves it: a `pull_request` `paths` filter matches the PR's cumulative changed-file set, so any push to this PR re-runs the gate. The claim is superseded by the measured re-run rather than removed, so a later pass does not repeat it.
 
 ### Measured root cause of the #654 browser failure — `innerText` case, repaired
 
