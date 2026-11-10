@@ -6,7 +6,7 @@
 **Canonical production:** `https://arkadia-qzu4.onrender.com`
 **Workstream:** Arkadia Console rebuild / reconciliation with archived Prism
 **Consumers:** Upper Hands Engineering Lab, Weaver, and the Hourly Weaver Automation/pulse.
-**Authority:** Weaver holds only the bounded conditional merge delegation in §7.1 / SHARED-CONTRACTS.md §9, effective after GOV-01 is human-merged. Human retains constitutional, required-approval, production-deployment, and acceptance authority.
+**Authority:** GOV-01 was human-merged via PR #609 and grants Weaver bounded conditional policy-level merge delegation under §7.1 / SHARED-CONTRACTS.md §9. The runtime merge capability remains disabled: the current `ForbiddenMergeAdapter` refuses merge operations. Weaver may assess eligibility and prepare evidence but may not execute merges until a separate implementation is verified and explicitly activated by the human sovereign. Human retains constitutional, required-approval, production-deployment, and acceptance authority.
 
 This document is the active work instruction for the overnight UI workstream. Every Engineering Lab / Weaver pulse must read it alongside `AGENTS.md`, the current `main` SHA, the live PR state, and the evidence files it cites. Do not depend on conversation memory or an old automation prompt.
 
@@ -133,7 +133,7 @@ On **each Hourly Weaver pulse**, perform these steps in order. The accepted shar
 
 A pulse with no safe, verified source change must produce a precise blocker/next-action record rather than a speculative commit. Do not measure progress by number of files changed, lines written, or a claimed percentage.
 
-## 7. Four branches, four PRs, human merge and acceptance
+## 7. Four branches, four PRs, bounded Weaver policy delegation and human acceptance
 
 The former single-branch/single-PR rule is superseded by the explicitly accepted parallel-work governance contract in `docs/control-plane/parallel-ui/SHARED-CONTRACTS.md`.
 
@@ -193,9 +193,9 @@ At the end of this workstream window, leave its PR in a truthful state and a det
 
 **Authorization source:** explicit human authorization in the 2026-11-02 conversation approving the dedicated governance-amendment PR and the October 28, 2026 reconciliation contract.
 **Authorization revision:** 2026-10-28 execution contract; amendment GOV-01.
-**Effective date:** only after this amendment is reviewed and merged by the human sovereign.
+**Effective date:** GOV-01 was human-reviewed and merged via PR #609. Its conditional policy-level delegation remains in force. This does not activate an executable merge path; runtime merge capability remains disabled pending separate implementation, verification, and explicit human activation.
 **Scope:** existing PRs targeting canonical `main`, subject to all M1–M13 criteria in `docs/control-plane/parallel-ui/SHARED-CONTRACTS.md` §9. No direct pushes to `main`, force-pushes, bypasses, skipped checks, waived approvals, or merge of governance-sensitive changes without specific human authorization.
 
-Routine eligible PR merges are delegated to Weaver only. Required human approvals remain mandatory wherever branch protection, repository policy, CODEOWNERS, checks, merge queues, or a specific decision requires them. Constitutional, identity, authority-model, K15/K3, approval-enforcement, scope-expansion, deployment/configuration, and acceptance decisions remain human-only. This governance amendment itself must be human-reviewed and human-merged; Weaver cannot use the authority proposed here to merge GOV-01.
+Routine eligible PR merges are delegated to Weaver only at the policy level. **Execution remains disabled** while `ForbiddenMergeAdapter` is the active runtime boundary. Weaver may evaluate M1–M13 and prepare a merge-readiness report, but must not execute a merge until a separately reviewed and verified runtime implementation is explicitly activated by the human sovereign. Required human approvals remain mandatory wherever branch protection, repository policy, CODEOWNERS, checks, merge queues, or a specific decision requires them. Constitutional, identity, authority-model, K15/K3, approval-enforcement, scope-expansion, deployment/configuration, and acceptance decisions remain human-only. This governance amendment itself must be human-reviewed and human-merged; Weaver cannot use the authority proposed here to merge GOV-01.
 
 The four lane ownership boundaries and the existing one-open-PR-per-lane rule are unchanged. This amendment changes merge delegation only; it does not authorize implementation scope expansion or deployment.
