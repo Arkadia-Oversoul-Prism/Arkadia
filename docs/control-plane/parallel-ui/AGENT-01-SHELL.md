@@ -414,3 +414,50 @@ Evidence: `docs/control-plane/evidence/lane1-spiral-codex-control-integrity-01/E
 
 Merge, production deployment and acceptance remain human-only. Lane 1 opens its next bounded PR
 only after this one merges.
+
+## Status — 2026-11-09 (LANE 1: section-routing coverage, no active PR declared)
+
+**Active branch:** `feat/prism-l1-section-routing-coverage-01` (recorded for provenance only).
+**Active PR:** none declared — the snapshot below is the judge.
+
+A lane PR cannot declare itself open at merge time: the merge that lands it closes it. This
+section therefore declares no active PR and leaves the lane's status to the derived snapshot,
+the convention #638–#649 set for lanes 3 and 4.
+
+Lane 1's next bounded slice, opened from freshly fetched `main` `327187d2` under
+`11 — LANE NEW-PR AUTHORIZATION`. Reconciliation was exhausted first (measured live: **1** open
+PR repo-wide, #650, a draft belonging to no lane's owned paths and therefore recorded under
+`unassigned_open_prs`; all four lanes `doc_guard: idle`; `scripts/lane_state.py --check` exit 0),
+so N1 holds and no lane's PR was duplicated or continued.
+
+**Objective.** Bind the composition seam between the router and every surface that declares a
+lens strip. `_lens_alias_defects` proves a declared lens alias *resolves* to the right section;
+nothing proved the resolved section *arrives* at the page. A surface composed without
+`section={route.section}` discards every section of it — `/solariun/weaver` renders `projects` —
+and **TypeScript cannot see it**, because `section` is optional on every page, so the broken
+composition still compiles.
+
+**Measured vacuity at base `327187d2`.** Dropping the prop from the real `App.tsx` left the whole
+shell suite green (**47 passed**) and the derived console-contract domain green too. Reproduced
+independently for `solariun`, `solspire` and `novanet`: each mutation is reported only after the
+repair below.
+
+**Repair.** One module-level detector, `_section_routing_defects(app_text)`, derives its domain
+from the pages themselves (`_surface_page_modules` + `_declared_lenses`) rather than restating a
+surface list, so a surface nobody enumerated is still judged. The live assertion and both
+controls call it. Node count 47 → 50 (+1 live assertion, +2 controls).
+
+**Evidence bound to the commit.** A **live** negative control on the real `App.tsx` (not a
+synthetic fixture): removing `section={route.section}` reddens
+`test_every_surface_that_declares_lenses_receives_the_route_section` **and** its control
+(`2 failed, 48 passed`), then the file is restored byte-identically. The detector's domain
+assertion pins the three lens-declaring surfaces, so a fourth arriving without the prop reddens
+it without an edit here.
+
+The file is executed by the derived console-contract domain
+(`scripts/console_contract_domain.py`), so no new wiring is needed.
+
+Evidence: `docs/control-plane/evidence/lane1-section-routing-coverage-01/EVIDENCE.md`.
+
+Lane 1's next bounded PR opens only after this one merges. Merge, production deployment and
+acceptance remain human-only.
