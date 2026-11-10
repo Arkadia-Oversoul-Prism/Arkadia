@@ -3,7 +3,7 @@
 **Status:** ACCEPTED — merged via PR #419 at `a29a9b8f18ada55cb9457ea3cdab98414522a4e8`.
 **Baseline observed:** `main` after the four PRs #425–#428 were merged: `f390526ab14e122fef358ef9b9e1cd438509463c`. Re-fetch `main` before every change; this SHA is not a permanent pin. The current branch map was refreshed 2026-10-11 against the four active next-wave branches below.
 **Canonical production:** https://arkadia-qzu4.onrender.com (ADR-016). Render is configured to auto-deploy commits on `main`; this merge wave was explicitly authorized by the user for production observation. Agents may not trigger manual deployments or claim production acceptance.
-**Authority:** agents may inspect, implement, test, commit to their assigned branch, and update their PR. Weaver has only the conditional standing merge authority in §9. Human retains constitutional, required-approval, deployment, and acceptance authority.
+**Authority:** agents may inspect, implement, test, commit to their assigned branch, and update their PR. GOV-01 grants Weaver conditional policy-level merge authority under §9. This is not an executable runtime capability: the current `ForbiddenMergeAdapter` continues to refuse merge operations. Human retains constitutional, required-approval, deployment, and acceptance authority.
 
 ## 1. Four workstreams and exclusive file ownership
 
@@ -148,14 +148,18 @@ Verified on the live tree: planting `apiRequest<VersionInfo>("/api/invented/rout
 
 **Authorization source:** explicit human authorization in the ChatGPT conversation dated 2026-11-02, approving a dedicated governance-amendment PR implementing the October 28, 2026 ARKADIA ENGINEERING LAB — WEAVER HOURLY BOUNDED EXECUTION CONTRACT (RECONCILIATION EDITION).
 **Authorization revision:** execution contract revision date 2026-10-28; amendment GOV-01.
-**Effective date:** only after this dedicated PR is reviewed and merged by the human sovereign.
+**Effective date:** GOV-01 was human-reviewed and merged via PR #609. Its conditional policy-level delegation is therefore in force. This does not activate an executable merge path; runtime merge capability remains disabled pending a separate implementation, verification, and explicit operational activation.
 **Scope:** existing PRs in the canonical Arkadia repository targeting `main`, each individually subject to M1–M13 below. This is standing but bounded authority; it grants no waiver, policy bypass, scope expansion, or self-authorization.
 
 ### Delegated routine merge authority
 
 Weaver may merge an **existing** PR into canonical `main` only when every applicable M1–M13 criterion is affirmatively verified immediately before merge: canonical target and provenance; authorized scope and exclusive ownership; no protected governance/identity/authority change lacking specific human authorization; all repository-required reviews and approvals; all required current-head checks; targeted tests and applicable architecture/build/type checks; clean mergeability and fresh base; satisfied dependencies; no unexplained regression; permitted GitHub merge method; standing authority for that exact class of change; and final revalidation of head/base/reviews/checks/mergeability.
 
-This delegation does not replace a required human review or approval. If repository rules, branch protection, CODEOWNERS, a required check, a merge queue, or a specific governance record requires human approval, Weaver must wait for that approval. If any criterion is false, unknown, stale, contradictory, or unavailable, the PR is not eligible. Never push directly to `main`, force-push, bypass protection, skip checks, or override a platform safeguard. If GitHub blocks the merge, stop.
+This delegation does not replace a required human review or approval. If repository rules, branch protection, CODEOWNERS, a required check, a merge queue, or a specific governance record requires human approval, Weaver must wait for that approval. If any criterion is false, unknown, stale, contradictory, or unavailable, the PR is not eligible. In addition, this policy does not itself provide an execution mechanism. The current `ForbiddenMergeAdapter` must continue to reject merge calls; Weaver must not substitute another API, adapter, credential, or manual route to execute a merge. Runtime merge capability may be enabled only through a separate, reviewed implementation and verification change, followed by explicit human activation. Never push directly to `main`, force-push, bypass protection, skip checks, or override a platform safeguard. If GitHub blocks the merge, stop.
+
+### GOV-02 — policy authority is not runtime capability
+
+GOV-01 remains preserved and is not revoked or suspended. Its M1–M13 conditions define when a PR is policy-eligible for Weaver's delegated merge authority. **Policy eligibility is not permission to bypass the runtime boundary.** As of this amendment, `weaver/execution_adapter.py::ForbiddenMergeAdapter` remains the active merge sentinel and raises `RuntimeError("merge is human-only")`. No executable Weaver merge capability is authorized or represented as active. A future implementation must be separately scoped, tested (including negative controls), reviewed, and explicitly activated by the human sovereign before any automated merge can occur. Until then, Weaver may assess eligibility and prepare evidence, but must not execute merges.
 
 ### Human-only authority retained
 
