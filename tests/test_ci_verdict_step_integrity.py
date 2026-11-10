@@ -138,21 +138,20 @@ def _shell_aborts(shell: str | None, run: str) -> bool:
 # workstream's to make, and applying it here would turn `main` red on debt this
 # change did not introduce.
 #
-#   lab      the two failing pins are in `tests/test_engineering_lab_api.py`
-#            (`require_auth` -> `require_lab_auth`, and the new
-#            `/api/lab/engineering/n-atlas/*` mutating endpoints). Repairing
-#            them edits `api/lab_routes.py`, an authority surface carrying the
-#            Lab mutation boundary — sovereign-only.
-#   backend  `python -m pytest tests/` interrupts on the CE-01
-#            `weaver.autonomy` module-vs-package collection error and runs no
-#            tests at all; it needs `--continue-on-collection-errors` first.
+#   backend  `python -m pytest tests/` still reports the broader repository
+#            regression corpus, including its CE-01 collection error and known
+#            failures. It remains a non-gating diagnostic until that corpus is
+#            reconciled; CP10-A's focused Engineering Lab suite is now gating.
 #            CE-01 is reserved to the sovereign.
+#
+# The former `lab` exemption was removed on 2026-11-09: the API guard now
+# reflects the existing `require_lab_auth` wrapper and its two explicit
+# N-ATLaS public paths, and the focused CP10-A Lab suite is required.
 #
 # The set is an inventory, not a filter: an entry that stops being masked fails
 # `test_registered_masked_steps_are_still_masked`, so repairing one forces its
 # removal rather than leaving a stale exemption standing.
 REGISTERED_MASKED_VERDICT_STEPS = {
-    ("sg-02-fe-2-v.yml", "lab"),
     ("sg-02-fe-2-v.yml", "backend"),
 }
 

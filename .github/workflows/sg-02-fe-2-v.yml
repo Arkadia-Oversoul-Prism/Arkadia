@@ -218,8 +218,9 @@ jobs:
       - name: CP10-A Lab tests
         id: lab
         working-directory: .
-        continue-on-error: true
-        run: python -m pytest tests/test_engineering_lab.py tests/test_engineering_lab_api.py -q 2>&1 | tee cp10-lab.log
+        run: |
+          set -o pipefail
+          python -m pytest tests/test_engineering_lab.py tests/test_engineering_lab_api.py -q 2>&1 | tee cp10-lab.log
       - name: SolSpire isolated runtime and integration contract tests
         id: solspire_runtime
         working-directory: .
