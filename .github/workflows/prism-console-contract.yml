@@ -172,6 +172,7 @@ jobs:
             --routes "/workspace,/arkana,/weaver,/engineering-lab" \
             --require-authenticated \
             --identity-label "DISPOSABLE TEST IDENTITY (dev-mode, not Firebase)"
+          python exercise_mission_workspace.py --base-url http://127.0.0.1:5200
       - name: Upload layout evidence
         if: always()
         uses: actions/upload-artifact@v4
