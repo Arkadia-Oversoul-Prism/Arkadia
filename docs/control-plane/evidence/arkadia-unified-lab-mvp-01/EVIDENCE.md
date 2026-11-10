@@ -1536,7 +1536,9 @@ Fresh checks observed:
 - SG-02-FE.2-V [run 42588937928](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/42588937928): focused CP10-A Lab suite **12 passed**; API verification, browser-route verification and mutation-boundary steps completed successfully.
 - **Important non-green diagnostic:** CP10-B broader backend regression reported **9 failed, 4,023 passed, 17 skipped, 3 warnings and 1 collection error**. That step remains `continue-on-error`; the overall workflow success does not mean the broad backend suite is green.
 
-PR #653 remains open and unmerged. The disposable development identity is not Firebase. No production identity, merge, deployment or production configuration change is claimed.
+PR #653 is **MERGED** — into `main` at `a1009ddfb485d60b2717b73ff7ae02c417d1ef21` (2026-11-10T10:12:07Z), which is the current `main` HEAD; its head `28aab09494b4063dc94fbdcab441b6639000a456` is in the repository. The sentence originally written here read *"PR #653 remains open and unmerged"*; that was true at authoring time and is now false, so it is corrected rather than deleted. The disposable development identity is not Firebase. No production identity, merge, deployment or production configuration change is claimed.
+
+PR #654's own recorded base `327187d23c7e4ad32efc61aed91f912de084e07d` is an ancestor of current `main` (`git merge-base --is-ancestor`), so the base has advanced and the PR is `MERGEABLE` / `CLEAN` with no conflicted path.
 
 ### New end-to-end mission browser acceptance — PR #654
 
@@ -1563,13 +1565,23 @@ The new Playwright driver uses the same explicitly enabled, disposable dev-mode 
 
 The script writes structured API/session evidence and screenshots to the workflow's existing `render_evidence/` directory for upload by the existing artifact step. The browser response body is read after the awaited response, outside the Playwright event callback.
 
-**Verification status:** fresh PR-head CI for #654 is **PENDING / NOT OBSERVED** at this evidence snapshot. No local checkout or test execution is claimed. Do not treat the code or workflow wiring as verified until the new browser step, derived console-contract domain, typecheck and build complete on the final PR head.
+**Verification status (superseded — see the measured run below):** the paragraph originally written here read *"fresh PR-head CI for #654 is **PENDING / NOT OBSERVED** at this evidence snapshot. No local checkout or test execution is claimed."* That was true when it was written, before the browser step had run on the repaired head. It is no longer true and is retained only as provenance.
 
-**Acceptance boundary:** the test identity is the documented disposable dev-mode seam, not Firebase; the backend is ephemeral CI; no production integration, database, credential, configuration, deployment, merge, human acceptance or release is exercised. The test proves the mission execution/review boundary and continuity only if its fresh run passes. It does not prove Firebase identity or production acceptance.
+**Measured — the repaired browser step is green on this PR's exact head.** Re-derived read-only from the GitHub Actions API, not from prose:
+
+- Head `c4bba04fa055c39ac8bb9f82d3ef49b4f6524b34` — the head the run below executed on, and the `innerText`-repair commit itself. This evidence-only revision advances the head without touching any path the console gate is filtered to (`web/arkadia_console/**`, `api/frontend_routes.py`, `scripts/console_contract_domain.py`, `tests/**`, the workflow), so the measured run binds to `c4bba04f` and is not re-executed for a docs-only commit.
+- [Prism Console Contract run 42634648835](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/42634648835) — `event=pull_request`, `status=completed`, `conclusion=success`, `run_attempt=1`, `head_sha=c4bba04f…`, `head_branch=dea-01/mission-lifecycle-browser-acceptance-01`. Every step in the job is `success`, including `Workspace layout assertions (rendered, authenticated test identity)` and `Console-contract CI-wiring guard`.
+- Read from that job's own step log: Vitest **8 files / 61 tests passed**; `tsc --noEmit` passed; Vite production build **169 modules**, `dist/assets/index-AsgrXWi2.js` 424.43 kB; derived console-contract domain **1152 passed in 45.03s**.
+- The uploaded `mission_flow.json` in that run reports `"verdict": "PASS"`, `"failures": []`, `"page_errors": []`, session `SES-b17015453b16` reaching `READY_FOR_REVIEW`, run `RUN-6938c5418cc4` in `VERIFYING`, evidence `EVD-5833cb7132c2`, `"trace_acceptance": "not recorded"`, `"api_execute_statuses": [400, 200]`, and the pre-authorization refusal `session must be AUTHORIZED or QUEUED to execute (currently PROPOSED); SESSION != AUTHORIZATION`. The reload/resume half re-read the same session, run and evidence (`resume_session_state: READY_FOR_REVIEW`). Screenshots `render_evidence/mission_flow.png` and `render_evidence/mission_flow_resumed.png` were captured and the artifact uploaded (13,090,883 bytes, artifact `13682561721`).
+- Every one of the **18** check-runs on that head is `completed/success` (`GET /commits/c4bba04f…/check-runs` → `total_count: 18`): `console-contract`, `validate`, `test`, `frontend`, `backend`, `boot-syntax`, `Full-history secret scan`, `Build canonical Render image`, `Build and smoke-test the N-ATLAS self-host image`, `verdict-step-integrity`, `trigger-coverage`, `posture-currency`, `production-read-only-probe`, `provider-forensics`, `native-arkadia-golden-workflow`, `bundle-beta-evidence`, `beta-beta-01-english`, `beta-beta-02-hausa`.
+
+**What this does and does not establish.** It establishes that the added browser acceptance step executes and passes in the gate, and that the mission lifecycle boundary it asserts — refusal before authorization, a separate human-originated authorization, then `READY_FOR_REVIEW` with unrecorded acceptance — holds on this head. It is a CI observation of an ephemeral backend under the disposable dev-mode identity.
+
+**Acceptance boundary (unchanged):** the test identity is the documented disposable dev-mode seam, not Firebase; the backend is ephemeral CI; no production integration, database, credential, configuration, deployment, merge, human acceptance or release is exercised. It does not prove Firebase identity or production acceptance. **No merge, deployment or acceptance is claimed or performed.**
 
 ### Next concrete step
 
-Inspect PR #654's fresh Prism Console Contract run and uploaded `mission_flow.json` / screenshots. If the browser flow fails, repair only the measured defect on the same branch and rerun the gate. If it passes, update this record with the final head and exact output, then leave merge and deployment to the human authority. Continue the next DEA-01 product gap only after this lifecycle evidence is green or the human explicitly blocks/supersedes it.
+This section's stated next step — "if it passes, update this record with the final head and exact output" — is what this revision does. Merge and deployment remain human-only. The next DEA-01 product gap may be taken up; the lane's one-open-PR constraint and the human merge decision on #654 are unchanged.
 
 ### Measured root cause of the #654 browser failure — `innerText` case, repaired
 
