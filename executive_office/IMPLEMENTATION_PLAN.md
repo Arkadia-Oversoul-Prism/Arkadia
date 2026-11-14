@@ -19,14 +19,20 @@
 
 ## Gate 1 — Identity and governance
 
-- [ ] Human-review and approve the identity record and charter.
-- [ ] Human-review and approve an exact authority-policy version.
-- [ ] Create a dedicated GitHub App with repository-only, read-first permissions.
-- [ ] Define service principal mapping in the existing identity system.
-- [ ] Define expiry, rotation, revocation and emergency suspension.
-- [ ] Add negative tests for self-approval, self-escalation, reserved actions and stale policy.
+**Design documents prepared:** `IDENTITY_ACCESS_AND_REVOCATION.md`; identity and authority YAML aligned to it. All remain proposed/inactive.
 
-**Exit:** identity can authenticate but has no write or execution authority until separately allowlisted.
+- [ ] Human-review and approve the identity record, charter, identity/access ADR and exact authority-policy digest.
+- [ ] Select and verify a hosting-supported runtime-to-broker authentication mechanism; do not assume Render workload identity exists.
+- [ ] Implement the separate Executive Identity Broker and short-lived asymmetric machine tokens; do not extend Firebase human auth to accept arbitrary machine JWTs.
+- [ ] Implement durable delegation registry, append-only events, credential epoch and Founder-only grant/suspend/revoke controls.
+- [ ] Bind the Founder UID from a verified Firebase session to one existing canonical SolSpire workspace; no client-supplied UID and no automatic workspace creation.
+- [ ] Implement explicit project/resource and record-family allowlists; private conversations, personal Codex, secrets and unrelated personal records remain denied.
+- [ ] Implement curated Knowledge OS retrieval; broad Founder-UID retrieval is prohibited for the agent.
+- [ ] Create a dedicated GitHub App with repository-only, read-first permissions only if/when repository access is needed; it is not the API identity.
+- [ ] Enforce expiry/revocation of enterprise Authorizations at the Weaver dispatch boundary and invalidate outstanding authorizations on delegation revoke.
+- [ ] Add negative tests for token validation, cross-owner/workspace access, private-note access, self-approval, self-escalation, stale policy, revoke-during-queue and restart recovery.
+
+**Exit:** the machine principal can authenticate only through the broker, can read only explicitly granted resources in one Founder-owned workspace, and is immediately denied on suspension/revocation. No write or execution authority exists unless separately and explicitly commissioned.
 
 ## Gate 2 — Read-only intelligence
 
