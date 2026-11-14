@@ -6,14 +6,14 @@
 
 ## Gate 0 — Repository and contract reconnaissance
 
-- [ ] Inspect current identity and workspace subject model.
-- [ ] Inspect `api/oracle_spine.py` and provider routing.
-- [ ] Inspect Knowledge OS persistence and retrieval contracts.
-- [ ] Inspect approval request/decision/consumption lifecycle.
-- [ ] Inspect Weaver and Engineering Lab authorization, execution, WorkEvent and Evidence contracts.
-- [ ] Inspect current deployment topology, environment variables, health checks, and persistent storage.
-- [ ] Inspect Console navigation and API client conventions.
-- [ ] Record existing reusable interfaces and gaps; do not infer runtime health from historical documents.
+- [x] Inspect current identity and workspace subject model.
+- [x] Inspect `api/oracle_spine.py` and provider routing.
+- [x] Inspect Knowledge OS persistence and retrieval contracts.
+- [x] Inspect approval request/decision/consumption lifecycle.
+- [x] Inspect Weaver and Engineering Lab authorization, execution, WorkEvent and Evidence contracts.
+- [x] Inspect repository deployment topology, environment references and health-check contracts; provider-side storage/plan details remain unverified.
+- [x] Inspect Console navigation and API client conventions.
+- [x] Record reusable interfaces, blockers and unverified provider-side facts in `INTEGRATION_MAP.md`; no runtime-health inference.
 
 **Exit:** a source-linked integration map and explicit list of missing contracts.
 
