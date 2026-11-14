@@ -867,6 +867,36 @@ def _declared_lenses(surface: str, app_text: str) -> set[str]:
     return set(re.findall(r'id: "([^"]+)"', block.group(1))) if block else set()
 
 
+def _section_routing_defects(app_text: str) -> list[str]:
+    """Surfaces that declare lenses but are composed without the route's section.
+
+    A surface whose page renders a ``LENSES`` strip is addressed by a second
+    path segment, and the resolver hands that segment to the page through the
+    ``section`` prop. A surface composed without it is the same silent-loss
+    class the lens-alias check catches from the other direction: the alias
+    resolves correctly, and the page then discards the section and renders its
+    default lens -- so ``/solariun/weaver`` shows ``projects``.
+
+    TypeScript cannot see this. ``section`` is optional on every page, so
+    dropping ``section={route.section}`` compiles; only a source-level binding
+    catches it.
+    """
+    defects: list[str] = []
+    for surface, module in sorted(_surface_page_modules(app_text).items()):
+        if not _declared_lenses(surface, app_text):
+            continue
+        composition = re.search(
+            rf'case\s+"{re.escape(surface)}":\s*return\s+<{module}\b([^>]*)>',
+            app_text,
+        )
+        if composition and "section={route.section}" not in composition.group(1):
+            defects.append(
+                f"surface {surface!r} declares lenses but is composed without "
+                f"`section={{route.section}}`, so every section of it is discarded"
+            )
+    return defects
+
+
 def _lens_alias_defects(router_text: str, surfaces_text: str, app_text: str) -> list[str]:
     """Reasons a declared lens alias would be wrong. Empty == every one is sound.
 
@@ -1049,6 +1079,62 @@ def test_detector_flags_a_lens_alias_naming_a_section_the_surface_does_not_rende
     # And the defect is real, not merely reported: the link lands on the
     # surface's "not a lens" state instead of the codex lens.
     assert _js_route_resolver(broken)["/encyclopedia"] == "/novanet/encyclopedia"
+
+
+def test_every_surface_that_declares_lenses_receives_the_route_section():
+    """A declared lens set is only reachable if the page is handed the section.
+
+    The lens-alias check proves a section *resolves*; this proves the resolved
+    section *arrives*. Both are needed: an alias can resolve to
+    `/solariun/weaver` while the composition drops the segment, and the user then
+    sees the surface's default lens. Measured on `main` @ `327187d2` by dropping
+    the prop from `App.tsx`: the whole shell suite stayed green (47 passed) and so
+    did the derived console-contract domain -- TypeScript accepts it because
+    ``section`` is optional.
+    """
+    assert _section_routing_defects(APP) == [], _section_routing_defects(APP)
+    # The surfaces with a lens strip are the domain, derived from their own pages.
+    assert {s for s in _surface_page_modules(APP) if _declared_lenses(s, APP)} == {
+        "novanet",
+        "solariun",
+        "solspire",
+    }
+
+
+def test_detector_flags_a_lens_surface_composed_without_the_section():
+    """Negative control: the exact pre-repair shape must be reported.
+
+    The mutation is the one TypeScript cannot reject -- the ``section`` prop is
+    removed while ``onNavigate`` stays, so the composition still compiles.
+    """
+    dropped = APP.replace(
+        "<SolariunPage section={route.section} onNavigate={navigate} />",
+        "<SolariunPage onNavigate={navigate} />",
+        1,
+    )
+    assert dropped != APP, "control did not mutate App.tsx -- detector unproven"
+    defects = _section_routing_defects(dropped)
+    assert any("solariun" in d and "section={route.section}" in d for d in defects), defects
+    # The live input is not reported: the detector is not unconditionally true.
+    assert _section_routing_defects(APP) == []
+
+
+def test_the_section_routing_check_is_not_a_restated_surface_list():
+    """The domain is derived, so a surface nobody enumerated is still judged.
+
+    A detector carrying a hand-written list of three surface ids looks identical
+    on the live tree. Appending a *new* surface that composes a lens-declaring
+    page without the section must be reported without editing the detector -- and
+    a surface whose page declares no lens strip must stay outside the domain.
+    """
+    synthetic = APP + '\n        case "solariun-twin":\n          return <SolariunPage onNavigate={navigate} />;\n'
+    assert "solariun-twin" not in APP, "control premise: the surface is new"
+    defects = _section_routing_defects(synthetic)
+    assert any("solariun-twin" in d for d in defects), defects
+    # A page with no lens strip is not in the domain: any section is discarded by
+    # the resolver itself, so the composition has nothing to forward.
+    assert _declared_lenses("home", APP) == set()
+    assert not any("home" in d for d in _section_routing_defects(APP))
 
 
 # ---------------------------------------------------------------------------

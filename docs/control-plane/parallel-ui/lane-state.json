@@ -118,7 +118,16 @@
    "doc_guard": "idle"
   }
  },
- "unassigned_open_prs": [],
+ "unassigned_open_prs": [
+  {
+   "number": 650,
+   "branch": "feat/prism-l3-knowledge-status-control-binding-03",
+   "head_sha": "184a681cb76330a43210dc580ab8f0e22e621a19",
+   "draft": true,
+   "updated_at": "2026-11-09T04:25:40Z",
+   "title": "Lane 3: bind the knowledge status-read controls to their detectors"
+  }
+ ],
  "closed_unmerged": [
   {
    "number": 499,
