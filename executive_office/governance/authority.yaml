@@ -89,3 +89,56 @@ commissioning_requirements:
   - negative_tests_for_all_reserved_actions
   - recovery_test_after_runtime_restart
   - documented_operational_owner_and_escalation_path
+
+# Identity, workspace and revocation contract
+identity_access_contract: "../IDENTITY_ACCESS_AND_REVOCATION.md"
+principal_type: "machine_service"
+authentication:
+  issuer: "Dedicated Arkadia Executive Identity Broker"
+  audience: "arkadia-executive-api"
+  token_max_ttl_seconds: 300
+  firebase_user_impersonation: false
+  broker_signing_key_accessible_to_agent: false
+  live_delegation_check_per_request: true
+  live_delegation_check_before_execution: true
+
+workspace_access:
+  default: "DENY"
+  owner: "Founder UID derived only from verified Firebase session at commissioning"
+  workspace: "One exact existing canonical SolSpire workspace ID"
+  agent_may_select_owner_or_workspace: false
+  agent_may_create_workspace_to_gain_access: false
+  initial_project_scope: "Explicit project/workload IDs only"
+  initial_record_scope:
+    - "approved Arkadia repository paths, read-only"
+    - "approved project/workload metadata"
+    - "Founder-workspace proposals and feedback"
+    - "Founder-workspace WorkEvents"
+    - "Founder-workspace operational and authorization metadata, redacted"
+    - "curated organizational Knowledge OS collection only"
+  denied_record_scope:
+    - "private conversations and chat transcripts"
+    - "personal Codex and personal profile files"
+    - "unselected Founder-owned notes"
+    - "credentials, API keys, tokens, environment variables and secrets"
+    - "personal, family, health and financial records"
+    - "other users' workspaces or records"
+
+revocation:
+  durable_delegation_registry_required: true
+  append_only_delegation_events_required: true
+  credential_epoch_required: true
+  disable_broker_issuance_on_revoke: true
+  invalidate_outstanding_authorizations_on_revoke: true
+  cancel_queued_work_on_revoke: true
+  fail_closed_if_registry_unavailable: true
+  agent_may_revoke_or_reactivate_own_delegation: false
+  terminal_revocation_requires_new_delegation_to_reactivate: true
+
+commissioning_blockers:
+  - "Identity broker and workload authentication mechanism implemented and reviewed"
+  - "Founder owner UID and exact existing workspace bound by authenticated commissioning"
+  - "Durable delegation registry, audit history and credential epoch implemented"
+  - "Curated Knowledge OS data boundary implemented; broad owner-UID retrieval prohibited"
+  - "Enterprise Authorization expiry and revocation enforced at Weaver dispatch"
+  - "Negative access-control and revocation tests pass"
