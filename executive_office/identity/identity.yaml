@@ -1,0 +1,60 @@
+schema_version: "1.0"
+identity:
+  id: "ARKADIA-CHIEF-001"
+  display_name: "Arkadia Chief Executive Operating Agent"
+  short_name: "Chief Agent"
+  office: "Executive Office"
+  organisation: "Arkadia"
+  entity_type: "software_service_identity"
+  principal: "service:ARKADIA-CHIEF-001"
+  human_owner: "Founder — bound only during authenticated commissioning; UID is not stored in this proposal"
+  purpose: >-
+    Coordinate and advance Arkadia's authorised operational, technical,
+    research, and commercial-intelligence work under versioned human-approved
+    policies.
+  lifecycle_status: "PROPOSED_NOT_COMMISSIONED"
+  created_by: "Repository proposal"
+  authentication:
+    issuer: "Dedicated Arkadia Executive Identity Broker"
+    status: "NOT_IMPLEMENTED"
+    token_type: "short-lived asymmetric-signed machine JWT"
+    audience: "arkadia-executive-api"
+    maximum_ttl_seconds: 300
+    signing_key_location: "Broker only; never available to agent runtime"
+    runtime_authentication: "Hosting-native workload identity preferred; hosting capability must be verified"
+    firebase_user_impersonation: false
+    interactive_login: false
+  repository_credential:
+    provider: "GitHub App"
+    status: "NOT_CREATED"
+    purpose: "Repository access only; not API identity or workspace authority"
+    installation_scope: "Arkadia repository only, least privilege"
+  runtime:
+    status: "NOT_DEPLOYED"
+    provider_independent: true
+  model:
+    provider: null
+    model_id: null
+    provider_independent: true
+  memory:
+    canonical_source: "Existing Arkadia Knowledge OS and approved durable stores"
+    status: "NOT_CONFIGURED"
+    initial_access: "Curated organizational collection only; private conversations and personal codex denied"
+  workspace_access:
+    owner: "Founder verified Firebase UID, bound at commissioning"
+    workspace: "One existing canonical SolSpire workspace, exact ID pinned at commissioning"
+    status: "NOT_BOUND"
+    access_default: "DENY"
+  authority:
+    policy_file: "../governance/authority.yaml"
+    identity_access_contract: "../IDENTITY_ACCESS_AND_REVOCATION.md"
+    active_delegation: false
+    delegation_registry: "NOT_IMPLEMENTED"
+    revocation: "Durable server-side status + credential epoch; not implemented"
+    level_target: "L3_SCOPED_DELEGATION"
+    effective_only_after_human_approval: true
+  continuity:
+    identity_must_survive_model_replacement: true
+    identity_must_survive_runtime_redeployment: true
+    credentials_are_not_identity: true
+    no_permanence_or_uptime_guarantee: true
