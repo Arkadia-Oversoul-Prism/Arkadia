@@ -1516,3 +1516,135 @@ No local checkout/test execution is claimed; verification above is from the name
 ### Next concrete step
 
 The CI repair is implementation-complete and ready for human review on PR #632. Await the human review/merge decision, then continue the next verified Engineering Lab MVP acceptance gap. This infrastructure repair does **not** by itself establish full Engineering Lab MVP acceptance.
+
+
+## DEA-01 — mission authorization gate and authenticated browser lifecycle — 2026-11-09
+
+### Existing bounded authorization/CI work — PR #653
+
+**PR:** [#653 — fix(lab): keep authorization labels and API gates truthful](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/653)  
+**Base/main:** `327187d23c7e4ad32efc61aed91f912de084e07d`  
+**Observed branch head:** `28aab09494b4063dc94fbdcab441b6639000a456`
+
+This existing PR makes the Mission Control wording match the endpoint's actual operation (Lab session authorization, not a separate `/api/approvals` ledger decision), corrects the Lab API boundary tests for the existing `require_lab_auth` wrapper and its narrow N-ATLaS public exceptions, and makes focused CP10-A Lab tests gating rather than `continue-on-error`.
+
+Fresh checks observed:
+
+- Prism Console Contract [run 42588937862](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/42588937862): **8 Vitest files / 61 tests passed**; TypeScript passed; Vite production build passed (169 modules); derived console-contract domain **1,150 passed in 48.56s**; CI-wiring guard **31 passed in 5.93s**.
+- Authenticated layout measurement passed for `/workspace`, `/arkana`, `/weaver`, and `/engineering-lab` at desktop 1440×900, tablet 1024×768 and mobile 390×844. The Engineering Lab-specific check requires Mission Control and the Next decision panel to mount and rejects both panel-level and document horizontal overflow.
+- Layout evidence artifact: [workspace-layout-evidence, artifact 13660626705](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/42588937862/artifacts/13660626705).
+- SG-02-FE.2-V [run 42588937928](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/42588937928): focused CP10-A Lab suite **12 passed**; API verification, browser-route verification and mutation-boundary steps completed successfully.
+- **Important non-green diagnostic:** CP10-B broader backend regression reported **9 failed, 4,023 passed, 17 skipped, 3 warnings and 1 collection error**. That step remains `continue-on-error`; the overall workflow success does not mean the broad backend suite is green.
+
+PR #653 is **MERGED** — into `main` at `a1009ddfb485d60b2717b73ff7ae02c417d1ef21` (2026-11-10T10:12:07Z), which is the current `main` HEAD; its head `28aab09494b4063dc94fbdcab441b6639000a456` is in the repository. The sentence originally written here read *"PR #653 remains open and unmerged"*; that was true at authoring time and is now false, so it is corrected rather than deleted. The disposable development identity is not Firebase. No production identity, merge, deployment or production configuration change is claimed.
+
+PR #654's own recorded base `327187d23c7e4ad32efc61aed91f912de084e07d` is an ancestor of current `main` (`git merge-base --is-ancestor`), so the base has advanced and the PR is `MERGEABLE` / `CLEAN` with no conflicted path.
+
+### New end-to-end mission browser acceptance — PR #654
+
+**PR:** [#654 — test(lab): exercise authenticated mission lifecycle end to end](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/654)  
+**Branch:** `dea-01/mission-lifecycle-browser-acceptance-01`  
+**Base/main:** `327187d23c7e4ad32efc61aed91f912de084e07d`  
+**Latest implementation commits at evidence authoring:** `a096bd01f6df94e4dcea54cc472be0f509300d02` (browser driver), `5f185e7396c0fc0596397f258cbd7681ebc14c73` (workflow wiring), `f4ea1754210eec169deaa0785026c1ae9330512c` (CI guard), followed by response-capture hardening and this evidence update.
+
+The new Playwright driver uses the same explicitly enabled, disposable dev-mode identity and already-started CI backend/Vite server as the authenticated console gate. It exercises the real visible MissionWorkspace controls and canonical API:
+
+1. Register a bounded `SENTINEL` agent and create a `PROPOSED` session.
+2. Attempt execution before authorization; require the actual HTTP 400 and `SESSION != AUTHORIZATION` response.
+3. Record a separate human-originated Lab session authorization.
+4. Execute one read-only `README.md` operation.
+5. Require the server-returned `READY_FOR_REVIEW` session, `VERIFYING` run, substrate event sequence, linked evidence record and unrecorded human acceptance.
+6. Reload, re-read the session from the server, resume, and require the same session/run/evidence plus the user-scoped target hint.
+
+**Changed paths in PR #654:**
+
+- `web/arkadia_console/exercise_mission_workspace.py`
+- `.github/workflows/prism-console-contract.yml`
+- `tests/test_prism_console_ci_wiring.py`
+- This existing evidence record.
+
+The script writes structured API/session evidence and screenshots to the workflow's existing `render_evidence/` directory for upload by the existing artifact step. The browser response body is read after the awaited response, outside the Playwright event callback.
+
+**Verification status (superseded — see the measured run below):** the paragraph originally written here read *"fresh PR-head CI for #654 is **PENDING / NOT OBSERVED** at this evidence snapshot. No local checkout or test execution is claimed."* That was true when it was written, before the browser step had run on the repaired head. It is no longer true and is retained only as provenance.
+
+**Measured — the repaired browser step is green on this PR's exact head.** Re-derived read-only from the GitHub Actions API, not from prose:
+
+- Head `c4bba04fa055c39ac8bb9f82d3ef49b4f6524b34` — the head the run below executed on, and the `innerText`-repair commit itself.
+- [Prism Console Contract run 42634648835](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/42634648835) — `event=pull_request`, `status=completed`, `conclusion=success`, `run_attempt=1`, `head_sha=c4bba04f…`, `head_branch=dea-01/mission-lifecycle-browser-acceptance-01`. Every step in the job is `success`, including `Workspace layout assertions (rendered, authenticated test identity)` and `Console-contract CI-wiring guard`.
+- Read from that job's own step log: Vitest **8 files / 61 tests passed**; `tsc --noEmit` passed; Vite production build **169 modules**, `dist/assets/index-AsgrXWi2.js` 424.43 kB; derived console-contract domain **1152 passed in 45.03s**.
+- The uploaded `mission_flow.json` in that run reports `"verdict": "PASS"`, `"failures": []`, `"page_errors": []`, session `SES-b17015453b16` reaching `READY_FOR_REVIEW`, run `RUN-6938c5418cc4` in `VERIFYING`, evidence `EVD-5833cb7132c2`, `"trace_acceptance": "not recorded"`, `"api_execute_statuses": [400, 200]`, and the pre-authorization refusal `session must be AUTHORIZED or QUEUED to execute (currently PROPOSED); SESSION != AUTHORIZATION`. The reload/resume half re-read the same session, run and evidence (`resume_session_state: READY_FOR_REVIEW`). Screenshots `render_evidence/mission_flow.png` and `render_evidence/mission_flow_resumed.png` were captured and the artifact uploaded (13,090,883 bytes, artifact `13682561721`).
+- Every one of the **18** check-runs on that head is `completed/success` (`GET /commits/c4bba04f…/check-runs` → `total_count: 18`): `console-contract`, `validate`, `test`, `frontend`, `backend`, `boot-syntax`, `Full-history secret scan`, `Build canonical Render image`, `Build and smoke-test the N-ATLAS self-host image`, `verdict-step-integrity`, `trigger-coverage`, `posture-currency`, `production-read-only-probe`, `provider-forensics`, `native-arkadia-golden-workflow`, `bundle-beta-evidence`, `beta-beta-01-english`, `beta-beta-02-hausa`.
+
+**Re-measured on the evidence-revision head.** A correction to this record does re-trigger the console gate: a `pull_request` `paths` filter selects the PR's **cumulative** changed-file set, not the files in the pushed commit, and this PR already changes `web/arkadia_console/**` and `tests/**`. Measured at head `5ae1e191b208dc71c63ceee519a042608554f049`:
+
+- [Prism Console Contract run 42807171119](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/42807171119) — `event=pull_request`, `status=completed`, `conclusion=success`, `run_attempt=1`, all 14 executed steps `success`.
+- From its step log: Vitest **8 files / 61 tests passed**; production build **169 modules**; derived console-contract domain **1153 passed in 40.19s** (one more than the earlier run because this revision's own node is collected); CI-wiring guard **34 passed in 4.58s**; and a fresh `mission_flow.json` with `"verdict": "PASS"`, `"failures": []`, session `SES-0946c90db638` at `READY_FOR_REVIEW`, run `RUN-a9991c41efd3`, evidence `EVD-ad5ece10e535`.
+- Two independent executions of the same acceptance step, on two heads, both `PASS`. That is a stronger observation than the single run the earlier paragraph described.
+
+**What this does and does not establish.** It establishes that the added browser acceptance step executes and passes in the gate, and that the mission lifecycle boundary it asserts — refusal before authorization, a separate human-originated authorization, then `READY_FOR_REVIEW` with unrecorded acceptance — holds on this head. It is a CI observation of an ephemeral backend under the disposable dev-mode identity.
+
+**Acceptance boundary (unchanged):** the test identity is the documented disposable dev-mode seam, not Firebase; the backend is ephemeral CI; no production integration, database, credential, configuration, deployment, merge, human acceptance or release is exercised. It does not prove Firebase identity or production acceptance. **No merge, deployment or acceptance is claimed or performed.**
+
+### Next concrete step
+
+This section's stated next step — "if it passes, update this record with the final head and exact output" — is what this revision does. Merge and deployment remain human-only. The next DEA-01 product gap may be taken up; the lane's one-open-PR constraint and the human merge decision on #654 are unchanged.
+
+**Corrected reasoning, recorded rather than quietly dropped.** The commit that introduced this section (`5ae1e191`) asserted in its message that the console gate would *not* re-execute for a documentation-only commit. That is false, and the run above is the measurement that disproves it: a `pull_request` `paths` filter matches the PR's cumulative changed-file set, so any push to this PR re-runs the gate. The claim is superseded by the measured re-run rather than removed, so a later pass does not repeat it.
+
+### Measured root cause of the #654 browser failure — `innerText` case, repaired
+
+**Defect (measured, not inferred).** The first fresh run of the new browser step
+([run 42596832761](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/42596832761),
+head `c4506128`) failed with `TimeoutError: Page.wait_for_function: Timeout 20000ms exceeded.`
+The run's own `mission_flow.json` shows the whole canonical API path **succeeded**:
+`POST /agents` 200, `POST /sessions` 200, pre-authorization `POST …/execute` **400**, `POST
+…/authorize` 200, authorized `POST …/execute` 200, three session `GET`s 200, and `page_errors: []`.
+Every Python-side assertion on the **server** payload therefore passed; the timeout was in a
+**DOM** wait.
+
+**Cause.** `innerText` returns text as *rendered*, so CSS `text-transform: uppercase` is applied
+to it. The wait compared that rendered text against the **source-case** literal
+`'Evidence records'`, which can never match. Proven in Chromium in this environment:
+
+| read | source | value |
+|---|---|---|
+| `innerText` | `<p style="text-transform:uppercase">Evidence records (1)</p>` | `EVIDENCE RECORDS (1)` |
+| `textContent` | same element | `Evidence records (1)` |
+
+The label is rendered with `uppercase` (`MissionWorkspace.tsx:1118`, inside the
+`mission-recorded-evidence` testid the wait reads), so the wait was unsatisfiable by construction.
+Two further assertions had the same latent defect and would have failed next
+(`originated_by human` against an `uppercase` step label; `acceptance: not recorded` against an
+`uppercase` trace paragraph).
+
+**Repair (this commit).** A module-level `_contains()` helper compares case-insensitively, used by
+both Python-side assertions; the in-page `wait_for_function` lower-cases its `innerText` before
+`.includes()`. A new detector `_rendered_text_defects()` in
+`tests/test_prism_console_ci_wiring.py` flags any `.includes('<not-uppercase>')` comparison whose
+window reads `innerText` without a case fold — already-uppercase literals such as
+`READY_FOR_REVIEW` are **not** reported, because the transform cannot alter them and flagging them
+would make the detector fire on correct code.
+
+**Evidence.**
+
+- Live negative control on the **real** script: restoring the pre-repair wait reddens exactly
+  `test_mission_browser_acceptance_reads_rendered_text_case_insensitively`
+  (`1 failed, 33 passed`); the file was then restored byte-identically
+  (`sha256 202e51bc…` before and after) and the guard is `34 passed`.
+- `--collect-only` attributes the delta: 32 → 34 nodes (+2 = the new detector assertion and its
+  negative control).
+- Derived console-contract domain, same environment, node identity compared:
+  `main` `327187d2` → **10 failed / 1139 passed**; PR head without this change → **10 failed /
+  1140 passed** (+1, the PR's own wiring node); PR head with this change → **10 failed / 1142
+  passed** (+2). The 10 failures are the documented missing-`node_modules` TypeScript-toolchain
+  baseline and are identical in all three runs.
+
+**Boundary.** This is a harness defect in the PR's own browser driver, not a product defect:
+`MissionWorkspace.tsx` is byte-identical to `main` (blob `8867748b…` on both). The repair touches
+only `web/arkadia_console/exercise_mission_workspace.py` and
+`tests/test_prism_console_ci_wiring.py` — both already in this PR's diff. No console source,
+backend contract, authority surface, or another lane's file is touched.
+
+**Not claimed.** The repaired browser step has **not** been observed green in CI from here: this
+environment has no CI runner, so the fresh PR-head run is the verification. Merge, deployment and
+acceptance remain human-only.
