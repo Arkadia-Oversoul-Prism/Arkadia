@@ -843,7 +843,7 @@ export function MissionWorkspace() {
             title="Attempts execution before authorization, to show the boundary refusing."
             className="rounded border border-amber-400/40 px-3 py-1.5 font-mono text-[10px] uppercase tracking-widest text-amber-300/90 hover:border-amber-400/70 disabled:opacity-30"
           >
-            3 · Attempt before approval
+            3 · Attempt before authorization
           </button>
           <button
             type="button"
@@ -852,7 +852,7 @@ export function MissionWorkspace() {
             data-testid="mission-authorize"
             className="rounded border border-gold/50 px-3 py-1.5 font-mono text-[10px] uppercase tracking-widest text-gold hover:border-gold disabled:opacity-30"
           >
-            4 · Record human approval
+            4 · Record human authorization
           </button>
           <button
             type="button"

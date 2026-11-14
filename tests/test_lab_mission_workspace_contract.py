@@ -88,9 +88,9 @@ def test_execute_is_gated_by_a_separate_authorization_call():
     ), "execution must require authorization, an executable substrate state, and no active/completed local run"
     assert "sessionAuthorized" in workspace
     assert "session?.authorization_ref" in workspace
-    # And an explicit pre-approval attempt exists, so the gate is observable.
+    # And an explicit pre-authorization attempt exists, so the gate is observable.
     assert "onExecuteUnauthorized" in workspace
-    assert "Attempt before approval" in workspace
+    assert "Attempt before authorization" in workspace
 
     routes = _read(LAB_ROUTES)
     assert "session must be AUTHORIZED or QUEUED to execute" in _read(
@@ -867,3 +867,14 @@ def test_session_view_reads_cannot_reselect_a_superseded_mission():
     assert poll_guard_text not in broken_poll[poll_fetch:poll_apply], (
         "the negative control must detect a poll without its post-fetch active-session guard"
     )
+
+
+def test_mission_control_does_not_mislabel_authorization_as_approval():
+    """The Lab session route records authorization, not an approval-ledger decision."""
+    workspace = _read(WORKSPACE)
+    routes = _read(LAB_ROUTES)
+
+    assert "4 · Record human authorization" in workspace
+    assert "4 · Record human approval" not in workspace
+    assert '"/engineering/sessions/{session_id}/authorize"' in routes
+    assert "runtime.record_authorization(" in routes
