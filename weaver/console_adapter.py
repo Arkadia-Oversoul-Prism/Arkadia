@@ -43,10 +43,15 @@ class WeaverConsoleAdapter:
         store: EnterpriseOrchestrationStore,
         repo_root: str = ".",
         revocations: AuthorizationRevocationStore | None = None,
+        registry: Any | None = None,
     ):
         self.store = store
         self.repo_root = repo_root
         self.revocations = revocations or AuthorizationRevocationStore()
+        # Gate 1C reconciliation: the delegation registry the dispatch guard
+        # re-reads for agent-associated authorizations. Left None, the guard
+        # constructs the default registry itself.
+        self.registry = registry
 
     def _sandbox(self, *, root: str) -> Sandbox:
         return Sandbox(
@@ -97,8 +102,14 @@ class WeaverConsoleAdapter:
         # Runs at the last responsible boundary, immediately before the sandbox
         # executes. An authorization that has not expired is still refused if a
         # durable revocation exists, so revoking a delegation cannot leave an
-        # outstanding authorization usable.
-        assert_dispatchable(authorization=auth, revocations=self.revocations)
+        # outstanding authorization usable. For an authorization linked to an
+        # executive delegation the guard also re-reads the delegation itself,
+        # so a partially-failed revocation cascade cannot leave a live path.
+        assert_dispatchable(
+            authorization=auth,
+            revocations=self.revocations,
+            registry=self.registry,
+        )
 
         sandbox = self._sandbox(root=authorized_root)
         try:

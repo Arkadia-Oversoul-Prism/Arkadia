@@ -200,10 +200,45 @@ class AuthorizationRevocationStore:
         return [dict(row) for row in rows]
 
 
+def _delegation_denial_reason(delegation: Any, *, authorization: Any, at: float) -> str | None:
+    """Why a linked delegation forbids dispatch, or None when it permits it.
+
+    This is deliberately independent of the revocation ledger. The cascade in
+    `executive_office.revocation` revokes the delegation first and then writes
+    authorization revocations; if that second write fails, the ledger has no
+    record and the authorization would otherwise look clean. Re-reading the
+    delegation here closes that window: the delegation's own status, expiry and
+    credential epoch are authoritative.
+    """
+    status = str(getattr(delegation, "status", "") or "").upper()
+    if status != "ACTIVE":
+        return f"delegation is {status.lower() or 'unavailable'}"
+
+    delegation_expires = getattr(delegation, "expires_at", None)
+    if delegation_expires is not None and float(delegation_expires) <= at:
+        return "delegation has expired"
+
+    effective_from = getattr(delegation, "effective_from", None)
+    if effective_from is not None and float(effective_from) > at:
+        return "delegation is not yet effective"
+
+    # Credential epoch supersession: a suspend/revoke bumps the delegation's
+    # epoch. An authorization stamped with an older epoch is dead even if its
+    # own expires_at has not passed.
+    issued_epoch = getattr(authorization, "delegation_epoch", None)
+    current_epoch = getattr(delegation, "credential_epoch", None)
+    if issued_epoch is not None and current_epoch is not None:
+        if int(issued_epoch) != int(current_epoch):
+            return "delegation credential epoch superseded"
+
+    return None
+
+
 def assert_dispatchable(
     *,
     authorization: Any,
     revocations: AuthorizationRevocationStore | None = None,
+    registry: Any | None = None,
     now: float | None = None,
 ) -> None:
     """The final gate before a governed execution is dispatched.
@@ -211,12 +246,27 @@ def assert_dispatchable(
     Raises AuthorizationRevoked (a PermissionError) on any failure. Called by
     the Weaver console adapter immediately before the sandbox runs, so an
     authorization cannot survive revocation merely because it has not expired.
+
+    Three independent checks, all fail-closed:
+
+      1. the authorization's own expiry;
+      2. a durable authorization revocation record;
+      3. for an authorization linked to an executive delegation, the
+         delegation's *current* status, expiry and credential epoch, re-read
+         from the registry at dispatch time.
+
+    Check 3 exists because the revocation cascade can partially fail: the
+    delegation is committed to REVOKED before the authorization revocations are
+    written, so a failure in between leaves no ledger record. Re-reading the
+    delegation makes that window harmless.
     """
     if authorization is None:
         raise AuthorizationRevoked("authorization required before dispatch")
 
+    at = float(now if now is not None else _now())
+
     expires_at = getattr(authorization, "expires_at", None)
-    if expires_at is not None and float(expires_at) <= float(now if now is not None else _now()):
+    if expires_at is not None and float(expires_at) <= at:
         raise AuthorizationRevoked("authorization has expired")
 
     store = revocations or AuthorizationRevocationStore()
@@ -225,6 +275,36 @@ def assert_dispatchable(
         raise AuthorizationRevoked("authorization has no identifier")
     if store.is_revoked(authorization_id):
         raise AuthorizationRevoked("authorization has been revoked")
+
+    # ── Delegation re-read (independent of the revocation ledger) ────────────
+    delegation_id = getattr(authorization, "delegation_id", None)
+    if not delegation_id:
+        # Not agent-associated: the two checks above are the whole contract.
+        return
+
+    if registry is None:
+        # Imported lazily so this module stays importable without the executive
+        # package, and so a missing registry is a denial rather than a crash.
+        from executive_office.registry import DelegationRegistry
+
+        registry = DelegationRegistry()
+
+    try:
+        delegation = registry.get(str(delegation_id))
+    except Exception as exc:  # noqa: BLE001 - any read failure must deny
+        # Unknown delegation, unreadable store, corrupt row: all deny. A
+        # missing record is not "no restriction", it is "cannot prove the
+        # authority still exists".
+        raise AuthorizationRevoked(
+            f"delegation could not be verified: {type(exc).__name__}"
+        ) from exc
+
+    if delegation is None:
+        raise AuthorizationRevoked("delegation record is missing")
+
+    reason = _delegation_denial_reason(delegation, authorization=authorization, at=at)
+    if reason:
+        raise AuthorizationRevoked(reason)
 
 
 __all__ = [
