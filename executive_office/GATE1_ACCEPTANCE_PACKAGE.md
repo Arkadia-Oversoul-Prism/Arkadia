@@ -6,6 +6,7 @@
 |---|---|
 | Branch | `feat/chief-agent-foundation-001` |
 | Head at review start | `b66e8353` |
+| Head after this review | `53c020e7` |
 | Base | `main` @ `a1009ddf` (stated base) |
 | PR | #657 — draft, open |
 | Review type | Independent acceptance review, not a self-report |
@@ -159,7 +160,7 @@ python -m pytest tests/test_executive_identity_governance.py \
                  tests/test_executive_api_boundary.py \
                  tests/test_executive_dispatch_revocation_hardening.py \
                  tests/test_openapi_security_production_contract.py -q
-# → 86 passed
+# → 87 passed
 ```
 
 | File | Collected |
@@ -168,7 +169,7 @@ python -m pytest tests/test_executive_identity_governance.py \
 | `test_executive_api_boundary.py` | 11 |
 | `test_executive_dispatch_revocation_hardening.py` | **17** (14 + 3 new) |
 | `test_openapi_security_production_contract.py` | 1 |
-| **Total** | **87 collected / 86 passed** |
+| **Total** | **87 collected / 87 passed** |
 
 ### Full suite — controlled, clean-state comparison
 
@@ -246,10 +247,10 @@ as the branch total.**
 |---|---|---|
 | Last commit only | `git show --stat HEAD` | **17 files** |
 | Cumulative vs stated base | `git diff --name-only a1009ddf..HEAD` | **26 files** (at `18ae97da`) |
-| Cumulative vs stated base, now | `git diff --name-only a1009ddf..HEAD` | **31 files** (at `b66e8353`) |
+| Cumulative vs stated base, now | `git diff --name-only a1009ddf..HEAD` | **33 files** (at `53c020e7`) |
 
 The report quoted a **last-commit** stat as if it were a **branch** stat. GitHub
-was correct. The branch has since grown to 31 files across 18 commits.
+was correct. The branch has since grown to 33 files across 19 commits.
 
 ---
 
