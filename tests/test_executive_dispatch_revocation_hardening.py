@@ -298,3 +298,218 @@ def test_non_agent_authorization_unaffected_by_registry(stores, monkeypatch):
     assert_dispatchable(
         authorization=auth, revocations=stores["revocations"], registry=stores["registry"]
     )
+
+
+# ── 5. acceptance-review regressions ─────────────────────────────────────────
+# Both tests below were written after an independent review of the branch found
+# the guards passing their own tests while two real paths remained open.
+
+def test_null_epoch_on_linked_authorization_denies(stores, founder):
+    """A NULL issued epoch must not be read as "no restriction".
+
+    An authorization that names a delegation but carries no epoch cannot prove
+    which credential generation it was issued under. Before this test, the
+    supersession check was guarded by `issued_epoch is not None`, so a row with
+    a NULL epoch skipped the check entirely and dispatched against a delegation
+    whose epoch had since been bumped by a suspend.
+    """
+    delegation = _grant(stores, founder)
+    auth = _authorization(delegation_id=delegation.delegation_id)
+
+    # Simulate a row written before the column existed, or by a caller that
+    # bypassed the auto-stamp.
+    with sqlite3.connect(stores["db"]) as conn:
+        conn.execute(
+            "UPDATE ew_authorizations SET delegation_epoch=NULL WHERE id=?", (auth.id,)
+        )
+
+    reloaded = ew.EnterpriseOrchestrationStore().authorization(
+        subject=FOUNDER_UID, authorization_id=auth.id
+    )
+    assert reloaded.delegation_id == delegation.delegation_id
+    assert reloaded.delegation_epoch is None
+
+    # Bump the epoch by suspending, then reactivating.
+    stores["registry"].suspend(
+        delegation_id=delegation.delegation_id, founder_uid=FOUNDER_UID, reason="test"
+    )
+    stores["registry"].reactivate(
+        delegation_id=delegation.delegation_id, founder_uid=FOUNDER_UID, reason="test"
+    )
+    assert stores["registry"].get(delegation.delegation_id).credential_epoch > 1
+
+    with pytest.raises(AuthorizationRevoked) as excinfo:
+        assert_dispatchable(
+            authorization=reloaded,
+            revocations=stores["revocations"],
+            registry=stores["registry"],
+        )
+    assert "epoch" in str(excinfo.value)
+
+
+def test_denied_dispatch_marks_attempt_blocked(stores, founder, tmp_path):
+    """A guard denial must leave the attempt in a terminal BLOCKED state.
+
+    `assert_dispatchable` raises PermissionError. When it was called outside the
+    adapter's try/except, the denial escaped before the `except PermissionError`
+    branch ran, so the attempt stayed in ATTEMPTED — a state that reads as
+    "execution started" and that no later step corrects.
+    """
+    from weaver.console_adapter import WeaverConsoleAdapter
+
+    delegation = _grant(stores, founder)
+    store = ew.EnterpriseOrchestrationStore()
+    proposal = store.proposal(
+        subject=FOUNDER_UID,
+        enterprise_id="ent-1",
+        objective="read a file",
+        rationale="test",
+        recommended_actions=["read"],
+        required_authority="human",
+        tool_selections=["filesystem.read"],
+    )
+    authority = store.authority_event(
+        subject=FOUNDER_UID,
+        actor=FOUNDER_UID,
+        authority_context="founder",
+        action="AUTHORIZE",
+        previous_state={"status": "PROPOSED"},
+        new_state={"status": "AUTHORIZED"},
+        origin="test",
+        authentication_context="firebase",
+        correlation_id=proposal.correlation_id,
+    )
+    auth = store.authorize(
+        subject=FOUNDER_UID,
+        proposal_id=proposal.id,
+        authority_event_id=authority.id,
+        scope={"tools": ["filesystem.read"]},
+        constraints={
+            "read_only": True,
+            "repository_root": str(tmp_path),
+            "network": False,
+        },
+        expires_at=time.time() + 3600,
+        delegation_id=delegation.delegation_id,
+    )
+    attempt = store.execution_attempt(
+        subject=FOUNDER_UID,
+        authorization_id=auth.id,
+        tool_channel="filesystem.read",
+        request_payload={"path": "x"},
+    )
+
+    adapter = WeaverConsoleAdapter(
+        store=store,
+        repo_root=str(tmp_path),
+        revocations=stores["revocations"],
+        registry=stores["registry"],
+    )
+
+    stores["registry"].suspend(
+        delegation_id=delegation.delegation_id, founder_uid=FOUNDER_UID, reason="test"
+    )
+
+    with pytest.raises(PermissionError):
+        adapter.dispatch(
+            subject=FOUNDER_UID,
+            authorization_id=auth.id,
+            execution_attempt_id=attempt.id,
+            tool_channel="filesystem.read",
+            request_payload={"path": "x"},
+        )
+
+    row = store._row("ew_execution_attempts", attempt.id)
+    assert row["result_status"] == "BLOCKED", (
+        f"denied dispatch left the attempt in {row['result_status']!r}; "
+        "the guard must run inside the try so the BLOCKED branch records it"
+    )
+
+
+def test_registry_unavailable_between_load_and_dispatch_denies(
+    stores, founder, tmp_path, monkeypatch
+):
+    """The registry dying AFTER the authorization is loaded must still deny.
+
+    The earlier coverage made the registry unavailable at load time. The review
+    asked for the harder case: the authorization loads cleanly, and the registry
+    only fails at the moment of dispatch. This proves the guard re-reads the
+    delegation at the boundary rather than trusting a value captured earlier.
+    """
+    from weaver.console_adapter import WeaverConsoleAdapter
+
+    delegation = _grant(stores, founder)
+    store = ew.EnterpriseOrchestrationStore()
+    proposal = store.proposal(
+        subject=FOUNDER_UID,
+        enterprise_id="ent-1",
+        objective="read a file",
+        rationale="test",
+        recommended_actions=["read"],
+        required_authority="human",
+        tool_selections=["filesystem.read"],
+    )
+    authority = store.authority_event(
+        subject=FOUNDER_UID,
+        actor=FOUNDER_UID,
+        authority_context="founder",
+        action="AUTHORIZE",
+        previous_state={"status": "PROPOSED"},
+        new_state={"status": "AUTHORIZED"},
+        origin="test",
+        authentication_context="firebase",
+        correlation_id=proposal.correlation_id,
+    )
+    auth = store.authorize(
+        subject=FOUNDER_UID,
+        proposal_id=proposal.id,
+        authority_event_id=authority.id,
+        scope={"tools": ["filesystem.read"]},
+        constraints={
+            "read_only": True,
+            "repository_root": str(tmp_path),
+            "network": False,
+        },
+        expires_at=time.time() + 3600,
+        delegation_id=delegation.delegation_id,
+    )
+    attempt = store.execution_attempt(
+        subject=FOUNDER_UID,
+        authorization_id=auth.id,
+        tool_channel="filesystem.read",
+        request_payload={"path": "x"},
+    )
+
+    adapter = WeaverConsoleAdapter(
+        store=store,
+        repo_root=str(tmp_path),
+        revocations=stores["revocations"],
+        registry=stores["registry"],
+    )
+
+    # The authorization has loaded. Now the registry goes away.
+    def _unreadable(*args, **kwargs):
+        raise sqlite3.OperationalError("registry unavailable at dispatch")
+
+    monkeypatch.setattr(stores["registry"], "get", _unreadable)
+
+    # The guard does not let the raw OperationalError escape: it converts any
+    # read failure into AuthorizationRevoked, so the caller sees a denial rather
+    # than an infrastructure error it might be tempted to retry past.
+    with pytest.raises(AuthorizationRevoked) as excinfo:
+        adapter.dispatch(
+            subject=FOUNDER_UID,
+            authorization_id=auth.id,
+            execution_attempt_id=attempt.id,
+            tool_channel="filesystem.read",
+            request_payload={"path": "x"},
+        )
+    assert "could not be verified" in str(excinfo.value)
+    assert "OperationalError" in str(excinfo.value)
+
+    # Fail-closed: nothing executed, and the attempt is not left ATTEMPTED.
+    row = store._row("ew_execution_attempts", attempt.id)
+    assert row["result_status"] != "SUCCEEDED"
+    assert row["result_status"] == "BLOCKED", (
+        f"registry failure at dispatch left the attempt in {row['result_status']!r}"
+    )

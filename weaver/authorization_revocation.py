@@ -225,11 +225,18 @@ def _delegation_denial_reason(delegation: Any, *, authorization: Any, at: float)
     # Credential epoch supersession: a suspend/revoke bumps the delegation's
     # epoch. An authorization stamped with an older epoch is dead even if its
     # own expires_at has not passed.
+    #
+    # A NULL issued epoch is NOT "no restriction". An authorization that names a
+    # delegation but carries no epoch cannot prove which credential generation
+    # it was issued under, so it must be treated as superseded. Without this,
+    # any row written before the column existed — or written by a caller that
+    # bypassed the auto-stamp — would silently skip the check entirely.
     issued_epoch = getattr(authorization, "delegation_epoch", None)
     current_epoch = getattr(delegation, "credential_epoch", None)
-    if issued_epoch is not None and current_epoch is not None:
-        if int(issued_epoch) != int(current_epoch):
-            return "delegation credential epoch superseded"
+    if issued_epoch is None:
+        return "delegation credential epoch missing on authorization"
+    if current_epoch is not None and int(issued_epoch) != int(current_epoch):
+        return "delegation credential epoch superseded"
 
     return None
 

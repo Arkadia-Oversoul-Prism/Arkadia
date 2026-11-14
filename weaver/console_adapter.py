@@ -98,21 +98,28 @@ class WeaverConsoleAdapter:
         if not authorized_root:
             raise PermissionError("Console Weaver execution requires a bounded repository root")
 
-        # ── Final revocation gate (Gate 1C) ──────────────────────────────────
-        # Runs at the last responsible boundary, immediately before the sandbox
-        # executes. An authorization that has not expired is still refused if a
-        # durable revocation exists, so revoking a delegation cannot leave an
-        # outstanding authorization usable. For an authorization linked to an
-        # executive delegation the guard also re-reads the delegation itself,
-        # so a partially-failed revocation cascade cannot leave a live path.
-        assert_dispatchable(
-            authorization=auth,
-            revocations=self.revocations,
-            registry=self.registry,
-        )
-
         sandbox = self._sandbox(root=authorized_root)
         try:
+            # ── Final revocation gate (Gate 1C) ──────────────────────────────
+            # Runs at the last responsible boundary, immediately before the
+            # sandbox executes. An authorization that has not expired is still
+            # refused if a durable revocation exists, so revoking a delegation
+            # cannot leave an outstanding authorization usable. For an
+            # authorization linked to an executive delegation the guard also
+            # re-reads the delegation itself, so a partially-failed revocation
+            # cascade cannot leave a live path.
+            #
+            # Deliberately INSIDE the try: a denial here is a PermissionError,
+            # and the `except PermissionError` branch below is what records the
+            # attempt as BLOCKED. Called outside the try, the denial escaped
+            # before the attempt was ever marked, stranding it in ATTEMPTED —
+            # a terminal-looking state that no later step would correct.
+            assert_dispatchable(
+                authorization=auth,
+                revocations=self.revocations,
+                registry=self.registry,
+            )
+
             if tool == "filesystem.read":
                 target = str(request_payload.get("path") or "")
                 if not target:

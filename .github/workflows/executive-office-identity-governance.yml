@@ -1,0 +1,125 @@
+name: Executive Office Identity and Governance
+
+# ARKADIA-CHIEF-001 Gate 1. This gate exists because the Gate 1 tests were
+# executed by NO workflow: `tests/test_executive_identity_governance.py`,
+# `tests/test_executive_api_boundary.py` and
+# `tests/test_executive_dispatch_revocation_hardening.py` were named by no
+# workflow file, and `executive_office/**` appeared in no path filter. The
+# suite was green locally and unenforced in CI, so a regression in the
+# delegation registry, the broker, the token validator or the Weaver dispatch
+# guard would have merged with every required check green.
+#
+# The path filters below are deliberately broad on the surfaces the guard
+# depends on: a change to `weaver/enterprise_orchestration.py` (which persists
+# the delegation linkage) or to `weaver/console_adapter.py` (which calls the
+# guard) must be judged by this gate, not only by the gates that predate it.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "executive_office/**"
+      - "weaver/authorization_revocation.py"
+      - "weaver/console_adapter.py"
+      - "weaver/enterprise_orchestration.py"
+      - "api/executive_routes.py"
+      - "api/openapi_security.py"
+      - "api/main.py"
+      - "tests/test_executive_identity_governance.py"
+      - "tests/test_executive_api_boundary.py"
+      - "tests/test_executive_dispatch_revocation_hardening.py"
+      - "tests/test_openapi_security_production_contract.py"
+      - ".github/workflows/executive-office-identity-governance.yml"
+  push:
+    branches: [main]
+    paths:
+      - "executive_office/**"
+      - "weaver/authorization_revocation.py"
+      - "weaver/console_adapter.py"
+      - "weaver/enterprise_orchestration.py"
+      - "api/executive_routes.py"
+      - "api/openapi_security.py"
+      - "api/main.py"
+      - "tests/test_executive_identity_governance.py"
+      - "tests/test_executive_api_boundary.py"
+      - "tests/test_executive_dispatch_revocation_hardening.py"
+      - "tests/test_openapi_security_production_contract.py"
+      - ".github/workflows/executive-office-identity-governance.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  identity-governance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install backend dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install pytest pytest-asyncio
+
+      - name: Gate 1 negative security tests
+        # Every test in this file asserts a refusal: no self-authorization, no
+        # privilege escalation, no token use after revocation, no access outside
+        # the granted scope, no secret reads, no cross-workspace access, no
+        # impersonation of the Founder UID.
+        run: python -m pytest tests/test_executive_identity_governance.py -q -rA
+
+      - name: Gate 1 API boundary tests
+        # The two authentication surfaces must not cross: a Firebase human token
+        # cannot authenticate a machine route, and a broker machine token cannot
+        # authenticate a Founder control route.
+        run: python -m pytest tests/test_executive_api_boundary.py -q -rA
+
+      - name: Gate 1C dispatch revocation hardening
+        # The delegation re-read at the last responsible boundary, including the
+        # partially-failed revocation cascade.
+        run: python -m pytest tests/test_executive_dispatch_revocation_hardening.py -q -rA
+
+      - name: Composed OpenAPI security contract
+        # The Executive Office operations must keep their adjudicated boundary
+        # classes; the inventory count is pinned in the test itself.
+        run: python -m pytest tests/test_openapi_security_production_contract.py -q -rA
+
+      - name: The agent is not commissioned
+        # A structural assertion, not a comment: no delegation exists, the
+        # identity record still declares PROPOSED_NOT_COMMISSIONED, and the
+        # broker refuses to issue. If a future change commissions the agent by
+        # accident, this step is what notices.
+        run: |
+          python - <<'PY'
+          import os, sys, tempfile
+          sys.path.insert(0, ".")
+          tmp = tempfile.mkdtemp()
+          os.environ["EXECUTIVE_OFFICE_DB"] = os.path.join(tmp, "eo.db")
+          os.environ["EXECUTIVE_BROKER_KEY_DIR"] = os.path.join(tmp, "keys")
+          import executive_office.registry as registry_module
+          registry_module._DB_PATH = os.environ["EXECUTIVE_OFFICE_DB"]
+          from executive_office.registry import DelegationRegistry
+          from executive_office.broker import ExecutiveIdentityBroker, BrokerUnavailable
+
+          registry = DelegationRegistry(db_path=os.environ["EXECUTIVE_OFFICE_DB"])
+          assert registry.active_for_principal() is None, "a delegation exists on a clean store"
+          try:
+              ExecutiveIdentityBroker(registry=registry, key_dir=os.environ["EXECUTIVE_BROKER_KEY_DIR"]).issue()
+          except BrokerUnavailable:
+              pass
+          else:
+              raise SystemExit("broker issued a token with no delegation")
+
+          with open("executive_office/identity/identity.yaml", encoding="utf-8") as handle:
+              text = handle.read()
+          assert "PROPOSED_NOT_COMMISSIONED" in text, "identity record no longer declares uncommissioned"
+          assert "active_delegation: false" in text, "identity record claims an active delegation"
+          print("Uncommissioned invariant holds: no delegation, no issuance, record uncommissioned.")
+          PY
