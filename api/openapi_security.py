@@ -16,6 +16,10 @@ HTTP_METHODS = {"get", "put", "post", "delete", "options", "head", "patch", "tra
 BEARER_SCHEME = "FirebaseBearer"
 SOVEREIGN_SCHEME = "SovereignKeyHeader"
 WEBHOOK_SCHEME = "GitHubWebhookHMAC"
+#: Broker-issued machine JWT for the Executive Office principal. A distinct
+#: scheme from FirebaseBearer: a human token cannot satisfy it and a machine
+#: token cannot satisfy FirebaseBearer.
+EXECUTIVE_MACHINE_SCHEME = "ExecutiveMachineBearer"
 
 # These are intentionally public entry points in the N-ATLaS tester flow. Their
 # subsequent run token is path-scoped by api.auth.require_auth and must not grant
@@ -87,6 +91,26 @@ def _boundary(
             "classification": "firebase_bearer_sovereign",
             "runtime_guard": "require_sovereign",
             "minimum_access_level": 3,
+        }
+
+    # Executive Office machine principal (ARKADIA-CHIEF-001). Checked before the
+    # human guards because `require_founder_human` itself depends on
+    # `require_auth`; the machine routes must not be documented as human ones.
+    if "require_executive_principal" in names:
+        return [{EXECUTIVE_MACHINE_SCHEME: []}], {
+            "classification": "executive_machine_bearer",
+            "runtime_guard": "require_executive_principal",
+            "note": (
+                "Broker-issued short-lived machine JWT plus a live delegation "
+                "check on every request. Not satisfiable by a Firebase token."
+            ),
+        }
+
+    if "require_founder_human" in names:
+        return [{BEARER_SCHEME: []}], {
+            "classification": "firebase_bearer",
+            "runtime_guard": "require_founder_human",
+            "note": "Human Founder identity; machine tokens are explicitly refused.",
         }
 
     if "require_auth" in names or "require_lab_auth" in names or "require_project_owner" in names:
@@ -178,6 +202,17 @@ def install_openapi_security(app: FastAPI) -> None:
             "in": "header",
             "name": "X-Hub-Signature-256",
             "description": "GitHub webhook HMAC-SHA256 signature; requires the configured SOVEREIGN_KEY secret.",
+        }
+        schemes[EXECUTIVE_MACHINE_SCHEME] = {
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "Broker-issued EdDSA machine JWT (max 5 minutes)",
+            "description": (
+                "Short-lived machine token issued by the Arkadia Executive Identity "
+                "Broker for service:ARKADIA-CHIEF-001. Validated against the live "
+                "delegation record on every request; a Firebase human token is not "
+                "accepted, and this token is not accepted on human routes."
+            ),
         }
         routes = {
             (effective_path, method.lower()): (route, inherited_dependencies)

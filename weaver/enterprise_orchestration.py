@@ -167,6 +167,11 @@ def _db() -> sqlite3.Connection:
     auth_columns = {row["name"] for row in conn.execute("PRAGMA table_info(ew_authorizations)").fetchall()}
     if "acceptance_id" not in auth_columns:
         conn.execute("ALTER TABLE ew_authorizations ADD COLUMN acceptance_id TEXT")
+    # Gate 1C: an authorization may be issued under an executive delegation, so
+    # that revoking the delegation can withdraw it. Existing rows keep NULL —
+    # they predate the delegation model and are not agent-associated.
+    if "delegation_id" not in auth_columns:
+        conn.execute("ALTER TABLE ew_authorizations ADD COLUMN delegation_id TEXT")
     conn.commit()
     return conn
 
@@ -444,7 +449,8 @@ class EnterpriseOrchestrationStore:
     def authorize(self, *, subject: str, proposal_id: str, authority_event_id: str,
                   scope: Any, constraints: Any, expires_at: float | None = None,
                   acceptance_id: str | None = None,
-                  correlation_id: str | None = None) -> Authorization:
+                  correlation_id: str | None = None,
+                  delegation_id: str | None = None) -> Authorization:
         proposal = self._row("ew_proposals", proposal_id)
         authority = self._row("ew_authority_events", authority_event_id)
         if not proposal or not authority:
@@ -474,10 +480,12 @@ class EnterpriseOrchestrationStore:
         with _db() as c:
             c.execute("""INSERT INTO ew_authorizations
                          (id, subject, proposal_id, authority_event_id, acceptance_id,
-                          scope, constraints, expires_at, granted_at, correlation_id)
-                         VALUES (?,?,?,?,?,?,?,?,?,?)""",
+                          scope, constraints, expires_at, granted_at, correlation_id,
+                          delegation_id)
+                         VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
                       (rid, subject, proposal_id, authority_event_id, acceptance_id,
-                       _json(scope), _json(constraints), expires_at, now, cid))
+                       _json(scope), _json(constraints), expires_at, now, cid,
+                       delegation_id))
             c.execute("UPDATE ew_proposals SET status='AUTHORIZED' WHERE id=?", (proposal_id,))
         return row
 

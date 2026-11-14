@@ -86,8 +86,50 @@ def test_all_composed_operations_have_adjudicated_security_boundaries():
         assert op.get("security") == [{"FirebaseBearer": []}], (
             f"{method.upper()} {path} must require the Firebase bearer"
         )
-    assert len(operations) == 336, f"Expected captured 336-operation inventory; got {len(operations)}"
+    # Inventory 336 -> 344 is the same reviewable act for ARKADIA-CHIEF-001
+    # Gate 1 (Executive Office identity and governance): `api/executive_routes.py`
+    # mounted seven operations on the composition root, plus the broker issuance
+    # route. Each is named here with its adjudicated boundary, so the count
+    # cannot drift onto an operation nobody reviewed.
+    #
+    # The machine routes use a distinct scheme from FirebaseBearer: a human
+    # token cannot satisfy them and a machine token cannot satisfy the human
+    # routes. That separation is the point of the gate, so it is asserted.
+    executive_machine_ops = {
+        ("get", "/solspire/executive/whoami"),
+        ("get", "/solspire/executive/knowledge/curated"),
+    }
+    for method, path in executive_machine_ops:
+        op = schema["paths"].get(path, {}).get(method, {})
+        assert op, f"the Executive Office machine operation {method.upper()} {path} is no longer served"
+        assert op.get("x-arkadia-auth-boundary", {}).get("classification") == "executive_machine_bearer", (
+            f"{method.upper()} {path} boundary drifted from 'executive_machine_bearer'"
+        )
+        assert op.get("security") == [{"ExecutiveMachineBearer": []}], (
+            f"{method.upper()} {path} must require the executive machine bearer"
+        )
+
+    executive_founder_ops = {
+        ("get", "/solspire/executive/delegations"),
+        ("post", "/solspire/executive/delegations"),
+        ("post", "/solspire/executive/token"),
+        ("post", "/solspire/executive/delegations/{delegation_id}/suspend"),
+        ("post", "/solspire/executive/delegations/{delegation_id}/revoke"),
+        ("post", "/solspire/executive/delegations/{delegation_id}/reactivate"),
+    }
+    for method, path in executive_founder_ops:
+        op = schema["paths"].get(path, {}).get(method, {})
+        assert op, f"the Executive Office Founder operation {method.upper()} {path} is no longer served"
+        assert op.get("x-arkadia-auth-boundary", {}).get("classification") == "firebase_bearer", (
+            f"{method.upper()} {path} boundary drifted from 'firebase_bearer'"
+        )
+        assert op.get("security") == [{"FirebaseBearer": []}], (
+            f"{method.upper()} {path} must require the Firebase bearer"
+        )
+
+    assert len(operations) == 344, f"Expected captured 344-operation inventory; got {len(operations)}"
     assert "FirebaseBearer" in schema["components"]["securitySchemes"]
+    assert "ExecutiveMachineBearer" in schema["components"]["securitySchemes"]
     assert "SovereignKeyHeader" in schema["components"]["securitySchemes"]
     assert "GitHubWebhookHMAC" in schema["components"]["securitySchemes"]
     assert schema["paths"]["/api/forge"]["post"]["security"] == [{"SovereignKeyHeader": []}]

@@ -19,6 +19,10 @@ from __future__ import annotations
 from typing import Any
 
 from lab.engineering_lab.sandbox import Sandbox, SandboxPolicy
+from weaver.authorization_revocation import (
+    AuthorizationRevocationStore,
+    assert_dispatchable,
+)
 from weaver.enterprise_orchestration import EnterpriseOrchestrationStore
 
 READ_ONLY_TOOLS = frozenset({
@@ -33,9 +37,16 @@ READ_ONLY_TOOLS = frozenset({
 class WeaverConsoleAdapter:
     """Dispatch one already-authorized Console action through Weaver."""
 
-    def __init__(self, *, store: EnterpriseOrchestrationStore, repo_root: str = "."):
+    def __init__(
+        self,
+        *,
+        store: EnterpriseOrchestrationStore,
+        repo_root: str = ".",
+        revocations: AuthorizationRevocationStore | None = None,
+    ):
         self.store = store
         self.repo_root = repo_root
+        self.revocations = revocations or AuthorizationRevocationStore()
 
     def _sandbox(self, *, root: str) -> Sandbox:
         return Sandbox(
@@ -81,6 +92,13 @@ class WeaverConsoleAdapter:
         authorized_root = str(constraints.get("repository_root") or self.repo_root).strip()
         if not authorized_root:
             raise PermissionError("Console Weaver execution requires a bounded repository root")
+
+        # ── Final revocation gate (Gate 1C) ──────────────────────────────────
+        # Runs at the last responsible boundary, immediately before the sandbox
+        # executes. An authorization that has not expired is still refused if a
+        # durable revocation exists, so revoking a delegation cannot leave an
+        # outstanding authorization usable.
+        assert_dispatchable(authorization=auth, revocations=self.revocations)
 
         sandbox = self._sandbox(root=authorized_root)
         try:
