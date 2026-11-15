@@ -119,3 +119,30 @@ pre-existing `main` debt, and the three new controls pass.
 No console source changed (the `App.tsx` mutation was restored byte-identically and is
 not part of the diff). No backend, authority, identity, deployment, or another lane's
 file is touched. Merge, deployment, and acceptance remain human-only.
+
+## Flaky check observed (not branch-caused)
+
+On the first CI run for this head (`ccd34a86`), `Prism Console Contract`
+(`.github/workflows/prism-console-contract.yml`, run `43662539712`) failed at the
+step **"Workspace layout assertions (rendered, authenticated test identity)"** with
+`canonical session view did not reach READY_FOR_REVIEW: AUTHORIZED`, while
+`success` was recorded for the same workflow on `main` `19697a6a`
+(run `43635356668`).
+
+It is **not attributable to this branch**:
+
+- The diff touches only `tests/test_console_shell_nav_contract.py`,
+  `docs/control-plane/parallel-ui/{AGENT-01-SHELL.md,lane-state.json}`, and this
+  evidence doc. The failing step boots the real `api.main` and drives a rendered
+  mission-lifecycle flow; it reads none of them.
+- `gh run rerun 43662539712 --failed` → the same job (rerun `132655729884`)
+  **passed** (3m10s) with no change to the tree. A failure that clears on an
+  identical re-run is environmental, not a regression this diff introduced.
+
+Final state at head `ccd34a86`: **11/11 checks pass**, `MERGEABLE` / `CLEAN`.
+
+## Final PR state
+
+PR **#658**, draft, head `ccd34a86cc629e7ae1b4290505c26c2e2faf081c`, base `main`
+`19697a6a358ec114265e665fcc22eea8d5018ac2`. Merge, deployment, and acceptance
+remain human-only.
