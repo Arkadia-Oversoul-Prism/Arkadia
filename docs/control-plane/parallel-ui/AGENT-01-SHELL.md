@@ -461,3 +461,48 @@ Evidence: `docs/control-plane/evidence/lane1-section-routing-coverage-01/EVIDENC
 
 Lane 1's next bounded PR opens only after this one merges. Merge, production deployment and
 acceptance remain human-only.
+
+## Status — 2026-11-15 (LANE 1: composition-root case detector reads comments as code)
+
+**Active branch:** `feat/prism-l1-composition-case-comment-blindness-01` (recorded for provenance only).
+**Active PR:** none declared — the snapshot below is the judge.
+
+A lane PR cannot declare itself open at merge time: the merge that lands it closes it. This
+section therefore declares no active PR and leaves the lane's status to the derived snapshot,
+the convention #638–#652 set for lanes 1, 3 and 4.
+
+Lane 1's next bounded slice, opened from freshly fetched `main` `19697a6a` under
+`11 — LANE NEW-PR AUTHORIZATION`. Reconciliation was exhausted first (measured live: **1** open
+PR repo-wide, #657, a draft belonging to no lane's owned paths and therefore recorded under
+`unassigned_open_prs`; all four lanes `doc_guard: idle`; `scripts/lane_state.py --check` exit 0),
+so N1 holds and no lane's PR was duplicated or continued.
+
+**Objective.** Bind `test_every_declared_surface_is_composed_in_the_app_root` to *code* rather
+than *text*. Its detector `_composition_root_surface_ids` matched `case "…":` over the whole
+file, so a **commented-out** case read as composed, and a case in any *other* switch counted as
+a surface dispatch. The test had no live binding to `App.tsx` either — its only control fed
+synthetic strings.
+
+**Measured vacuity at base `19697a6a`.** Commenting out the real `case "workspace":` line in
+`web/arkadia_console/src/App.tsx` left the whole shell suite green (**50 passed**). `workspace`
+is the surface the auth threshold redirects into, so the loss is not cosmetic.
+
+**Repair.** The detector now strips TS comments with the file's existing `_without_ts_comments`
+helper and reads only the `switch (route.surface)` block. Three controls were added, each
+asserting **both** polarities (defective input reported, repaired input not): a commented-out
+case, a case parked in a different switch, and a live binding to the real `App.tsx` that also
+asserts a non-empty domain. Node count 50 → 53 (+3, exactly the new controls).
+
+**Evidence bound to the commit.** A **live** negative control on the real `App.tsx` (not a
+synthetic fixture): commenting out `case "workspace":` reddens
+`test_every_declared_surface_is_composed_in_the_app_root` **and** the live binding
+(`2 failed, 51 passed`), then the file is restored byte-identically and the suite returns to
+`53 passed`.
+
+The file is executed by the derived console-contract domain
+(`scripts/console_contract_domain.py`), so no new wiring is needed.
+
+Evidence: `docs/control-plane/evidence/lane1-composition-case-comment-blindness-01/EVIDENCE.md`.
+
+Lane 1's next bounded PR opens only after this one merges. Merge, production deployment and
+acceptance remain human-only.
