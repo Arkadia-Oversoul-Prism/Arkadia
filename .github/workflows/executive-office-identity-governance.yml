@@ -29,8 +29,12 @@ on:
       - "tests/test_executive_api_boundary.py"
       - "tests/test_executive_dispatch_revocation_hardening.py"
       - "tests/test_gate2_revocation_consistency.py"
+      - "tests/test_gate2b_agent_loop_delegation.py"
       - "lab/engineering_lab/runtime.py"
       - "lab/engineering_lab/store.py"
+      - "lab/engineering_lab/tools.py"
+      - "lab/engineering_lab/agent_loop.py"
+      - "lab/engineering_lab/models.py"
       - "solspire/voice_pipeline.py"
       - "api/lab_routes.py"
       - "tests/test_openapi_security_production_contract.py"
@@ -49,8 +53,12 @@ on:
       - "tests/test_executive_api_boundary.py"
       - "tests/test_executive_dispatch_revocation_hardening.py"
       - "tests/test_gate2_revocation_consistency.py"
+      - "tests/test_gate2b_agent_loop_delegation.py"
       - "lab/engineering_lab/runtime.py"
       - "lab/engineering_lab/store.py"
+      - "lab/engineering_lab/tools.py"
+      - "lab/engineering_lab/agent_loop.py"
+      - "lab/engineering_lab/models.py"
       - "solspire/voice_pipeline.py"
       - "api/lab_routes.py"
       - "tests/test_openapi_security_production_contract.py"
@@ -101,6 +109,14 @@ jobs:
         # work once the delegation is revoked, suspended, expired, missing or
         # superseded — including when the registry is unavailable at dispatch.
         run: python -m pytest tests/test_gate2_revocation_consistency.py -q -rA
+
+      - name: Gate 2b native agent loop delegation boundary
+        # The agent loop's tool boundary must re-read the delegation per call,
+        # not once when the tool envelope was derived. Every test asserts a
+        # refusal: revoked, suspended, expired, superseded, missing and
+        # unverifiable delegations cannot execute a tool, and a delegation
+        # revoked between two turns stops the second call.
+        run: python -m pytest tests/test_gate2b_agent_loop_delegation.py -q -rA
 
       - name: Composed OpenAPI security contract
         # The Executive Office operations must keep their adjudicated boundary

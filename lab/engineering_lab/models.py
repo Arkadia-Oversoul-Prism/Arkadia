@@ -282,4 +282,9 @@ AGENT_EVENT_TYPES: tuple[str, ...] = (
     "TOOL_INTENT",
     "TOOL_OBSERVATION",
     "AGENT_DECISION",
+    # Gate 2: a tool call refused by the delegation-aware dispatch guard. Kept
+    # distinct from TOOL_OBSERVATION because a denial is not an observation the
+    # model may act on — it is the run's terminal reason, and the evidence trail
+    # must be able to tell "the tool failed" apart from "authority was withdrawn".
+    "TOOL_DENIED",
 )

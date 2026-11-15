@@ -242,6 +242,28 @@ def _capability_operations(capabilities: tuple[str, ...]) -> set[str]:
     return ops
 
 
+#: Inverse of OPERATION_TOOLS: which authorized operation a tool belongs to.
+#: Built from the same mapping so the two directions cannot disagree — adding a
+#: tool to OPERATION_TOOLS automatically gives the per-call dispatch guard the
+#: operation to authorize.
+TOOL_OPERATIONS: dict[str, str] = {
+    tool: operation
+    for operation, tools in OPERATION_TOOLS.items()
+    for tool in tools
+}
+
+
+def _tool_operation_kind(tool_name: str) -> str | None:
+    """The authorization operation a tool call requires, or None if unknown.
+
+    ``None`` means the name is not a registered tool, so no execution can occur
+    and there is nothing to authorize. Every *real* tool resolves to an
+    operation, which is what makes the per-call guard total: there is no tool
+    the loop can invoke that the guard has no opinion about.
+    """
+    return TOOL_OPERATIONS.get(tool_name)
+
+
 def effective_tools(
     *,
     capabilities: tuple[str, ...],
@@ -710,7 +732,16 @@ class EngineeringLabRuntime:
                    {"objective": objective, "provider": provider,
                     "effective_tools": list(effective)}, run_id=run_id)
 
-        registry = ToolRegistry(sandbox, granted=effective)
+        # The loop's tool registry is bound to the delegation-aware dispatch
+        # guard. `granted=effective` bounds *which* tools exist; the guard
+        # decides, at the moment each one is invoked, whether the executive
+        # delegation that authorizes the run still permits it. Both are needed:
+        # the envelope is derived once, but authority can be withdrawn between
+        # two turns of the same run.
+        registry = ToolRegistry(
+            sandbox, granted=effective,
+            dispatch_guard=self._agent_loop_dispatch_guard(session, subject_ref),
+        )
         gateway = get_gateway()
         descriptor = gateway.describe(provider)
         selection = gateway.select(preferred=provider)
@@ -945,6 +976,88 @@ class EngineeringLabRuntime:
                 f"executive delegation no longer permits '{operation_kind}': {exc}"
             ) from exc
         return operations
+
+    def _agent_loop_dispatch_guard(
+        self, session: dict[str, Any], subject_ref: str
+    ) -> Any:
+        """A per-tool-call gate bound to the agent loop's tool boundary.
+
+        ``_authorization_operations`` derives the tool *envelope* once, before
+        the run starts. That is a start-of-run decision, and on its own it makes
+        authority a snapshot: a delegation revoked after the envelope was
+        computed would still let every remaining turn execute, because nothing
+        re-reads it. Gate 2 closed that window for ``execute_bounded_task`` and
+        the direct ``/n-atlas/run`` route; the native agent loop was the one
+        execution surface still deciding authority exactly once.
+
+        This returns a callable that ``ToolRegistry`` invokes immediately
+        before every tool call. It re-reads the authorization from the store and
+        re-applies the *delegation* contract — status, expiry, credential epoch,
+        revocation — through ``assert_delegation_dispatchable``, the same
+        function Weaver's dispatch guard calls. It also re-checks that the grant
+        itself is still usable, since a grant revoked mid-run must stop the run
+        for the same reason.
+
+        Deliberately *not* re-checked here: the grant's scope and operation
+        naming. Those are envelope concerns already settled when the tool set
+        was derived, and re-imposing them at the tool boundary would change the
+        loop's existing semantics rather than harden them. This guard adds the
+        delegation re-read and nothing else.
+
+        Failure is a ``ToolDenied``; the loop ends BLOCKED. Any unexpected
+        error also denies, because an authority that cannot be verified is not
+        an authority that can be used.
+        """
+        from .tools import ToolDenied
+        from weaver.authorization_revocation import (
+            AuthorizationRevoked,
+            assert_delegation_dispatchable,
+        )
+
+        authorization_ref = session.get("authorization_ref")
+
+        def _guard(tool_name: str) -> None:
+            if _tool_operation_kind(tool_name) is None:
+                # Not a known tool: nothing can execute, so there is nothing to
+                # authorize. invoke() reports the unknown tool itself.
+                return
+            try:
+                authorization = (
+                    self._store.get_authorization(authorization_ref, subject_ref)
+                    if authorization_ref
+                    else None
+                )
+                if not authorization:
+                    raise ToolDenied(
+                        f"tool '{tool_name}' denied: no linked authorization",
+                        tool_name=tool_name,
+                    )
+                if not self._authorization_is_usable(authorization):
+                    raise ToolDenied(
+                        f"tool '{tool_name}' denied: authorization is revoked, "
+                        "expired or already consumed",
+                        tool_name=tool_name,
+                    )
+                assert_delegation_dispatchable(
+                    delegation_id=authorization.get("delegation_id"),
+                    delegation_epoch=authorization.get("delegation_epoch"),
+                )
+            except ToolDenied:
+                raise
+            except AuthorizationRevoked as exc:
+                raise ToolDenied(
+                    f"tool '{tool_name}' denied: executive delegation no longer "
+                    f"permits it: {exc}",
+                    tool_name=tool_name,
+                ) from exc
+            except Exception as exc:  # noqa: BLE001 - unreadable state must deny
+                raise ToolDenied(
+                    f"tool '{tool_name}' denied: authorization could not be "
+                    f"verified ({type(exc).__name__})",
+                    tool_name=tool_name,
+                ) from exc
+
+        return _guard
 
     def assert_session_dispatchable(
         self,
