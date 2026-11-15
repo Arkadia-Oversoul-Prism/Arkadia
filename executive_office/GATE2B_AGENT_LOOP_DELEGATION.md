@@ -101,7 +101,24 @@ tests; that over-reach was removed, not the tests.)
 | `tests/test_gate2b_agent_loop_delegation.py` | **new** — 16 tests |
 | `.github/workflows/executive-office-identity-governance.yml` | new CI step + path filters for the new files |
 
-`6 files changed, 203 insertions(+), 5 deletions(-)` plus the new test file.
+`8 files changed, 1009 insertions(+), 5 deletions(-)` — this commit alone.
+Against the PR base `a1009ddf` the branch is **48 files, +7968 / −13**.
+
+---
+
+## 3a. Provenance
+
+| Field | Value |
+|---|---|
+| Commit | `40277680ecd96b43aac2ae4560e731767b91da78` |
+| Branch | `feat/chief-agent-foundation-001` |
+| PR | **#657** — `open`, `draft: true`, `merged: false`, base `main` @ `a1009ddf` |
+| Remote ref | `40277680` — **exact match** to local HEAD (`git ls-remote`) |
+| PR head | `40277680` — **exact match** (`refs/pull/657/head`) |
+
+No duplicate PR was opened. Push used a temporary write-enabled deploy key
+(id `169978119`), **deleted immediately** (`deploy_keys: []` confirmed), private
+key shredded. No force-push.
 
 ---
 
