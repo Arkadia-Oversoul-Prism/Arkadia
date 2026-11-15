@@ -239,8 +239,22 @@ export function NovaNetPage({
                         <li key={e.id} className="rounded border border-line bg-ink/40 p-3">
                           <p className="text-sm text-white/85">{e.title}</p>
                           <p className="font-mono text-[10px] text-white/35">
-                            {e.source} · resonance {e.resonance}
+                            {e.source} · {e.category} · resonance {e.resonance}
                           </p>
+                          {/* The handler derives a `preview` for every public echo
+                              (`body` truncated to 200 characters) and the feed
+                              returned it, but the panel rendered only the title,
+                              so a reader saw an echo's headline and never its
+                              substance. Display-only: it is the handler's own
+                              value, shown as returned and asserting nothing. */}
+                          {e.preview && (
+                            <p
+                              className="mt-1 text-xs text-white/50"
+                              data-testid={`novanet-echo-preview-${e.id}`}
+                            >
+                              {e.preview}
+                            </p>
+                          )}
                         </li>
                       ))}
                     </ul>

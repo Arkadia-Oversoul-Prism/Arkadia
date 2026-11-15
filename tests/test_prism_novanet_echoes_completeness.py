@@ -58,3 +58,80 @@ def test_negative_control_detector_flags_the_pre_change_form():
     problems = find_silent_cap(old)
     assert problems, "detector failed to flag the pre-change silent-cap render"
     assert any("truncation notice" in p for p in problems)
+
+
+# ---------------------------------------------------------------------------
+# Echo display completeness — every field the handler derives reaches the reader.
+# ---------------------------------------------------------------------------
+
+ECHOES_START = 'data-testid="novanet-echoes"'
+ECHOES_END = "novanet-echoes-truncation"
+
+#: The display fields `GET /api/echoes` derives for every public echo
+#: (`api/main.py::echoes_feed`): `title`, `category`, `preview` (the scroll body
+#: truncated to 200 characters), `source`, and `resonance`. All five are present
+#: on every entry, so a field the panel omits is content the reader never sees.
+ECHO_DISPLAY_FIELDS = ("title", "category", "preview", "source", "resonance")
+
+
+def echo_block(src: str) -> str:
+    """The echoes list region, so the detector cannot read the field panel."""
+    start = src.index(ECHOES_START)
+    end = src.index(ECHOES_END, start)
+    return src[start:end]
+
+
+def find_unrendered_echo_fields(src: str) -> list[str]:
+    """Return handler-supplied echo fields the panel receives but never renders.
+
+    The panel's job is to show what the feed carries. A field the handler derives
+    for every entry and the panel silently drops is content the reader cannot see:
+    an echo's headline without its substance reads as an empty entry. Pure source
+    detector, so it can be proven against the pre-change form.
+    """
+    block = echo_block(src)
+    return [
+        f"the panel renders no `{field}`, so the handler's value is invisible"
+        for field in ECHO_DISPLAY_FIELDS
+        if f"e.{field}" not in block
+    ]
+
+
+def drop_preview_block(src: str) -> str:
+    """Remove the preview's JSX block by balanced braces, not by a prose anchor."""
+    anchor = "{e.preview && ("
+    start = src.find(anchor)
+    if start < 0:
+        return src
+    depth = 0
+    for i in range(start, len(src)):
+        if src[i] == "{":
+            depth += 1
+        elif src[i] == "}":
+            depth -= 1
+            if depth == 0:
+                return src[:start] + src[i + 1 :]
+    return src
+
+
+def test_every_handler_supplied_echo_field_is_rendered():
+    """An echo's declared facets must reach the reader, not stop at the type."""
+    assert find_unrendered_echo_fields(SOURCE) == [], find_unrendered_echo_fields(SOURCE)
+
+
+def test_negative_control_detector_flags_the_dropped_echo_substance():
+    """The detector must flag the exact pre-change render: title only.
+
+    Before this guard the panel rendered `title`, `source` and `resonance` and
+    dropped `category` and `preview`, so an echo's substance — the handler's own
+    200-character body preview — was invisible. A detector silent here is not
+    measuring render completeness at all.
+    """
+    old = drop_preview_block(SOURCE).replace(" · {e.category} ·", " ·")
+    problems = find_unrendered_echo_fields(old)
+    assert problems, "detector failed to flag an echo panel that drops the handler's preview"
+    assert any("preview" in p for p in problems)
+    assert any("category" in p for p in problems)
+    # ...and the silent-cap detector still passes it, proving the two measure
+    # different properties rather than one re-stating the other.
+    assert find_silent_cap(old) == []
