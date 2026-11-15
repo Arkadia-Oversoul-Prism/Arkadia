@@ -1,6 +1,7 @@
 # ARKADIA-CHIEF-001 — Gate 1 Human Acceptance Record
 
 **Head under review:** `b134725a16cb9bd500a246556f672945ee4d0b2a`
+**Document head (this file's own commit):** `5ca8b4bd6d626565bb0f89a2187e766405d74701` — see §8 for the CI position at that head
 **Branch:** `feat/chief-agent-foundation-001`
 **Pull request:** [#657](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/657) — `open`, `draft: true`, `merged: false`
 **PR base:** `main` @ `a1009ddfb485d60b2717b73ff7ae02c417d1ef21`
