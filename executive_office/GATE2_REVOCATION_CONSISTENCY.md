@@ -230,15 +230,22 @@ No git credentials in the sandbox → temporary write-enabled deploy key
 (id `169965923`) → pushed `08e272ff..3d0d4b4e` → **key deleted immediately**
 (`deploy_keys: []` confirmed) → private key shredded.
 
-### CI at `3d0d4b4e`
+### CI
 
-**27 check runs. 26 success, 0 non-success, 1 still running** at the time of
-writing (`provider-routing`, a long-running workflow). The Gate 2 workflow
-step — `identity-governance` — is **success**, so the new tests ran and passed
-in CI, not only locally.
+**At `3d0d4b4e` (the Gate 2 implementation commit): 27 check runs, 27 success,
+0 non-success, 0 pending — fully green.** The Gate 2 workflow step
+`identity-governance` is **success**, so the new tests ran and passed in CI,
+not only locally.
 
-**Not verified:** `provider-routing`'s final conclusion. It was still
-`in_progress` when this document was written. It is not a Gate 2 check and its
-history on this branch is mixed (it was red on `101a1d03`, a docs-only commit),
-so its result should be read before merge rather than assumed.
+**At `2c43e8fc` (this document's commit): 27 check runs, 0 non-success, 2 still
+running** (`provider-routing`, `validate`) when this was written. This commit
+changes **one markdown file**; the code under test is byte-identical to
+`3d0d4b4e`, which is fully green.
+
+**Not verified:** the final conclusion of `provider-routing` and `validate` at
+`2c43e8fc`. Both were `in_progress` when this document was written. Neither is
+a Gate 2 check, and `provider-routing`'s history on this branch is mixed (it
+was red on `101a1d03`, a docs-only commit), so its result should be read before
+merge rather than assumed.
+
 
