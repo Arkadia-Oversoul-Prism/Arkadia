@@ -137,7 +137,7 @@ Run **`43641094146`** on `b134725a` — job `identity-governance`, conclusion **
 
 All five substantive steps passed.
 
-### 2.3 The earlier reds on `101a1d03` — now attributable to flakiness
+### 2.3 The earlier reds on `101a1d03` — evidence supports non-causation; cause undiagnosed
 
 The two reds on `101a1d03` were `native-arkadia-golden-workflow` and `console-contract`. The run history for both workflows on this branch is:
 
@@ -148,14 +148,14 @@ The two reds on `101a1d03` were `native-arkadia-golden-workflow` and `console-co
 | `101a1d03` | **docs only** (1 markdown file) | **failure** | **failure** |
 | `b134725a` | docs only (1 markdown file) | **success** | **success** |
 
-**This is consistent with flakiness, and the correlation is now strong enough to state as a finding rather than a suspicion.** The only difference between `53c020e7` (green) and `101a1d03` (red) is a single markdown file — no code, no test, no workflow. The same code then passes again on `b134725a`. A failure that appears only on a docs-only commit, between two green commits carrying identical code, cannot be caused by the change under review.
+**This is consistent with flakiness, and the correlation is now strong enough to state as a finding rather than a suspicion.** The only difference between `53c020e7` (green) and `101a1d03` (red) is a single markdown file — no code, no test, no workflow. The same code then passes again on `b134725a`. The pass/fail sequence strongly supports the finding that the documentation-only change did not cause these failures. It does not diagnose the underlying failure mechanism.
 
-**What remains unexplained:** the *reason* for the two failures. The job-logs endpoint returns **HTTP 403** (`"Must have admin rights to Repository."`), so the failure output could not be read. The attribution above rests on the commit-content correlation, not on the failure message. The failing steps were:
+**What remains unexplained:** the *reason* for the two failures. The job-logs endpoint returns **HTTP 403** (`"Must have admin rights to Repository."`), so the failure output could not be read. The non-causation assessment rests on commit-content correlation, not on the failure message. The cause remains undiagnosed. The failing steps were:
 
 - N-ATLAS: step 4, *"Execute Arkadia native N-ATLaS golden path"*.
 - console-contract: step 11, *"Workspace layout assertions (rendered, authenticated test identity)"* — a Playwright-rendered assertion, the step most exposed to timing/environment non-determinism.
 
-Both are now green at the head under review. **No action is required for Gate 1 acceptance**; the observation is recorded so the flakiness is not mistaken for a resolved defect.
+Both subsequently passed again. This supports non-causation by the documentation-only change; it does not establish why the failures occurred. **Rerun the affected checks before merge.**
 
 ---
 
@@ -246,7 +246,7 @@ $ python -m pytest tests/test_executive_identity_governance.py \
 |---|---|
 | **No live browser verification** | No browser tool exists in this environment. The API boundary is proven by `TestClient`, not by a live authenticated session. |
 | **CI job logs unread** | The job-logs endpoint returns HTTP 403. Step *conclusions* are the evidence; per-step pass counts and failure output were not read. |
-| **The two `101a1d03` reds** | Attributed to flakiness by commit-content correlation (§2.3); the failure reason itself was never read. |
+| **The two `101a1d03` reds** | Commit-content correlation strongly supports that the documentation-only change did not cause them; the failure reason was not readable, so the underlying cause remains undiagnosed (§2.3). Rerun before merge. |
 | **`tests/test_autonomy.py`** | Pre-existing collection error (`ImportError: load_autonomy_config`) on the base. Excluded from all counts and from the baseline identically. Not fixed — reported. |
 | **Pre-existing suite debt** | The base carries a large pre-existing failing/error set, byte-identical before and after this branch. Not caused by, and not repaired by, Gate 1. |
 | **No PR comment posted** | The connector exposes no comment/update-PR tool; the PR head updated automatically on push. |
@@ -255,7 +255,7 @@ $ python -m pytest tests/test_executive_identity_governance.py \
 
 | Decision | Status |
 |---|---|
-| **Gate 1 acceptance** | **Pending — this document is the input.** A human decides. |
+| **Gate 1 acceptance** | **Accepted with limitations** — human decision recorded in §9. |
 | **Merge / deployment** | **Not authorized by this document.** PR #657 remains a draft; merge is human-only. |
 | **Commissioning** | **Not authorized by this document.** No delegation, no credentials, no workspace binding, no L3, no scheduling. |
 
@@ -334,3 +334,39 @@ All three belong to a single workflow, **N-ATLAS external beta validation** (`.g
 - **No Gate 1 test, file, or workflow is affected.**
 
 This does not change any conclusion in §5. Gate 1 acceptance, merge/deployment, and commissioning remain three separate human decisions, and this document authorizes none of them.
+
+
+---
+
+## 9. Human decision — Gate 1 accepted with limitations
+
+**Decision:** ACCEPTED WITH LIMITATIONS  
+**Decision date:** 2026-11-15  
+**Decision authority:** Explicit human acceptance supplied in the project conversation and recorded here at the user's direction.  
+**Evidence baseline:** Gate 1 implementation and evidence reviewed through `4b17ab1a`; the current branch head at the time of recording is `3eba3a397dad1bc7fe89784bc713f3838d90029f`. The three commits after `4b17ab1a` modify this acceptance document only; no source, test, workflow, or configuration files changed. The current head's 18 returned workflow runs are completed successfully, including Executive Office Identity and Governance, Prism Console Contract, and N-ATLAS external beta validation.
+
+### 9.1 Acceptance scope
+
+Gate 1 is accepted as meeting its defined implementation and evidence criteria: the Executive Office identity/delegation enforcement foundation, API boundary, Weaver dispatch revocation gate, credential-epoch checks, negative security tests, and uncommissioned-state controls.
+
+This acceptance is limited to Gate 1. It does **not** establish that every Arkadia execution surface is governed, that the full repository test suite is clean, or that the Chief Agent is ready for operational or autonomous use.
+
+### 9.2 Limitations retained as conditions and recorded facts
+
+1. **CI failures remain undiagnosed.** The historical pass/fail sequence strongly supports that the documentation-only changes did not cause the two failures observed at `101a1d03`. It does not establish why they occurred. The later three non-success results in the N-ATLAS external beta workflow at `4b17ab1a` likewise had unreadable job logs. The affected checks must be rerun before merge; no root cause is claimed.
+2. **Repository-wide verification is not represented as clean.** The pre-existing `tests/test_autonomy.py` collection error and broader baseline suite debt remain outside Gate 1 and are not claimed as fixed. Live browser verification was not performed; API boundary evidence is from TestClient.
+3. **Gate 2 remains required.** Engineering Lab's `el_authorizations` store and the SolSpire voice-event authorization store execute delegated work outside the Gate 1 Weaver guard. Their authorization, suspension, revocation, and credential-epoch behavior must be reconciled and tested across every execution route before broader delegated execution authority is considered.
+
+### 9.3 Decisions expressly not made
+
+| Decision | Status |
+|---|---|
+| Gate 1 acceptance | **Accepted with limitations** |
+| PR #657 merge | **Not authorized** |
+| Deployment | **Not authorized** |
+| Chief Agent commissioning | **Not authorized** |
+| Runtime credential issuance / active delegation / L3 / autonomous scheduling | **Not authorized** |
+
+The PR remains draft and unmerged. This acceptance does not approve or request a merge, does not authorize deployment, and does not commission the Chief Agent. The agent must remain `PROPOSED_NOT_COMMISSIONED` until a separate explicit human authorization decision.
+
+**Gate 1 is closed by acceptance. Gate 2 is the next engineering scope; it is not included in this acceptance.**
