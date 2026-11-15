@@ -200,3 +200,45 @@ Gate 1 suite unchanged: **87 passed**.
 - **No delegation, no credentials, no workspace binding, no L3, no scheduling.**
 - Human-only authority boundaries unchanged. Approval, Weaver, WorkEvent and
   Evidence chains preserved.
+
+---
+
+## 8. Provenance
+
+| Field | Value |
+|---|---|
+| Commit | **`3d0d4b4e4fbf86d0f14861035ac04ca27f021e4a`** |
+| Branch | `feat/chief-agent-foundation-001` |
+| PR | **#657** — `open`, `draft: true`, `merged: false`, base `main` @ `a1009ddf` |
+| Remote ref | `3d0d4b4e` — **exact match** to local HEAD, read back via the GitHub API |
+| Files vs base | **42** (+6910 / −8) |
+| Files in this commit | **10** (+917 / −28) |
+
+### Rebase — reported, not hidden
+
+The remote branch had advanced to `08e272ff` (the human's Gate 1 acceptance
+decision, recorded at the user's direction) while this sandbox held `3eba3a39`.
+The branches had **diverged**. That commit touches **one file**,
+`executive_office/GATE1_HUMAN_ACCEPTANCE_RECORD.md`; this work touches ten
+different files — **zero overlap**. Rebased onto `08e272ff` with **no
+conflicts**, re-ran the 109-test Gate 1 + Gate 2 suite on the rebased tree
+(**109 passed**), then pushed. **No force-push.**
+
+### Push
+
+No git credentials in the sandbox → temporary write-enabled deploy key
+(id `169965923`) → pushed `08e272ff..3d0d4b4e` → **key deleted immediately**
+(`deploy_keys: []` confirmed) → private key shredded.
+
+### CI at `3d0d4b4e`
+
+**27 check runs. 26 success, 0 non-success, 1 still running** at the time of
+writing (`provider-routing`, a long-running workflow). The Gate 2 workflow
+step — `identity-governance` — is **success**, so the new tests ran and passed
+in CI, not only locally.
+
+**Not verified:** `provider-routing`'s final conclusion. It was still
+`in_progress` when this document was written. It is not a Gate 2 check and its
+history on this branch is mixed (it was red on `101a1d03`, a docs-only commit),
+so its result should be read before merge rather than assumed.
+
