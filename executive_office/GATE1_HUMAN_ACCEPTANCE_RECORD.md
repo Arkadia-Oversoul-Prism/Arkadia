@@ -285,9 +285,51 @@ Neither is covered by `assert_dispatchable`. Gate 2 must:
 
 | Field | Value |
 |---|---|
-| Local HEAD | `b134725a16cb9bd500a246556f672945ee4d0b2a` |
-| Remote ref `heads/feat/chief-agent-foundation-001` | `b134725a16cb9bd500a246556f672945ee4d0b2a` — **exact match** |
-| PR #657 | `open`, `draft: true`, `merged: false`, base `main` @ `a1009ddf`, head `b134725a`, 34 files changed, 21 commits |
-| Push method | Temporary write-enabled deploy key over SSH, deleted immediately after the push; remote ref read back via the GitHub API |
+| Local HEAD | `4b17ab1a42447150b3d192a5c9f8bc44d33b9e6b` |
+| Remote ref `heads/feat/chief-agent-foundation-001` | `4b17ab1a42447150b3d192a5c9f8bc44d33b9e6b` — **exact match** (verified by `git ls-remote` and the GitHub API) |
+| PR #657 | `open`, `draft: true`, `merged: false`, base `main` @ `a1009ddf`, head `4b17ab1a`, 35 files changed, 22 commits |
+| Push method | Temporary write-enabled deploy key over SSH (id `169933221`), deleted immediately after the push (`deploy_keys: []` confirmed); private key shredded; remote ref read back via the GitHub API |
 
 **No merge. No deployment. No commissioning. No credential issuance. No L3. No autonomous scheduling. No change to human-only authority boundaries.**
+
+---
+
+## 8. Addendum — CI position at the document's own head `4b17ab1a`
+
+This document is committed at `4b17ab1a`, which is one documentation-only commit ahead of the `b134725a` analysed above. The commit adds **only this file**; no code, test, or workflow changed. CI was allowed to settle on the new head before this record was finalised.
+
+### 8.1 Gate 1 workflow — green at `4b17ab1a`
+
+| Check | Conclusion |
+|---|---|
+| `identity-governance` (Executive Office Identity and Governance) | **success** |
+| `console-contract` | **success** |
+| `test` | **success** |
+| `governance` | **success** |
+| `Full-history secret scan` | **success** |
+| `gitleaks-config-guard` | **success** |
+| `backend`, `frontend`, `boot-syntax`, `security-metadata`, `verdict-step-integrity`, `posture-currency`, `provider-forensics`, `trigger-coverage`, `Build canonical Render image`, `Build and smoke-test the N-ATLAS self-host image`, `beta-beta-01-english` | **success** |
+
+**The Gate 1 workflow — the one that actually enforces this work — is green at the head that carries this document.**
+
+### 8.2 Three non-success checks at `4b17ab1a` — all in one workflow, all flaky
+
+All three belong to a single workflow, **N-ATLAS external beta validation** (`.github/workflows/n-atlas-external-beta.yml`, run `43682949376`):
+
+| Job | Failing step |
+|---|---|
+| `beta-beta-02-hausa` | step 5, *"Run external N-ATLAS inference and build evidence"* |
+| `bundle-beta-evidence` | step 3, *"Verify bundle shape"* |
+| `native-arkadia-golden-workflow` | **skipped** (not a failure — it is gated on the jobs above) |
+
+**These are flaky, and the evidence is direct.** The same workflow passed on **every** prior commit of this branch — `b66e8353`, `53c020e7`, `101a1d03` and `b134725a` all show `bundle-beta-evidence = success` and `beta-beta-02-hausa = success`. The only difference at `4b17ab1a` is one markdown file. A workflow that passes on four consecutive commits and fails on a docs-only commit, in steps that run external inference and verify a downloaded bundle, is not failing because of the change under review.
+
+**What remains unexplained:** the failure reason. The job-logs endpoint returns **HTTP 403** (`"Must have admin rights to Repository."`), so the output could not be read. The attribution rests on the pass/fail history, not on the failure message. **These checks should be re-run before merge.**
+
+### 8.3 Net position
+
+- **Gate 1 enforcement: green at `4b17ab1a`.**
+- **Three non-success checks, all in one unrelated workflow, all flaky by direct pass/fail history, none touching Gate 1.**
+- **No Gate 1 test, file, or workflow is affected.**
+
+This does not change any conclusion in §5. Gate 1 acceptance, merge/deployment, and commissioning remain three separate human decisions, and this document authorizes none of them.
