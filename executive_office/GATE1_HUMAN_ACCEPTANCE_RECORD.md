@@ -1,7 +1,7 @@
 # ARKADIA-CHIEF-001 — Gate 1 Human Acceptance Record
 
 **Head under review:** `b134725a16cb9bd500a246556f672945ee4d0b2a`
-**Document head (this file's own commit):** `5ca8b4bd6d626565bb0f89a2187e766405d74701` — see §8 for the CI position at that head
+**Document head:** the commit that carries this file (one documentation-only commit ahead of `b134725a`) — see §8 for the CI position at that head
 **Branch:** `feat/chief-agent-foundation-001`
 **Pull request:** [#657](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/657) — `open`, `draft: true`, `merged: false`
 **PR base:** `main` @ `a1009ddfb485d60b2717b73ff7ae02c417d1ef21`
@@ -286,9 +286,9 @@ Neither is covered by `assert_dispatchable`. Gate 2 must:
 
 | Field | Value |
 |---|---|
-| Local HEAD | `4b17ab1a42447150b3d192a5c9f8bc44d33b9e6b` |
-| Remote ref `heads/feat/chief-agent-foundation-001` | `4b17ab1a42447150b3d192a5c9f8bc44d33b9e6b` — **exact match** (verified by `git ls-remote` and the GitHub API) |
-| PR #657 | `open`, `draft: true`, `merged: false`, base `main` @ `a1009ddf`, head `4b17ab1a`, 35 files changed, 22 commits |
+| Local HEAD | the commit carrying this file (one documentation-only commit ahead of `b134725a`) |
+| Remote ref `heads/feat/chief-agent-foundation-001` | **exact match** to local HEAD (verified by `git ls-remote` and the GitHub API) |
+| PR #657 | `open`, `draft: true`, `merged: false`, base `main` @ `a1009ddf`, head = this document's commit, 35 files changed |
 | Push method | Temporary write-enabled deploy key over SSH (id `169933221`), deleted immediately after the push (`deploy_keys: []` confirmed); private key shredded; remote ref read back via the GitHub API |
 
 **No merge. No deployment. No commissioning. No credential issuance. No L3. No autonomous scheduling. No change to human-only authority boundaries.**
