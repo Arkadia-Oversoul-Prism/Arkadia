@@ -20,6 +20,7 @@ import os
 import sqlite3
 import time
 import uuid
+from types import SimpleNamespace
 from typing import Any
 
 _DB_PATH = os.environ.get("SOLSPIRE_PROJECTS_DB") or os.path.join(
@@ -241,6 +242,61 @@ def _delegation_denial_reason(delegation: Any, *, authorization: Any, at: float)
     return None
 
 
+def assert_delegation_dispatchable(
+    *,
+    delegation_id: str | None,
+    delegation_epoch: int | None,
+    registry: Any | None = None,
+    now: float | None = None,
+) -> None:
+    """The single delegation-status contract, shared by every execution route.
+
+    Gate 2 exists because three routes can execute work on behalf of a
+    delegation and only one of them (Weaver) re-read the delegation. Rather
+    than let each route grow its own copy of the status/expiry/epoch rules —
+    which is how contracts drift — every route calls *this* function, and
+    `assert_dispatchable` calls it too. One implementation, one set of rules.
+
+    A ``delegation_id`` of ``None`` means the authorization is not
+    agent-associated (a human-originated grant); the caller's own checks are
+    the whole contract and this returns immediately.
+
+    Raises AuthorizationRevoked (a PermissionError) on any failure, including
+    an unreadable registry. Fail-closed: a missing record is not "no
+    restriction", it is "cannot prove the authority still exists".
+    """
+    if not delegation_id:
+        return
+
+    at = float(now if now is not None else _now())
+
+    if registry is None:
+        # Imported lazily so this module stays importable without the executive
+        # package, and so a missing registry is a denial rather than a crash.
+        from executive_office.registry import DelegationRegistry
+
+        registry = DelegationRegistry()
+
+    try:
+        delegation = registry.get(str(delegation_id))
+    except Exception as exc:  # noqa: BLE001 - any read failure must deny
+        raise AuthorizationRevoked(
+            f"delegation could not be verified: {type(exc).__name__}"
+        ) from exc
+
+    if delegation is None:
+        raise AuthorizationRevoked("delegation record is missing")
+
+    # A tiny shim so `_delegation_denial_reason` can read the epoch off either
+    # an Authorization object or a bare (id, epoch) pair from a route whose
+    # store does not use the enterprise Authorization dataclass.
+    issued = SimpleNamespace(delegation_epoch=delegation_epoch)
+
+    reason = _delegation_denial_reason(delegation, authorization=issued, at=at)
+    if reason:
+        raise AuthorizationRevoked(reason)
+
+
 def assert_dispatchable(
     *,
     authorization: Any,
@@ -284,38 +340,20 @@ def assert_dispatchable(
         raise AuthorizationRevoked("authorization has been revoked")
 
     # ── Delegation re-read (independent of the revocation ledger) ────────────
-    delegation_id = getattr(authorization, "delegation_id", None)
-    if not delegation_id:
-        # Not agent-associated: the two checks above are the whole contract.
-        return
-
-    if registry is None:
-        # Imported lazily so this module stays importable without the executive
-        # package, and so a missing registry is a denial rather than a crash.
-        from executive_office.registry import DelegationRegistry
-
-        registry = DelegationRegistry()
-
-    try:
-        delegation = registry.get(str(delegation_id))
-    except Exception as exc:  # noqa: BLE001 - any read failure must deny
-        # Unknown delegation, unreadable store, corrupt row: all deny. A
-        # missing record is not "no restriction", it is "cannot prove the
-        # authority still exists".
-        raise AuthorizationRevoked(
-            f"delegation could not be verified: {type(exc).__name__}"
-        ) from exc
-
-    if delegation is None:
-        raise AuthorizationRevoked("delegation record is missing")
-
-    reason = _delegation_denial_reason(delegation, authorization=authorization, at=at)
-    if reason:
-        raise AuthorizationRevoked(reason)
+    # Delegated to the shared contract so Weaver, Engineering Lab and SolSpire
+    # voice cannot drift apart on what "the delegation still permits this"
+    # means. A non-agent authorization returns immediately inside it.
+    assert_delegation_dispatchable(
+        delegation_id=getattr(authorization, "delegation_id", None),
+        delegation_epoch=getattr(authorization, "delegation_epoch", None),
+        registry=registry,
+        now=at,
+    )
 
 
 __all__ = [
     "AuthorizationRevoked",
     "AuthorizationRevocationStore",
+    "assert_delegation_dispatchable",
     "assert_dispatchable",
 ]

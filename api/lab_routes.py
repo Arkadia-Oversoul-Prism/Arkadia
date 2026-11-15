@@ -485,6 +485,15 @@ async def n_atlas_run(body: NAtlasRunBody, user: dict = Depends(require_auth)) -
     if session["state"] not in ("AUTHORIZED", "QUEUED"):
         raise HTTPException(status_code=409, detail=f"session must be AUTHORIZED or QUEUED (currently {session['state']})")
 
+    # Gate 2 — this route drives a model call directly, so it must pass the
+    # same dispatch gate as every other execution path: a usable, session-scoped
+    # human grant that names 'run', plus the executive delegation contract. A
+    # session-state check alone would let a revoked delegation keep executing.
+    try:
+        runtime.assert_session_dispatchable(session, user["uid"], "run")
+    except BoundaryViolation as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+
     gateway = get_gateway()
     descriptor = gateway.describe("n_atlas")
     if descriptor.status != "AVAILABLE":

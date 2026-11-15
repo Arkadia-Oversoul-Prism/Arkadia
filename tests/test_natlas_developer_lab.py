@@ -102,6 +102,16 @@ async def test_native_natlas_route_live_external_gradio(monkeypatch):
                 "authorization_ref": "AUTH-live-natlas",
             }
 
+        def assert_session_dispatchable(self, session, subject_ref, operation_kind):
+            # Mirrors the real gate's contract for a valid grant: a session with
+            # no linked authorization is refused, and the grant must name the
+            # operation. The delegation re-read is exercised by the dedicated
+            # Gate 2 tests, not by this provider-boundary double.
+            if not session.get("authorization_ref"):
+                from lab.engineering_lab.contracts import BoundaryViolation
+                raise BoundaryViolation("no linked authorization")
+            return {operation_kind}
+
     class FakeStore:
         def __init__(self):
             self.runs = []
@@ -438,6 +448,12 @@ def _failure_route_harness(monkeypatch, frames_body, *, descriptor_status="AVAIL
                 "state": "AUTHORIZED",
                 "authorization_ref": "AUTH-failure",
             }
+
+        def assert_session_dispatchable(self, session, subject_ref, operation_kind):
+            if not session.get("authorization_ref"):
+                from lab.engineering_lab.contracts import BoundaryViolation
+                raise BoundaryViolation("no linked authorization")
+            return {operation_kind}
 
     class FakeStore:
         def __init__(self):

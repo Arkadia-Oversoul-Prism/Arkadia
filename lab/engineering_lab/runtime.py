@@ -381,12 +381,20 @@ class EngineeringLabRuntime:
         duration_minutes: int = 60,
         merge: bool = False,
         production: bool = False,
+        delegation_id: str | None = None,
+        delegation_epoch: int | None = None,
     ) -> dict[str, Any]:
         """Record a human-originated authorization for a bounded scope.
 
         The substrate cannot originate authority; ``originated_by`` is fixed to
         ``human`` and the store rejects anything else. Merge and production are
         human-only and are recorded as prohibited.
+
+        ``delegation_id`` / ``delegation_epoch`` link the grant to an executive
+        delegation (Gate 2). When present, the dispatch gate re-reads that
+        delegation and refuses if it is revoked, suspended, expired, missing or
+        superseded — the same contract Weaver enforces. When absent the grant is
+        a plain human authorization and the delegation check is a no-op.
         """
         record = {
             "authorization_id": f"AUTH-{uuid.uuid4().hex[:12]}",
@@ -398,6 +406,8 @@ class EngineeringLabRuntime:
             "production": False if not production else "PROHIBITED_TO_SUBSTRATE",
             "merge_prohibited": True,
             "production_prohibited": True,
+            "delegation_id": delegation_id,
+            "delegation_epoch": delegation_epoch,
             "created_at": utc_now(),
         }
         return self._store.record_authorization(record, subject_ref)
@@ -907,7 +917,50 @@ class EngineeringLabRuntime:
                 f"the linked human authorization does not permit "
                 f"'{operation_kind}'; record an authorization that names it"
             )
+        # ── Gate 2: executive delegation contract ────────────────────────────
+        # An authorization linked to an executive delegation is only usable
+        # while that delegation is still serviceable. This is the SAME function
+        # Weaver's dispatch guard calls, so the two routes cannot drift: a
+        # delegation revoked, suspended, expired, missing or superseded refuses
+        # here exactly as it does at the Weaver boundary. A grant with no
+        # delegation_id is a plain human authorization and this is a no-op.
+        #
+        # Runs last, after the grant's own checks, so a refusal names the most
+        # specific reason available.
+        from weaver.authorization_revocation import (
+            AuthorizationRevoked,
+            assert_delegation_dispatchable,
+        )
+
+        try:
+            assert_delegation_dispatchable(
+                delegation_id=authorization.get("delegation_id"),
+                delegation_epoch=authorization.get("delegation_epoch"),
+            )
+        except AuthorizationRevoked as exc:
+            # Re-raised as the Lab's own boundary type so every caller on this
+            # route already handles it (the API maps it to 400/409) and the
+            # refusal is recorded as a refusal, not an unexpected error.
+            raise BoundaryViolation(
+                f"executive delegation no longer permits '{operation_kind}': {exc}"
+            ) from exc
         return operations
+
+    def assert_session_dispatchable(
+        self,
+        session: dict[str, Any],
+        subject_ref: str,
+        operation_kind: str,
+    ) -> set[str]:
+        """Public dispatch gate for routes that execute outside ``execute_*``.
+
+        ``/engineering/n-atlas/run`` drives a model call directly rather than
+        going through ``execute_bounded_task``, so it never reached the private
+        gate. This exposes the same check — grant usability, session scoping,
+        operation naming, and the executive delegation contract — so that route
+        is judged by the identical rules instead of a weaker session-state test.
+        """
+        return self._require_authorization_for(session, subject_ref, operation_kind)
 
     def _recheck_authorization_for(
         self,

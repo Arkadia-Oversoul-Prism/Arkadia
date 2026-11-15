@@ -665,6 +665,44 @@ class EngineeringLabStore:
                 return None
         return record
 
+    def revoke_for_delegation(
+        self, delegation_id: str, *, reason: str = ""
+    ) -> int:
+        """Revoke every outstanding authorization issued under a delegation.
+
+        Gate 2: the executive revocation cascade must withdraw Lab grants too,
+        not only Weaver's. Without this, revoking a delegation would leave an
+        ``el_authorizations`` row usable — the Lab's dispatch gate would then
+        have to catch it purely by re-reading the delegation. It does (that is
+        the belt), but the cascade is the braces: a withdrawn grant is not
+        merely refused, it is recorded as revoked.
+
+        Idempotent: an already-revoked row is not stamped twice. Returns the
+        number newly revoked.
+        """
+        if not delegation_id:
+            return 0
+        count = 0
+        with _db() as conn:
+            rows = conn.execute(
+                "SELECT authorization_id, payload FROM el_authorizations"
+            ).fetchall()
+            for row in rows:
+                record = json.loads(row["payload"])
+                if record.get("delegation_id") != delegation_id:
+                    continue
+                if record.get("revoked_at"):
+                    continue
+                record["revoked_at"] = utc_now()
+                record["revoked_reason"] = reason
+                conn.execute(
+                    "UPDATE el_authorizations SET payload = ?"
+                    " WHERE authorization_id = ?",
+                    (json.dumps(record), row["authorization_id"]),
+                )
+                count += 1
+        return count
+
     # -- helpers --------------------------------------------------------------
 
     @staticmethod

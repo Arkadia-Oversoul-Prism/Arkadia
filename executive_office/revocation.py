@@ -55,6 +55,27 @@ def revoke_delegation_cascade(
         revoked_by=founder_uid,
     )
 
+    # Gate 2: withdraw Engineering Lab grants issued under this delegation too.
+    # Weaver's ledger above covers `ew_authorizations`; the Lab keeps its own
+    # `el_authorizations` table, so a cascade that stopped at Weaver would leave
+    # a Lab grant live. The Lab's dispatch gate re-reads the delegation and
+    # would refuse it anyway — this makes the withdrawal explicit and durable
+    # rather than relying on the guard alone.
+    #
+    # Deliberately non-fatal: the delegation is already REVOKED above, which is
+    # the safe direction, and the dispatch guard is the backstop. A failure here
+    # is reported, not swallowed.
+    lab_revoked = 0
+    lab_error: str | None = None
+    try:
+        from lab.engineering_lab.store import EngineeringLabStore
+
+        lab_revoked = EngineeringLabStore().revoke_for_delegation(
+            delegation_id, reason=f"delegation revoked: {reason}"
+        )
+    except Exception as exc:  # noqa: BLE001 - report, never mask the revocation
+        lab_error = f"{type(exc).__name__}: {exc}"
+
     # Idempotent: cancels anything still QUEUED (normally nothing, because the
     # revoke above already did it).
     registry.cancel_queued_work(
@@ -66,6 +87,8 @@ def revoke_delegation_cascade(
     return {
         "delegation": delegation.to_dict(),
         "revoked_authorizations": revoked_authorizations,
+        "revoked_lab_authorizations": lab_revoked,
+        "lab_revocation_error": lab_error,
         "cancelled_jobs": cancelled_jobs,
         "credential_epoch": delegation.credential_epoch,
         "note": (

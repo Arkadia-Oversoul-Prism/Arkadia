@@ -818,6 +818,25 @@ class VoicePipeline:
             _blocked(reason)
             raise self._fail(event_id, subject, "EXECUTION_FAILED", reason)
 
+        # ── Gate 2: the same dispatch guard Weaver uses ──────────────────────
+        # Voice authorizes through the canonical console authority router, so
+        # its Authorization is an enterprise row and may carry a delegation
+        # linkage. Without this call the voice route would execute delegated
+        # work with no delegation-status, epoch or revocation check at all —
+        # the exact gap Gate 2 exists to close. Runs after `_blocked` is
+        # defined so a refusal is recorded as BLOCKED, not as a crash.
+        if authorization is not None:
+            from weaver.authorization_revocation import (
+                AuthorizationRevoked,
+                assert_dispatchable,
+            )
+
+            try:
+                assert_dispatchable(authorization=authorization)
+            except AuthorizationRevoked as exc:
+                _blocked(str(exc))
+                raise self._fail(event_id, subject, "AUTHORIZATION_DENIED", str(exc))
+
         # Scope validation: the executed tool must be inside the authorization.
         if authorization is not None:
             scope = authorization.scope if isinstance(authorization.scope, dict) else {}
