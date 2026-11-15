@@ -235,6 +235,30 @@ def test_negative_control_the_pre_repair_ratio_raises(seeded_db):
         pre_repair / pre_repair
 
 
+#: The positional-read shapes the scanner below must report. Held as a module
+#: constant so the live sweep and its negative control feed the detector the same
+#: vocabulary; a restated literal in the control would drift from the sweep.
+POSITIONAL_ROW_READ_SHAPES = ("list(row)[0]", "list(rows[0])[0]")
+
+
+def _positional_row_reads(source: str) -> list[str]:
+    """Report the lines of ``source`` that read a dict row positionally.
+
+    ``knowledge.db.execute_one()`` returns a dict keyed by column name, so
+    ``list(row)[0]`` yields the *column name* rather than its value. This is the
+    predicate the sweep and its control both call, so the control can fail for an
+    edit to the code the sweep uses.
+    """
+    offenders: list[str] = []
+    for lineno, line in enumerate(source.splitlines(), 1):
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            continue
+        if any(shape in stripped for shape in POSITIONAL_ROW_READ_SHAPES):
+            offenders.append(f"{lineno}: {stripped}")
+    return offenders
+
+
 def test_no_other_module_reads_a_row_positionally():
     """The defect class, not just the instance.
 
@@ -247,10 +271,32 @@ def test_no_other_module_reads_a_row_positionally():
     offenders: list[str] = []
     for base in (REPO_ROOT / "knowledge",):
         for path in sorted(base.rglob("*.py")):
-            for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
-                stripped = line.strip()
-                if stripped.startswith("#"):
-                    continue
-                if "list(row)[0]" in stripped or "list(rows[0])[0]" in stripped:
-                    offenders.append(f"{path.relative_to(REPO_ROOT)}:{lineno}")
+            for finding in _positional_row_reads(path.read_text(encoding="utf-8")):
+                offenders.append(f"{path.relative_to(REPO_ROOT)}:{finding}")
     assert offenders == [], f"positional read of a dict row: {offenders}"
+
+
+def test_negative_control_the_positional_read_scanner_bites_both_ways():
+    """Prove the scanner is load-bearing rather than a constant empty list.
+
+    The sweep above is satisfied by a detector neutered to report nothing, and it
+    is the *only* thing standing between the ``_count()`` defect and a recurrence
+    in any other ``knowledge/`` reader. So the control feeds
+    :func:`_positional_row_reads` both polarities: the pre-repair shape must be
+    reported, and the shipped module must not be.
+    """
+    pre_repair = (
+        "def _count(sql, params=()):\n"
+        "    row = execute_one(sql, params)\n"
+        "    if row is None:\n"
+        "        return 0\n"
+        "    return int(list(row)[0])\n"
+    )
+    assert _positional_row_reads(pre_repair) != [], (
+        "the pre-repair positional read must be reported"
+    )
+
+    shipped = (REPO_ROOT / "knowledge" / "graph_health.py").read_text(encoding="utf-8")
+    assert _positional_row_reads(shipped) == [], (
+        f"the shipped reader must not be reported: {_positional_row_reads(shipped)}"
+    )

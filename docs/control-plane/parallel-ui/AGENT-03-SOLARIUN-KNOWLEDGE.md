@@ -204,3 +204,48 @@ Evidence: `docs/control-plane/evidence/lane3-knowledge-status-control-binding-01
 
 Lane 3's next bounded PR opens only after this one merges. Merge, production deployment and
 acceptance remain human-only.
+
+## Status — 2026-11-15 (LANE 3: positional-read scanner bound to its detector)
+
+**Active branch:** `feat/prism-l3-positional-read-detector-binding-01` (recorded for provenance only).
+**Active PR:** none declared — the snapshot below is the judge.
+
+A lane PR cannot declare itself open at merge time: the merge that lands it closes it. This
+section therefore declares no active PR and leaves the lane's status to the derived snapshot,
+the convention #638/#639/#641/#642/#643/#645/#646/#647/#649/#650 set for lanes 3 and 4.
+
+Lane 3's next bounded slice, opened from freshly fetched `main` `19697a6a` under
+`11 — LANE NEW-PR AUTHORIZATION`. Reconciliation was exhausted first (measured live: **2** open
+PRs repo-wide, #658 a draft owning lane 1's shell contract and #657 a governance draft owning
+no lane's paths and recorded under `unassigned_open_prs`; lane 3 holds none), so N1 and N2 hold
+and no lane's PR was duplicated or continued.
+
+**Objective.** Bind `test_no_other_module_reads_a_row_positionally` to a detector rather than an
+inline expression. The predicate was written inside the test body, so it shared no symbol a
+control could call — there was no control at all, and the guard could be disarmed by editing the
+very expression it depends on.
+
+**Measured vacuity at base `19697a6a`.** With a positional read planted in
+`knowledge/graph_health.py` (`return int(list(row)[0])`) **and** the inline predicate rewritten
+to `if False:`, the node still **passed** (`1 passed`). That planted defect is exactly the
+`_count()` defect #621 repaired, so the guard for its recurrence did not see it.
+
+**Repair.** The predicate moves to a module-level `_positional_row_reads(source)` with its
+vocabulary hoisted to `POSITIONAL_ROW_READ_SHAPES`, and the live sweep and a new control both
+call it. The control asserts **both** polarities — the pre-repair shape is reported, and the
+shipped module is *not* — so a detector that reports unconditionally cannot pass either. Node
+count 11 → 12 (+1, exactly the new control).
+
+**Evidence bound to the commit.** Two **live** negative controls on the real file: neutering the
+shared detector to `return []` reddens the control (`1 failed, 11 passed`); neutering it to
+`return ["always-dirty"]` reddens the sweep **and** the control (`2 failed, 10 passed`), so the
+control is not satisfied by a detector that reports everything. The file was restored
+byte-identically (`md5 6940eb90…`).
+
+The file is executed by the derived `knowledge-connection-lifecycle-guard.yml` step and is a
+declared input of `tests/test_knowledge_graph_health_ci_wiring.py`, so no new wiring is needed.
+
+Evidence: `docs/control-plane/evidence/lane3-positional-read-detector-binding-01/EVIDENCE.md`.
+
+Lane 3's next bounded PR opens only after this one merges. Merge, production deployment and
+acceptance remain human-only.
