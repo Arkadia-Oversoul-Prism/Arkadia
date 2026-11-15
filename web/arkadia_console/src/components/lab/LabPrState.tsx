@@ -95,13 +95,14 @@ function Reading({ payload }: { payload: LabPrStatePayload | null }) {
 /**
  * The read path's exact route template comes from the shared endpoint registry
  * (`src/lib/endpoints.ts`, Lane 1's file) rather than being written here, so the
- * console keeps one endpoint contract (SHARED-CONTRACTS §3.1). When the registry
- * declares the template, pass it in:
+ * console keeps one endpoint contract (SHARED-CONTRACTS §3.1). The registry
+ * declares `labEngineeringPr` (registered by #623), so the surface builds its
+ * path from that entry; `pathTemplate` remains an optional override.
  *
- *   <LabPrState pathTemplate={endpoints.labEngineeringPr} />
- *
- * Until then the surface renders a not-wired state and issues no request, rather
- * than inlining a second, unreviewed path.
+ * The not-wired state below is therefore a guard for a registry that has *lost*
+ * the entry (or a caller that passed an empty template), not the current
+ * reading: a surface that claimed to be unwired while the route is declared
+ * would be stating a falsehood about its own wiring.
  */
 export function LabPrState({ pathTemplate }: { pathTemplate?: string }) {
   // The input is uncommitted: the handler performs a live GitHub read, so a
@@ -110,9 +111,9 @@ export function LabPrState({ pathTemplate }: { pathTemplate?: string }) {
   const [target, setTarget] = useState<string | null>(null);
 
   // The exact route template is the registry's; this surface validates the number. The registry
-  // is `as const` and Lane 1 has not declared the entry yet, so it is read
-  // optionally: until the entry lands this is `undefined`, no path is built, and
-  // the surface renders its not-wired state instead of issuing a request.
+  // is `as const` and declares `labEngineeringPr`, so the entry resolves and a path is built on
+  // submit. It is still read optionally: if the entry is ever removed, `template` is `undefined`,
+  // no path is built, and the not-wired state below renders instead of issuing a request.
   const registry = endpoints as Partial<Record<string, string>>;
   const template = pathTemplate ?? registry.labEngineeringPr;
   const path = target === null || !template ? null : prStatePath(template, target);
@@ -130,7 +131,7 @@ export function LabPrState({ pathTemplate }: { pathTemplate?: string }) {
 
       {!template ? (
         <p className="mt-3 text-sm text-white/55" data-testid="lab-pr-not-wired">
-          This read is not wired yet: the shared endpoint registry does not declare the pull-request
+          This read is not wired: the shared endpoint registry no longer declares the pull-request
           route template, and this surface does not inline one. No request is issued.
         </p>
       ) : (
