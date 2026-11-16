@@ -4,18 +4,58 @@
   "title": "Arkadia Engineering Worker Contract",
   "description": "Inspectable lifecycle contract: Architect → Lab → Worker → Agent → Repository → Evidence → Human Review",
   "type": "object",
-  "required": ["contract_id", "version", "authority", "lifecycle", "prohibitions", "evidence"],
+  "required": [
+    "contract_id",
+    "version",
+    "authority",
+    "lifecycle",
+    "prohibitions",
+    "evidence"
+  ],
   "properties": {
-    "contract_id": { "type": "string", "const": "ARKADIA-WORKER-CONTRACT-v1" },
-    "version": { "type": "integer", "minimum": 1 },
+    "contract_id": {
+      "type": "string",
+      "const": "ARKADIA-WORKER-CONTRACT-v1"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
     "authority": {
       "type": "object",
-      "required": ["source", "worker_role", "merge", "deploy"],
+      "required": [
+        "source",
+        "worker_role",
+        "merge",
+        "deploy",
+        "merge_assessment",
+        "merge_execution"
+      ],
       "properties": {
-        "source": { "type": "string", "const": "architect" },
-        "worker_role": { "type": "string", "const": "subordinate_to_trajectory" },
-        "merge": { "type": "string", "const": "human_only" },
-        "deploy": { "type": "string", "const": "human_only" }
+        "source": {
+          "type": "string",
+          "const": "architect"
+        },
+        "worker_role": {
+          "type": "string",
+          "const": "subordinate_to_trajectory"
+        },
+        "merge": {
+          "type": "string",
+          "const": "human_only"
+        },
+        "deploy": {
+          "type": "string",
+          "const": "human_only"
+        },
+        "merge_assessment": {
+          "type": "string",
+          "const": "weaver_eligibility_only"
+        },
+        "merge_execution": {
+          "type": "string",
+          "const": "human_only"
+        }
       }
     },
     "lifecycle": {
@@ -23,17 +63,32 @@
       "minItems": 10,
       "items": {
         "type": "object",
-        "required": ["phase", "description"],
+        "required": [
+          "phase",
+          "description"
+        ],
         "properties": {
           "phase": {
             "type": "string",
             "enum": [
-              "WAKE", "LOAD", "VALIDATE", "ROUTE", "PLAN",
-              "EXECUTE", "CHECKPOINT", "VERIFY", "REPORT", "TERMINATE"
+              "WAKE",
+              "LOAD",
+              "VALIDATE",
+              "ROUTE",
+              "PLAN",
+              "EXECUTE",
+              "CHECKPOINT",
+              "VERIFY",
+              "REPORT",
+              "TERMINATE"
             ]
           },
-          "description": { "type": "string" },
-          "resumable": { "type": "boolean" }
+          "description": {
+            "type": "string"
+          },
+          "resumable": {
+            "type": "boolean"
+          }
         }
       }
     },
@@ -42,32 +97,54 @@
       "items": {
         "type": "string",
         "enum": [
-          "PROPOSED", "AUTHORIZED", "QUEUED", "RUNNING", "CHECKPOINTED",
-          "VERIFYING", "READY_FOR_REVIEW", "REVISION_REQUIRED", "BLOCKED",
-          "FAILED", "COMPLETED", "ABORTED", "EXPIRED"
+          "PROPOSED",
+          "AUTHORIZED",
+          "QUEUED",
+          "RUNNING",
+          "CHECKPOINTED",
+          "VERIFYING",
+          "READY_FOR_REVIEW",
+          "REVISION_REQUIRED",
+          "BLOCKED",
+          "FAILED",
+          "COMPLETED",
+          "ABORTED",
+          "EXPIRED"
         ]
       }
     },
     "prohibitions": {
       "type": "array",
-      "items": { "type": "string" }
+      "items": {
+        "type": "string"
+      }
     },
     "evidence": {
       "type": "object",
-      "required": ["required_fields"],
+      "required": [
+        "required_fields"
+      ],
       "properties": {
         "required_fields": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         }
       }
     },
     "adapter": {
       "type": "object",
       "properties": {
-        "interface": { "type": "string" },
-        "default": { "type": "string" },
-        "replaceable": { "type": "boolean" }
+        "interface": {
+          "type": "string"
+        },
+        "default": {
+          "type": "string"
+        },
+        "replaceable": {
+          "type": "boolean"
+        }
       }
     }
   }
