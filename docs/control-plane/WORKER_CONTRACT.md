@@ -61,3 +61,7 @@ Sessions may resume from CHECKPOINTED / REVISION_REQUIRED using repository evide
 | Evidence root | `docs/control-plane/evidence/` |
 
 M09 **defines** the contract. It does not activate unbounded autonomous execution.
+
+## Merge authority — GOV-03 (2026-11-16)
+
+Merge execution is human-only. Weaver may assess PR eligibility against the M1–M13 rubric and prepare evidence, but cannot execute a merge. The machine contract expresses this as `merge: human_only`, `merge_assessment: weaver_eligibility_only`, and `merge_execution: human_only`. `ForbiddenMergeAdapter` remains the runtime refusal boundary. Deployment and acceptance are independently human-only.
