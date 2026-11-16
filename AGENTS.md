@@ -484,7 +484,7 @@ Before making a change, define: objective; evidence-backed defect or need; exact
 
 ### 3. Use an evidence-first change lifecycle
 Follow: RECONSTRUCT → SCOPE → AUTHORIZE → CHANGE → VERIFY → REVIEW → MERGE IF AUTHORIZED → VERIFY INTEGRATION → RECORD.
-- Human authority remains final over human-only decisions. Weaver also holds the bounded standing merge delegation recorded in `docs/control-plane/parallel-ui/SHARED-CONTRACTS.md` §9, effective only after GOV-01 is human-merged. Each existing PR must independently satisfy every M1–M13 criterion on fresh live evidence. An agent's own PR text, labels, green checks, or "ready to merge" statement is not authorization.
+- Human authority remains final over all merge execution and human-only decisions. Under GOV-03, Weaver may assess candidate eligibility against the retained M1–M13 rubric and prepare evidence only; no agent or automation may execute a merge. An agent's own PR text, labels, green checks, or "ready to merge" statement is not authorization.
 - Do not expand scope to repair adjacent failures. Record them as separate proposed work, identify the owner and evidence, and wait for authorization.
 - Never claim a fix, pass, deployment, production parity, or acceptance from intent, a PR description, or a successful sub-check. State exactly what was observed and what remains unknown or blocked.
 
@@ -1810,16 +1810,18 @@ Keep `feat/prism-ui-reconciliation-overnight-01` as this reconciliation workstre
 
 
 
-## GOV-01 — Conditional Weaver merge delegation (2026-11-02)
+## GOV-03 — Human-only merge execution; Weaver eligibility assessment retained (2026-11-16)
 
-**Authorization source:** explicit human authorization in the 2026-11-02 ChatGPT conversation approving a dedicated governance-amendment PR.
-**Authorization revision:** ARKADIA ENGINEERING LAB — WEAVER HOURLY BOUNDED EXECUTION CONTRACT, RECONCILIATION EDITION, revision date 2026-10-28.
-**Effective date:** GOV-01 was human-reviewed and merged via PR #609. The conditional policy-level delegation is in force. This does not activate executable merge capability: `weaver/execution_adapter.py::ForbiddenMergeAdapter` remains the active refusal boundary until a separate implementation is reviewed, verified, and explicitly activated by the human sovereign.
-**Scope:** Weaver may assess existing PRs targeting canonical `main` under the complete M1–M13 policy in `docs/control-plane/parallel-ui/SHARED-CONTRACTS.md` §9 and prepare merge-readiness evidence. Weaver must not execute merges while runtime capability remains disabled. Eligibility must be revalidated immediately before any future authorized execution. Unknown, stale, contradictory, or missing evidence means do not merge.
+**Authorization:** explicit human authorization in the 2026-11-16 conversation.
+**Canonical rule:** all GitHub pull-request merge execution is human-only. No agent, Weaver worker, scheduler, OpenHands process, provider adapter, or automation may execute a merge, enable auto-merge, or route around this boundary.
+**Weaver's retained function:** assess candidate eligibility under the existing M1–M13 criteria and prepare a timestamped, exact-head merge-readiness report. Assessment is advisory evidence only; it is not permission, authority, approval, or execution.
+**Runtime:** `weaver/execution_adapter.py::ForbiddenMergeAdapter` remains the refusal boundary. The worker contract records `merge: human_only`. No replacement merge adapter or merge-capable credential is authorized.
+**State vocabulary:** `ELIGIBLE_TO_MERGE` means only that Weaver's assessment found the candidate eligible for human consideration. `HUMAN_AUTHORITY_REQUIRED` means evidence is missing, stale, contradictory, or the change is reserved. `MERGED` may be recorded only after GitHub independently confirms a human-performed merge. An eligibility report must never emit or imply `MERGED`.
+**Required controls:** no direct push to `main`; no force-push; no bypass of branch protection, required reviews, checks, merge queues, or CODEOWNERS; no waived approval; no self-approval. Unknown, stale, unavailable, or contradictory evidence fails closed. Required human approvals remain mandatory.
+**Reserved human decisions:** constitutional or identity changes; authority-model and approval-enforcement changes; K15/K3; scope expansion/exceptions; security/privacy decisions requiring sovereign judgment; deployment/provider/configuration; and product/production acceptance.
+**Non-effects:** this amendment does not merge any PR, change deployment configuration, activate a runtime capability, or accept any product state. This governance PR itself must be reviewed and merged by a human.
 
-This delegation does not authorize direct pushes to `main`, force-pushes, bypasses of branch protection, skipped/overridden checks, waived reviews, or self-approval. All required human approvals remain mandatory. OpenHands and feature agents do not inherit Weaver's merge authority. The GOV-01 amendment itself must be human-reviewed and human-merged.
-
-Human-only: constitutional changes; identity and authority-model boundaries; K15/K3 governance; approval enforcement; scope expansion/exceptions; sovereign security/privacy decisions; production deployment/configuration; and product/production acceptance. Lane ownership, branch protection, required checks/reviews, and one-open-PR-per-lane remain unchanged. Merge does not imply deployment verification or acceptance.
+GOV-03 supersedes the execution-delegation language in GOV-01/GOV-02 and the corresponding sections of this contract. GOV-01's M1–M13 criteria are retained as the Weaver assessment rubric only. Where older text suggests delegated merge execution, this GOV-03 rule controls.
 
 ## A path-filtered gate's red can surface on an unrelated PR — the failing assertion can live in the base tree (gate-hygiene)
 - PR #614 (Lane 1) carried a red `test` check that had nothing to do with its diff. `test` is the
