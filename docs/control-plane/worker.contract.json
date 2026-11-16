@@ -5,24 +5,76 @@
     "source": "architect",
     "worker_role": "subordinate_to_trajectory",
     "merge": "human_only",
-    "deploy": "human_only"
+    "deploy": "human_only",
+    "merge_assessment": "weaver_eligibility_only",
+    "merge_execution": "human_only"
   },
   "lifecycle": [
-    { "phase": "WAKE", "description": "Open bounded session from scheduler or manual dispatch", "resumable": false },
-    { "phase": "LOAD", "description": "Load trajectory, HEAD SHA, prior evidence", "resumable": true },
-    { "phase": "VALIDATE", "description": "Validate trajectory structure and session concurrency", "resumable": true },
-    { "phase": "ROUTE", "description": "Weaver selects first legal incomplete move", "resumable": true },
-    { "phase": "PLAN", "description": "Build bounded plan from move specification", "resumable": true },
-    { "phase": "EXECUTE", "description": "ExecutionAdapter runs within scope or dry-run refuses mutation", "resumable": true },
-    { "phase": "CHECKPOINT", "description": "Persist intermediate evidence when required", "resumable": true },
-    { "phase": "VERIFY", "description": "Run verification against acceptance criteria", "resumable": true },
-    { "phase": "REPORT", "description": "Emit machine and human reports", "resumable": false },
-    { "phase": "TERMINATE", "description": "Stop at human review boundary", "resumable": false }
+    {
+      "phase": "WAKE",
+      "description": "Open bounded session from scheduler or manual dispatch",
+      "resumable": false
+    },
+    {
+      "phase": "LOAD",
+      "description": "Load trajectory, HEAD SHA, prior evidence",
+      "resumable": true
+    },
+    {
+      "phase": "VALIDATE",
+      "description": "Validate trajectory structure and session concurrency",
+      "resumable": true
+    },
+    {
+      "phase": "ROUTE",
+      "description": "Weaver selects first legal incomplete move",
+      "resumable": true
+    },
+    {
+      "phase": "PLAN",
+      "description": "Build bounded plan from move specification",
+      "resumable": true
+    },
+    {
+      "phase": "EXECUTE",
+      "description": "ExecutionAdapter runs within scope or dry-run refuses mutation",
+      "resumable": true
+    },
+    {
+      "phase": "CHECKPOINT",
+      "description": "Persist intermediate evidence when required",
+      "resumable": true
+    },
+    {
+      "phase": "VERIFY",
+      "description": "Run verification against acceptance criteria",
+      "resumable": true
+    },
+    {
+      "phase": "REPORT",
+      "description": "Emit machine and human reports",
+      "resumable": false
+    },
+    {
+      "phase": "TERMINATE",
+      "description": "Stop at human review boundary",
+      "resumable": false
+    }
   ],
   "session_states": [
-    "PROPOSED", "AUTHORIZED", "QUEUED", "RUNNING", "CHECKPOINTED",
-    "VERIFYING", "READY_FOR_REVIEW", "REVISION_REQUIRED", "BLOCKED",
-    "FAILED", "COMPLETED", "ABORTED", "EXPIRED"
+    "PROPOSED",
+    "AUTHORIZED",
+    "QUEUED",
+    "RUNNING",
+    "CHECKPOINTED",
+    "VERIFYING",
+    "READY_FOR_REVIEW",
+    "REVISION_REQUIRED",
+    "BLOCKED",
+    "FAILED",
+    "COMPLETED",
+    "ABORTED",
+    "EXPIRED"
   ],
   "prohibitions": [
     "autonomous_merge",
