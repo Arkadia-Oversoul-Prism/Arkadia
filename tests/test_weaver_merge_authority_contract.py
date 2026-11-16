@@ -21,7 +21,7 @@ def test_governance_sources_agree_on_human_only_execution():
         assert "human-only" in content.lower()
         assert "M1–M13" in content
         assert "eligibility" in content.lower()
-        assert "may not execute merges" in content.lower() or "no agent or automation may execute a merge" in content.lower()
+        assert "may execute a merge" in content.lower() and "no agent" in content.lower()
 
 
 def test_weaver_retains_assessment_but_not_execution():
