@@ -201,3 +201,5 @@ At the end of this workstream window, leave its PR in a truthful state and a det
 **Non-effects:** this amendment does not merge any PR, change deployment configuration, activate a runtime capability, or accept any product state. This governance PR itself must be reviewed and merged by a human.
 
 GOV-03 supersedes the execution-delegation language in GOV-01/GOV-02 and the corresponding sections of this contract. GOV-01's M1–M13 criteria are retained as the Weaver assessment rubric only. Where older text suggests delegated merge execution, this GOV-03 rule controls.
+
+The four lane ownership boundaries and the existing one-open-PR-per-lane rule are unchanged. This amendment changes merge execution only; it does not authorize implementation scope expansion or deployment.

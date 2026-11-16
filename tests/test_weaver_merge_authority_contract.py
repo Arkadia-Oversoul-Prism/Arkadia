@@ -65,5 +65,6 @@ def test_reserved_human_decisions_and_lane_rules_are_preserved():
 
 def test_governance_change_cannot_self_authorize_its_merge():
     shared, directive, agents = (p.read_text(encoding="utf-8") for p in (SHARED, DIRECTIVE, AGENTS))
+    needle = "this governance PR itself must be reviewed and merged by a human"
     for content in (shared, directive, agents):
-        assert "this governance PR itself must be reviewed and merged by a human" in content.lower()
+        assert needle.lower() in content.lower()

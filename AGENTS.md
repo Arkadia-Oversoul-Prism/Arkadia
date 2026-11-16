@@ -1823,6 +1823,8 @@ Keep `feat/prism-ui-reconciliation-overnight-01` as this reconciliation workstre
 
 GOV-03 supersedes the execution-delegation language in GOV-01/GOV-02 and the corresponding sections of this contract. GOV-01's M1–M13 criteria are retained as the Weaver assessment rubric only. Where older text suggests delegated merge execution, this GOV-03 rule controls.
 
+Lane ownership, the one-open-PR-per-lane constraint, branch protection, and the required-checks/reviews rules are unchanged by GOV-03. This amendment changes merge execution only; it does not authorize scope expansion, deployment, or acceptance, and a merge does not imply deployment verification or acceptance.
+
 ## A path-filtered gate's red can surface on an unrelated PR — the failing assertion can live in the base tree (gate-hygiene)
 - PR #614 (Lane 1) carried a red `test` check that had nothing to do with its diff. `test` is the
   `economic-seam-engine` job; its `paths` filter selects `tests/**`, and #614 touched

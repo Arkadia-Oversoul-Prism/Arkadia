@@ -156,3 +156,5 @@ Verified on the live tree: planting `apiRequest<VersionInfo>("/api/invented/rout
 **Non-effects:** this amendment does not merge any PR, change deployment configuration, activate a runtime capability, or accept any product state. This governance PR itself must be reviewed and merged by a human.
 
 GOV-03 supersedes the execution-delegation language in GOV-01/GOV-02 and the corresponding sections of this contract. GOV-01's M1–M13 criteria are retained as the Weaver assessment rubric only. Where older text suggests delegated merge execution, this GOV-03 rule controls.
+
+This amendment changes merge execution only. Lane ownership, the one-open-PR-per-lane constraint, the review and branch-protection rules, and the existing interface-request process are unchanged, and no implementation scope expansion or deployment is authorized here. A successful merge is not deployment verification or acceptance.
