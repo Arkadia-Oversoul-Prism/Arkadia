@@ -30,6 +30,7 @@ on:
       - "tests/test_executive_dispatch_revocation_hardening.py"
       - "tests/test_gate2_revocation_consistency.py"
       - "tests/test_gate2b_agent_loop_delegation.py"
+      - "tests/test_gate2c_grant_scope_immutability.py"
       - "lab/engineering_lab/runtime.py"
       - "lab/engineering_lab/store.py"
       - "lab/engineering_lab/tools.py"
@@ -54,6 +55,7 @@ on:
       - "tests/test_executive_dispatch_revocation_hardening.py"
       - "tests/test_gate2_revocation_consistency.py"
       - "tests/test_gate2b_agent_loop_delegation.py"
+      - "tests/test_gate2c_grant_scope_immutability.py"
       - "lab/engineering_lab/runtime.py"
       - "lab/engineering_lab/store.py"
       - "lab/engineering_lab/tools.py"
@@ -117,6 +119,16 @@ jobs:
         # unverifiable delegations cannot execute a tool, and a delegation
         # revoked between two turns stops the second call.
         run: python -m pytest tests/test_gate2b_agent_loop_delegation.py -q -rA
+
+      - name: Gate 2c grant scope and operation permissions
+        # The grant's operation naming is re-read per call, not only when the
+        # tool envelope was derived. `el_authorizations` stores the record as a
+        # mutable JSON blob, so `operations_allowed` can be narrowed after the
+        # envelope was computed; a withdrawal must take effect on the next tool
+        # call rather than the next run. The check only narrows — widening is
+        # inert because the envelope is a ceiling — so human-authorized
+        # execution semantics are preserved, not loosened.
+        run: python -m pytest tests/test_gate2c_grant_scope_immutability.py -q -rA
 
       - name: Composed OpenAPI security contract
         # The Executive Office operations must keep their adjudicated boundary

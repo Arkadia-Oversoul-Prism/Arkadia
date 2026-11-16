@@ -998,11 +998,15 @@ class EngineeringLabRuntime:
         itself is still usable, since a grant revoked mid-run must stop the run
         for the same reason.
 
-        Deliberately *not* re-checked here: the grant's scope and operation
-        naming. Those are envelope concerns already settled when the tool set
-        was derived, and re-imposing them at the tool boundary would change the
-        loop's existing semantics rather than harden them. This guard adds the
-        delegation re-read and nothing else.
+        Deliberately *not* re-checked here: the grant's ``scope_ref``. That is
+        an envelope concern settled when the session was authorized, and
+        ``attach_authorization`` refuses to rebind a session once it leaves
+        PROPOSED, so the reference cannot be swapped mid-run. The grant's
+        *operation naming* IS re-checked (Gate 2c): ``el_authorizations`` stores
+        the record as a mutable JSON blob, so ``operations_allowed`` can be
+        narrowed after the envelope was computed, and a withdrawal must take
+        effect on the next tool call rather than the next run. That check only
+        narrows — it can never widen authority.
 
         Failure is a ``ToolDenied``; the loop ends BLOCKED. Any unexpected
         error also denies, because an authority that cannot be verified is not
@@ -1036,6 +1040,27 @@ class EngineeringLabRuntime:
                     raise ToolDenied(
                         f"tool '{tool_name}' denied: authorization is revoked, "
                         "expired or already consumed",
+                        tool_name=tool_name,
+                    )
+                # ── Gate 2c: the grant's operation naming, re-read per call ──
+                # The envelope derived at start is a *ceiling*, not a licence.
+                # `el_authorizations` stores the record as a mutable JSON blob,
+                # so `operations_allowed` can be narrowed after the envelope was
+                # computed. Without this check a human who withdrew an operation
+                # mid-run would still see the remaining turns execute it — the
+                # withdrawal would only take effect on the *next* run.
+                #
+                # This only ever narrows: a tool already outside the envelope is
+                # refused by `granted` in ToolRegistry, and this refuses a tool
+                # the envelope still lists but the grant no longer names. It
+                # cannot widen authority, so existing human-authorized execution
+                # semantics are preserved, not loosened.
+                operation_kind = _tool_operation_kind(tool_name)
+                permitted = set(authorization.get("operations_allowed") or ())
+                if operation_kind not in permitted:
+                    raise ToolDenied(
+                        f"tool '{tool_name}' denied: the linked human "
+                        f"authorization no longer permits '{operation_kind}'",
                         tool_name=tool_name,
                     )
                 assert_delegation_dispatchable(
