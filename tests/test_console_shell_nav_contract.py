@@ -57,14 +57,31 @@ def _declared_paths(text: str) -> list[str]:
     return re.findall(r'path: "([^"]+)"', text)
 
 
+_SURFACE_SWITCH = re.compile(
+    r"switch\s*\(\s*route\.surface\s*\)\s*\{(.*?)\n\s*\}", re.DOTALL
+)
+_COMPOSITION_CASE = re.compile(r'case "([^"]+)":')
+
+
 def _composition_root_surface_ids(text: str) -> set[str]:
-    """The surface ids App.tsx switches on.
+    """The surface ids the composition root actually dispatches on.
 
     The composition root dispatches on ``switch (route.surface)``. A declared
     surface with no case silently renders the default — a blank surface with no
     type error and no test failure. This is the detector for that class.
+
+    Two ways a *non-dispatch* could be read as a dispatch, both of which make a
+    missing surface look composed:
+
+      * a commented-out case — ``// case "workspace":`` contains the pattern, so
+        the detector must read code, not text (the defect measured below);
+      * a case in some *other* switch — only ``route.surface`` dispatches to a
+        surface, so the domain is the surface switch block, not the whole file.
     """
-    return set(re.findall(r'case "([^"]+)":', text))
+    match = _SURFACE_SWITCH.search(_without_ts_comments(text))
+    if match is None:
+        return set()
+    return set(_COMPOSITION_CASE.findall(match.group(1)))
 
 
 def _hardcoded_origins(sources: dict[str, str]) -> list[tuple[str, str]]:
@@ -1244,6 +1261,57 @@ def test_detector_flags_a_declared_surface_with_no_composition_case():
     assert declared == {"home", "ghost"}
     assert declared - _composition_root_surface_ids(app_missing) == {"ghost"}
     assert declared - _composition_root_surface_ids(app_present) == set()
+
+
+def test_detector_does_not_count_a_commented_out_case_as_composed():
+    """A commented-out ``case`` is not a dispatch. The detector reads code, so a
+    surface whose only "case" is a comment is reported missing, and the same
+    line uncommented clears it."""
+    surfaces = 'export type SurfaceId =\n  | "home"\n  | "workspace";\n'
+    commented = (
+        "switch (route.surface) {\n"
+        '  case "home":\n'
+        "    return <HomePage />;\n"
+        '  // case "workspace":\n'
+        "    return <WorkspacePage />;\n"
+        "}"
+    )
+    uncommented = commented.replace('  // case "workspace":', '  case "workspace":')
+    declared = set(_declared_surface_ids(surfaces))
+    assert declared == {"home", "workspace"}
+    # Pre-repair the commented form reads as composed; the guard is blind to it.
+    assert declared - _composition_root_surface_ids(commented) == {"workspace"}
+    assert declared - _composition_root_surface_ids(uncommented) == set()
+
+
+def test_detector_reads_only_the_route_surface_switch():
+    """A case in a *different* switch is not a surface dispatch. Only the
+    ``route.surface`` switch composes surfaces, so a case parked in another
+    switch must not mask a real gap."""
+    surfaces = 'export type SurfaceId =\n  | "home"\n  | "ghost";\n'
+    decoy = (
+        "function other() {\n"
+        '  switch (kind) {\n    case "ghost":\n      return 1;\n  }\n'
+        "}\n"
+        "switch (route.surface) {\n"
+        '  case "home":\n    return <HomePage />;\n'
+        "}"
+    )
+    declared = set(_declared_surface_ids(surfaces))
+    assert declared - _composition_root_surface_ids(decoy) == {"ghost"}
+
+
+def test_composition_root_detector_agrees_with_the_live_app():
+    """Bind the detector to the real composition root: every declared surface is
+    composed there, and the detector sees a non-empty domain (so a detector that
+    matched nothing could not pass this assertion by accident)."""
+    declared = set(_declared_surface_ids(SURFACES))
+    composed = _composition_root_surface_ids(APP)
+    assert composed, "the live detector found no composed surface -- vacuous"
+    assert declared == composed, (
+        f"declared={sorted(declared)} composed={sorted(composed)}; the composition "
+        f"root and the surface registry disagree"
+    )
 
 
 # ---------------------------------------------------------------------------
