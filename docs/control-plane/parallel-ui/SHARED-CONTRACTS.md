@@ -146,8 +146,6 @@ Verified on the live tree: planting `apiRequest<VersionInfo>("/api/invented/rout
 
 ## 9. Weaver merge eligibility assessment — execution remains human-only
 
-## GOV-03 — Human-only merge execution; Weaver eligibility assessment retained (2026-11-16)
-
 **Authorization:** explicit human authorization in the 2026-11-16 conversation.
 **Canonical rule:** all GitHub pull-request merge execution is human-only. No agent, Weaver worker, scheduler, OpenHands process, provider adapter, or automation may execute a merge, enable auto-merge, or route around this boundary.
 **Weaver's retained function:** assess candidate eligibility under the existing M1–M13 criteria and prepare a timestamped, exact-head merge-readiness report. Assessment is advisory evidence only; it is not permission, authority, approval, or execution.
