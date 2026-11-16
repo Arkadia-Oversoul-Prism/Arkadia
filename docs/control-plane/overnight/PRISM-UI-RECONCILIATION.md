@@ -6,7 +6,7 @@
 **Canonical production:** `https://arkadia-qzu4.onrender.com`
 **Workstream:** Arkadia Console rebuild / reconciliation with archived Prism
 **Consumers:** Upper Hands Engineering Lab, Weaver, and the Hourly Weaver Automation/pulse.
-**Authority:** GOV-01 was human-merged via PR #609 and grants Weaver bounded conditional policy-level merge delegation under §7.1 / SHARED-CONTRACTS.md §9. The runtime merge capability remains disabled: the current `ForbiddenMergeAdapter` refuses merge operations. Weaver may assess eligibility and prepare evidence but may not execute merges until a separate implementation is verified and explicitly activated by the human sovereign. Human retains constitutional, required-approval, production-deployment, and acceptance authority.
+**Authority:** GOV-03 (2026-11-16) establishes human-only merge execution. Weaver may assess M1–M13 eligibility and prepare evidence only; it may not execute merges. `ForbiddenMergeAdapter` remains the runtime refusal boundary. Deployment and acceptance remain human-only.
 
 This document is the active work instruction for the overnight UI workstream. Every Engineering Lab / Weaver pulse must read it alongside `AGENTS.md`, the current `main` SHA, the live PR state, and the evidence files it cites. Do not depend on conversation memory or an old automation prompt.
 
@@ -189,13 +189,17 @@ At the end of this workstream window, leave its PR in a truthful state and a det
 
 
 
-## 7.1 GOV-01 — conditional Weaver merge delegation (2026-11-02)
+## 7.1 GOV-03 — human-only merge execution (2026-11-16)
 
-**Authorization source:** explicit human authorization in the 2026-11-02 conversation approving the dedicated governance-amendment PR and the October 28, 2026 reconciliation contract.
-**Authorization revision:** 2026-10-28 execution contract; amendment GOV-01.
-**Effective date:** GOV-01 was human-reviewed and merged via PR #609. Its conditional policy-level delegation remains in force. This does not activate an executable merge path; runtime merge capability remains disabled pending separate implementation, verification, and explicit human activation.
-**Scope:** existing PRs targeting canonical `main`, subject to all M1–M13 criteria in `docs/control-plane/parallel-ui/SHARED-CONTRACTS.md` §9. No direct pushes to `main`, force-pushes, bypasses, skipped checks, waived approvals, or merge of governance-sensitive changes without specific human authorization.
+## GOV-03 — Human-only merge execution; Weaver eligibility assessment retained (2026-11-16)
 
-Routine eligible PR merges are delegated to Weaver only at the policy level. **Execution remains disabled** while `ForbiddenMergeAdapter` is the active runtime boundary. Weaver may evaluate M1–M13 and prepare a merge-readiness report, but must not execute a merge until a separately reviewed and verified runtime implementation is explicitly activated by the human sovereign. Required human approvals remain mandatory wherever branch protection, repository policy, CODEOWNERS, checks, merge queues, or a specific decision requires them. Constitutional, identity, authority-model, K15/K3, approval-enforcement, scope-expansion, deployment/configuration, and acceptance decisions remain human-only. This governance amendment itself must be human-reviewed and human-merged; Weaver cannot use the authority proposed here to merge GOV-01.
+**Authorization:** explicit human authorization in the 2026-11-16 conversation.
+**Canonical rule:** all GitHub pull-request merge execution is human-only. No agent, Weaver worker, scheduler, OpenHands process, provider adapter, or automation may execute a merge, enable auto-merge, or route around this boundary.
+**Weaver's retained function:** assess candidate eligibility under the existing M1–M13 criteria and prepare a timestamped, exact-head merge-readiness report. Assessment is advisory evidence only; it is not permission, authority, approval, or execution.
+**Runtime:** `weaver/execution_adapter.py::ForbiddenMergeAdapter` remains the refusal boundary. The worker contract records `merge: human_only`. No replacement merge adapter or merge-capable credential is authorized.
+**State vocabulary:** `ELIGIBLE_TO_MERGE` means only that Weaver's assessment found the candidate eligible for human consideration. `HUMAN_AUTHORITY_REQUIRED` means evidence is missing, stale, contradictory, or the change is reserved. `MERGED` may be recorded only after GitHub independently confirms a human-performed merge. An eligibility report must never emit or imply `MERGED`.
+**Required controls:** no direct push to `main`; no force-push; no bypass of branch protection, required reviews, checks, merge queues, or CODEOWNERS; no waived approval; no self-approval. Unknown, stale, unavailable, or contradictory evidence fails closed. Required human approvals remain mandatory.
+**Reserved human decisions:** constitutional or identity changes; authority-model and approval-enforcement changes; K15/K3; scope expansion/exceptions; security/privacy decisions requiring sovereign judgment; deployment/provider/configuration; and product/production acceptance.
+**Non-effects:** this amendment does not merge any PR, change deployment configuration, activate a runtime capability, or accept any product state. This governance PR itself must be reviewed and merged by a human.
 
-The four lane ownership boundaries and the existing one-open-PR-per-lane rule are unchanged. This amendment changes merge delegation only; it does not authorize implementation scope expansion or deployment.
+GOV-03 supersedes the execution-delegation language in GOV-01/GOV-02 and the corresponding sections of this contract. GOV-01's M1–M13 criteria are retained as the Weaver assessment rubric only. Where older text suggests delegated merge execution, this GOV-03 rule controls.
