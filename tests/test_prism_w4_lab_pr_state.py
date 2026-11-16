@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -43,6 +44,7 @@ LAB_SRC = REPO_ROOT / "web" / "arkadia_console" / "src" / "components" / "lab"
 PROJECTION = LAB_SRC / "labPrState.ts"
 SURFACE = LAB_SRC / "LabPrState.tsx"
 PAGE = REPO_ROOT / "web" / "arkadia_console" / "src" / "pages" / "EngineeringLabPage.tsx"
+REGISTRY = REPO_ROOT / "web" / "arkadia_console" / "src" / "lib" / "endpoints.ts"
 
 
 def _node() -> str:
@@ -334,6 +336,63 @@ def test_surface_takes_its_route_template_from_the_shared_registry():
     # The entry name is the contract: an import that is not *read* would leave
     # the surface unwired while looking wired.
     assert "registry.labEngineeringPr" in text
+
+
+#: The registry entry the surface composes from, and the copy that claims it is absent.
+PR_STATE_ENTRY = "labEngineeringPr"
+UNWIRED_CLAIM = "does not declare"
+
+
+def _false_unwired_claim(surface_text: str, registry_text: str) -> list[str]:
+    """Report a surface that says it is unwired while the registry declares the route.
+
+    The not-wired branch is only *true* when the entry is absent. A surface whose
+    copy tells the reader the registry "does not declare" the route while the
+    registry *does* declare it is stating a falsehood about its own wiring: the
+    reader is told a control is missing that is in fact mounted and usable.
+    Module level so the live assertion and its control call the same code.
+    """
+    declared = re.search(rf'{PR_STATE_ENTRY}:\s*"([^"]+)"', registry_text)
+    if not declared:
+        return []
+    problems: list[str] = []
+    if UNWIRED_CLAIM in surface_text:
+        problems.append(
+            f"surface claims the registry '{UNWIRED_CLAIM}' the route while "
+            f"{PR_STATE_ENTRY} is declared as {declared.group(1)!r}"
+        )
+    return problems
+
+
+def test_unwired_copy_agrees_with_the_registry():
+    """The surface's not-wired claim must match the registry it reads.
+
+    The claim is a statement about live wiring, so it can go stale the moment
+    Lane 1 registers the entry. Left unchecked, the console renders "not wired
+    yet" over a control that is fully wired — the truthfulness class this lane
+    exists to prevent.
+    """
+    assert _false_unwired_claim(SURFACE.read_text(encoding="utf-8"), REGISTRY.read_text(encoding="utf-8")) == []
+
+
+def test_negative_control_the_stale_unwired_claim_is_reported():
+    """Prove the detector bites on the exact pre-repair shape.
+
+    The pre-repair copy asserted the registry "does not declare" the route while
+    `labEngineeringPr` was already declared, so the branch was dead and the claim
+    false. The detector must report that pair, and must stay silent when the
+    registry genuinely lacks the entry (the claim is then true).
+    """
+    registry = REGISTRY.read_text(encoding="utf-8")
+    pre_repair = SURFACE.read_text(encoding="utf-8").replace(
+        "no longer declares", UNWIRED_CLAIM
+    )
+    problems = _false_unwired_claim(pre_repair, registry)
+    assert problems, "detector missed a not-wired claim that contradicts the registry"
+    # ...and a registry without the entry makes the same claim truthful, so a
+    # detector that reports unconditionally cannot pass either.
+    undeclared = registry.replace(f'{PR_STATE_ENTRY}: "/api/lab/engineering/pr/{{number}}"', "")
+    assert _false_unwired_claim(pre_repair, undeclared) == []
 
 
 def test_surface_does_not_fire_a_request_per_keystroke():
