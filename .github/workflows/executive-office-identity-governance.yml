@@ -31,6 +31,7 @@ on:
       - "tests/test_gate2_revocation_consistency.py"
       - "tests/test_gate2b_agent_loop_delegation.py"
       - "tests/test_gate2c_grant_scope_immutability.py"
+      - "tests/test_lab_execution_boundary_ws2.py"
       - "lab/engineering_lab/runtime.py"
       - "lab/engineering_lab/store.py"
       - "lab/engineering_lab/tools.py"
@@ -56,6 +57,7 @@ on:
       - "tests/test_gate2_revocation_consistency.py"
       - "tests/test_gate2b_agent_loop_delegation.py"
       - "tests/test_gate2c_grant_scope_immutability.py"
+      - "tests/test_lab_execution_boundary_ws2.py"
       - "lab/engineering_lab/runtime.py"
       - "lab/engineering_lab/store.py"
       - "lab/engineering_lab/tools.py"
@@ -129,6 +131,11 @@ jobs:
         # inert because the envelope is a ceiling — so human-authorized
         # execution semantics are preserved, not loosened.
         run: python -m pytest tests/test_gate2c_grant_scope_immutability.py -q -rA
+
+      - name: Gate 2d Engineering Lab execution boundary WS2
+        # Atomic grant consumption, per-operation revocation, both execution paths,
+        # and server-derived filesystem confinement must remain enforced in CI.
+        run: python -m pytest tests/test_lab_execution_boundary_ws2.py -q -rA
 
       - name: Composed OpenAPI security contract
         # The Executive Office operations must keep their adjudicated boundary
