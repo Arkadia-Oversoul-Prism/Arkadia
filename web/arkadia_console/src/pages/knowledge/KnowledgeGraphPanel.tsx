@@ -21,13 +21,15 @@ import {
   provenanceNotice,
   authorshipReading,
   authorshipNotice,
+  boundedRowNotice,
   scopeNotice,
   type KnowledgeGraphData,
   type ViewerKind,
 } from "./knowledgeContracts";
 
 /** Cap on the per-node provenance rows rendered, so a large scope cannot turn
- *  the reading into an unbounded list. The count facts above stay exact. */
+ *  the reading into an unbounded list. The count facts above stay exact, and the
+ *  bound is disclosed by `boundedRowNotice` rather than left implicit. */
 const PROVENANCE_ROWS = 8;
 
 async function readGraph(path: string): Promise<KnowledgeGraphData> {
@@ -66,6 +68,7 @@ function GraphReading({ graph, viewer }: { graph: KnowledgeGraphData; viewer: Vi
   const provenanceCopy = provenanceNotice(provenance);
   const authorship = summarizeAuthorship(graph);
   const authorshipCopy = authorshipNotice(authorship);
+  const rowNotice = boundedRowNotice(PROVENANCE_ROWS, graph.nodes.length);
 
   return (
     <div className="flex flex-col gap-4">
@@ -108,6 +111,12 @@ function GraphReading({ graph, viewer }: { graph: KnowledgeGraphData; viewer: Vi
             </li>
           ))}
         </ul>
+      )}
+
+      {rowNotice && (
+        <p data-testid="knowledge-graph-rows-bounded" className="text-xs text-white/45">
+          {rowNotice}
+        </p>
       )}
 
       {summary.titles.length > 0 && (
