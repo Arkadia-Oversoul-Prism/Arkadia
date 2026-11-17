@@ -19,6 +19,7 @@ import {
   type LabObservation,
   type LabRunResult,
 } from "./missionContract";
+import { clipForDisplay } from "./renderClip";
 
 interface LabBoundedTestProps {
   sessionId: string;
@@ -75,8 +76,7 @@ export function classifyTestTransport(message: string): "UNAVAILABLE" | "REFUSED
 }
 
 function clip(value: string, limit = 4000): string {
-  if (value.length <= limit) return value;
-  return `${value.slice(0, limit)}\n… truncated in this view; the server record is authoritative`;
+  return clipForDisplay(value, limit);
 }
 
 export function LabBoundedTest({
