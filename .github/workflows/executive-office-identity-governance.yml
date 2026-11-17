@@ -32,6 +32,7 @@ on:
       - "tests/test_gate2b_agent_loop_delegation.py"
       - "tests/test_gate2c_grant_scope_immutability.py"
       - "tests/test_lab_execution_boundary_ws2.py"
+      - "tests/test_gate2e_runtime_recovery_assurance.py"
       - "lab/engineering_lab/runtime.py"
       - "lab/engineering_lab/store.py"
       - "lab/engineering_lab/tools.py"
@@ -58,6 +59,7 @@ on:
       - "tests/test_gate2b_agent_loop_delegation.py"
       - "tests/test_gate2c_grant_scope_immutability.py"
       - "tests/test_lab_execution_boundary_ws2.py"
+      - "tests/test_gate2e_runtime_recovery_assurance.py"
       - "lab/engineering_lab/runtime.py"
       - "lab/engineering_lab/store.py"
       - "lab/engineering_lab/tools.py"
@@ -136,6 +138,14 @@ jobs:
         # Atomic grant consumption, per-operation revocation, both execution paths,
         # and server-derived filesystem confinement must remain enforced in CI.
         run: python -m pytest tests/test_lab_execution_boundary_ws2.py -q -rA
+
+      - name: Gate 2e runtime recovery assurance
+        # Authority is durable state, not process memory. A restart must reload
+        # a live delegation and its credential epoch unchanged, must NOT launder
+        # a revocation or a suspended epoch, must not let durable queued work
+        # resume under withdrawn authority, and must deny rather than fall
+        # through when the registry is unreadable at startup.
+        run: python -m pytest tests/test_gate2e_runtime_recovery_assurance.py -q -rA
 
       - name: Composed OpenAPI security contract
         # The Executive Office operations must keep their adjudicated boundary
