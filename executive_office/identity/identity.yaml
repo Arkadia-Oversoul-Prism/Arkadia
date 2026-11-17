@@ -16,12 +16,12 @@ identity:
   created_by: "Repository proposal"
   authentication:
     issuer: "Dedicated Arkadia Executive Identity Broker"
-    status: "NOT_IMPLEMENTED"
+    status: "BROKER_IMPLEMENTED_IN_REPOSITORY; HOSTING_WORKLOAD_IDENTITY_NOT_VERIFIED"
     token_type: "short-lived asymmetric-signed machine JWT"
     audience: "arkadia-executive-api"
     maximum_ttl_seconds: 300
     signing_key_location: "Broker only; never available to agent runtime"
-    runtime_authentication: "Hosting-native workload identity preferred; hosting capability must be verified"
+    runtime_authentication: "Hosting-native workload identity not selected or verified; no production runtime is deployed"
     firebase_user_impersonation: false
     interactive_login: false
   repository_credential:
@@ -49,8 +49,8 @@ identity:
     policy_file: "../governance/authority.yaml"
     identity_access_contract: "../IDENTITY_ACCESS_AND_REVOCATION.md"
     active_delegation: false
-    delegation_registry: "NOT_IMPLEMENTED"
-    revocation: "Durable server-side status + credential epoch; not implemented"
+    delegation_registry: "IMPLEMENTED_DURABLE_SQLITE; TESTED; NOT_COMMISSIONED"
+    revocation: "IMPLEMENTED_DURABLE_STATUS_AND_CREDENTIAL_EPOCH; TESTED_WITH_FRESH_REGISTRY_INSTANCE; NOT_RUNTIME_DEPLOYMENT_VERIFIED"
     level_target: "L3_SCOPED_DELEGATION"
     effective_only_after_human_approval: true
   continuity:
