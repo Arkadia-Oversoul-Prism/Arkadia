@@ -393,7 +393,7 @@ export interface EntryFact {
  *
  * Excluded on purpose, because each has its own UI or is not a fact to display:
  * `prospect` (the entry title), `status` (the status chip), `evidence_status`
- * (the evidence line), `evidence` (never rendered as raw JSON here),
+ * (the evidence line), `evidence` (the evidence line's record count),
  * `why_this_prospect` (its own paragraph), `notes` (own field, not yet rendered),
  * and the server-managed `id` / `board_id` / `subject_ref` / timestamps.
  */
@@ -411,6 +411,35 @@ export function entryFacts(entry: OpportunityEntry): EntryFact[] {
     label: entryFactLabel(field),
     value: fact(entry[field] as string | undefined | null),
   }));
+}
+
+/**
+ * The evidence reading the surface states for one entry.
+ *
+ * `evidence_status` is the backend's *sentinel* (`NONE`), and the PATCH handler
+ * accepts `evidence` records independently of it — so an entry can carry
+ * evidence while its status still reads `NONE`. A surface that rendered the
+ * sentinel alone would state "Evidence: NONE" over a board that holds evidence,
+ * which is the same over-claim the sentinel exists to prevent.
+ *
+ * `records` is the handler's own array length, never a guess; `label` reports the
+ * sentinel only when the entry genuinely carries neither a status nor records.
+ */
+export interface EntryEvidenceReading {
+  status: string;
+  records: number;
+  /** True when the entry carries evidence the status sentinel alone would hide. */
+  recorded: boolean;
+  label: string;
+}
+
+export function evidenceReading(entry: OpportunityEntry): EntryEvidenceReading {
+  const status = entry.evidence_status || NO_EVIDENCE;
+  const records = Array.isArray(entry.evidence) ? entry.evidence.length : 0;
+  const recorded = records > 0 || status !== NO_EVIDENCE;
+  const parts = [status];
+  if (records > 0) parts.push(`${records} record${records === 1 ? "" : "s"}`);
+  return { status, records, recorded, label: parts.join(" · ") };
 }
 
 export function emptyDraft(status: string = "UNCONTACTED"): ProspectDraft {
