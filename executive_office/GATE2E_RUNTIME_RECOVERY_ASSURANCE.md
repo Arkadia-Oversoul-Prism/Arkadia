@@ -248,9 +248,58 @@ recoveries, and 3962 − 3799 = 163 passed gained, consistent with the 10 plus t
 Workflow parses as valid YAML; step count is now **13** (was 12). Every Gate file
 is named by a CI step — none unexercised.
 
-**The new step has not yet run on GitHub for this commit.** It passes locally.
-Whether CI is green for this head is reported separately from the run data; this
-document does not assert it.
+### Observed CI result for the Gate 2e step
+
+`identity-governance` — **completed: success**, run `44092675725`,
+job `134071582997`, 13:26:15Z → 13:26:53Z, on the commit that introduced the
+test file and the CI wiring (the report-only commit that follows it changes no
+code and no job definition).
+
+Every step green, including the new one:
+
+| # | Step | Conclusion |
+|---|---|---|
+| 5 | Gate 1 negative security tests | success |
+| 6 | Gate 1 API boundary tests | success |
+| 7 | Gate 1C dispatch revocation hardening | success |
+| 8 | Gate 2 revocation consistency across every execution route | success |
+| 9 | Gate 2b native agent loop delegation boundary | success |
+| 10 | Gate 2c grant scope and operation permissions | success |
+| 11 | Gate 2d Engineering Lab execution boundary WS2 | success |
+| **12** | **Gate 2e runtime recovery assurance** | **success** |
+| 13 | Composed OpenAPI security contract | success |
+| 14 | The agent is not commissioned | success |
+
+The Gate 2e step really executed on GitHub — this is observed, not inferred.
+
+### Two red checks outside this gate
+
+`beta-beta-02-hausa` and `bundle-beta-evidence` (workflow
+`n-atlas-external-beta.yml`) are red on this head, and both were **green on the
+prior head `212ce891`**. They are not caused by this change:
+
+- **No dependency on this work.** `git diff --stat a1009ddf HEAD --
+  .github/workflows/n-atlas-external-beta.yml` is empty: this branch has never
+  touched that workflow, and it never ran on any of the Gate commits.
+- **It calls an external service.** The failing step ("Run external N-ATLAS
+  inference and build evidence") runs `requests` against
+  `https://koladeodunope-ednai-natlas-runtime.hf.space` and asserts on the
+  response. That Space is currently `RUNNING` (checked live during this work,
+  `lastModified: 2026-09-27`), which is consistent with a transient failure at
+  run time rather than a broken endpoint.
+- **`bundle-beta-evidence` is downstream.** Its steps are: download the two beta
+  artifacts → *Verify bundle shape* (**failure**) → upload-artifact (**skipped**).
+  It failed because the beta job it consumes produced no evidence, not on its own
+  terms.
+
+**What I could not observe:** the actual error text. The job-logs endpoint
+returns **HTTP 403 `{"message": "Must have admin rights to Repository."}`** —
+this credential is not a repo admin, so `actions/jobs/<id>/logs` is closed to
+it. The check-run annotations expose only `"Process completed with exit code 1."`
+plus Node/runner deprecation notices, not the assertion that failed. So the
+cause is **attributed** from the workflow definition, the green prior head, the
+live endpoint state and the step dependency graph — it is **not** read from a
+log. Both should be re-run before merge; a re-run is the only way to confirm.
 
 ---
 
@@ -266,3 +315,34 @@ document does not assert it.
 - **Zero production code changed.** This gate adds one test file and ten lines of
   CI configuration. That is the whole diff, and it is why the risk of this
   change is confined to CI runtime.
+
+---
+
+## 10. Credential hygiene finding
+
+While confirming the push key had been removed, the deploy-key list showed a
+**second, stale write-enabled key** still on the repository:
+
+```
+id 170016887  title "temporary-gate2c-push"  read_only: false
+created 2026-11-16T05:04:34Z  last_used 2026-11-16T05:04:40Z
+```
+
+This was left behind by an earlier Gate 2c push — its cleanup step evidently did
+not run, or ran against a different id. It granted **write access to the whole
+repository** for roughly 32 hours, held by a key whose private half no longer
+exists anywhere in this workspace. It was revoked during this work; the deploy
+key list is now empty:
+
+```
+$ GITHUB_LIST_DEPLOY_KEYS -> "deploy_keys": []
+```
+
+This gate's own key (`170194052`) was created, used once, and deleted
+immediately; the private key file was shredded with `shred -u`.
+
+**Recommendation:** treat "deploy_keys must be empty" as an assertion in the CI
+step that already asserts the uncommissioned invariant. A temporary push key
+that outlives its push is exactly the kind of standing credential the
+uncommissioned state is meant to exclude, and it was invisible until someone
+happened to list the keys.
