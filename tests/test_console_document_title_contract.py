@@ -33,12 +33,30 @@ SHELL_PATH = SRC / "components" / "Shell.tsx"
 SHELL = SHELL_PATH.read_text(encoding="utf-8")
 
 
-def _title_writers() -> list[str]:
-    return [
-        str(p.relative_to(ROOT))
+TITLE_WRITE_MARKER = "document.title"
+SHELL_RELATIVE_PATH = "web/arkadia_console/src/components/Shell.tsx"
+
+
+def _title_writers_in(sources: dict[str, str]) -> list[str]:
+    """Modules that write ``document.title``, as sorted repo-relative paths.
+
+    Takes its domain as an argument so a control can feed it a defective tree.
+    A detector that reads the live tree directly shares no symbol with a
+    control, so neutering it to ``return [SHELL_RELATIVE_PATH]`` leaves the
+    live assertion satisfied and nothing reddens.
+    """
+    return sorted(p for p, text in sources.items() if TITLE_WRITE_MARKER in text)
+
+
+def _live_tsx_sources() -> dict[str, str]:
+    return {
+        str(p.relative_to(ROOT)): p.read_text(encoding="utf-8")
         for p in sorted(SRC.rglob("*.ts*"))
-        if "document.title" in p.read_text(encoding="utf-8")
-    ]
+    }
+
+
+def _title_writers() -> list[str]:
+    return _title_writers_in(_live_tsx_sources())
 
 
 def _title_effect(text: str) -> re.Match[str] | None:
@@ -49,7 +67,7 @@ def _title_effect(text: str) -> re.Match[str] | None:
 
 
 def test_the_shell_is_the_only_module_that_writes_the_document_title():
-    assert _title_writers() == ["web/arkadia_console/src/components/Shell.tsx"], (
+    assert _title_writers() == [SHELL_RELATIVE_PATH], (
         f"document.title must have one owner (the shell); found {_title_writers()}"
     )
 
@@ -82,3 +100,23 @@ def test_negative_control_detects_an_unkeyed_write():
     synthetic = "useEffect(() => { document.title = `${SURFACE_BY_ID[current].name} · ARKADIA`; }, []);"
     assert _title_effect(synthetic) is None, "an effect not keyed on [current] must be flagged"
     assert _title_effect(SHELL)
+
+
+def test_negative_control_the_title_writer_sweep_is_bound_to_its_detector():
+    """The sweep must be able to fail for an edit to the detector it depends on.
+
+    Both polarities: a defective tree (a second writer) is reported, and the
+    shipped tree is not. A detector neutered to report nothing fails the first;
+    one that reports unconditionally fails the second.
+    """
+    defective = {
+        SHELL_RELATIVE_PATH: "document.title = 'ARKADIA';",
+        "web/arkadia_console/src/pages/WeaverPage.tsx": "document.title = 'Weaver';",
+    }
+    assert _title_writers_in(defective) == [
+        SHELL_RELATIVE_PATH,
+        "web/arkadia_console/src/pages/WeaverPage.tsx",
+    ], "a second module writing document.title must be reported"
+    assert _title_writers_in(_live_tsx_sources()) == [SHELL_RELATIVE_PATH], (
+        "the shipped tree must have exactly one title writer"
+    )
