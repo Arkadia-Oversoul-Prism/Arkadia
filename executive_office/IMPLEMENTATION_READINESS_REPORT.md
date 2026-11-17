@@ -12,7 +12,7 @@ This report reconciles the repository evidence after the Founder’s conditional
 Relevant repository evidence:
 - The last independently assessed PR head was `d41127e153b34e330d523622b29d27e96eadfd03`.
 - At that head, the recorded assessment found 27/27 check-runs successful, a clean/mergeable composition, CP10 judge exit 0, 76 passing CP10 integrity tests, 250 passing workflow-governance tests, and successful `api/main.py` compilation.
-- The latest CI run observed for the new Gate 2d workflow change is run **#14** (run ID `44086777527`). At the time of this report, Gate 1, API boundary, Gate 1C, Gate 2, and Gate 2b had passed; Gate 2c was running; Gate 2d was queued. This is not a completed pass.
+- CI run **#14** (run ID `44086777527`) completed successfully on commit `a9c84be73d7fed3ef84b06715afb01cd649340d2`. All 13 substantive steps passed, including the newly added Gate 2d Engineering Lab WS2 test step. This closes the previously identified workflow-selection gap on that tested commit.
 - Commit `a9c84be73d7fed3ef84b06715afb01cd649340d2` adds Gate 2d CI selection and execution for `tests/test_lab_execution_boundary_ws2.py`.
 - Commit `369586ce4ca466b04f4bbad148b3ed5ca4662b0f` corrects stale identity-record implementation labels.
 
@@ -21,7 +21,7 @@ Relevant repository evidence:
 | Gate | Current evidence | Disposition |
 |---|---|---|
 | CI coverage for Executive Office identity, API, Weaver revocation, native agent loop and grant scope | Dedicated workflow exists; run #13 passed all configured steps. | PASS at prior head |
-| Engineering Lab WS2 execution-boundary coverage | Workflow now includes the test path in both PR and main-push filters and runs the test as Gate 2d. Run #14 had not reached this step when inspected. | PENDING |
+| Engineering Lab WS2 execution-boundary coverage | Workflow includes the test path in both PR and main-push filters; Gate 2d executed successfully in run #14. | PASS on commit `a9c84be` |
 | Broker and token implementation | Broker, token validation, durable delegation registry and revocation code exist in the repository and have focused tests. | IMPLEMENTED IN REPOSITORY; NOT COMMISSIONED |
 | Durable registry recovery | Tests verify active delegation reload and revoked-token denial through a fresh registry instance against the same database; append-only transition history and credential epochs are tested. | TESTED AT REGISTRY LAYER |
 | Full runtime/process recovery | The registry tests do not establish recovery of a deployed Chief runtime, scheduler, in-flight work, or hosting identity after process restart. | NOT VERIFIED |
