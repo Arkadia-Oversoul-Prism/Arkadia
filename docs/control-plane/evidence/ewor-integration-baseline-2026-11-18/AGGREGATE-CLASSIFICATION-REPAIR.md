@@ -126,7 +126,38 @@ Command on both trees: `python3 -m pytest tests/ -q -p no:cacheprovider --ignore
 
 Net: 180 + 2 − 1 = **181** failures; 60 + 4 = **64** errors. **No failure is attributable to the classifier repair itself** — the two new failures are the honest consequence of a truthful refresh, and the four errors are a missing-dependency artifact of this environment.
 
-**What I could not observe:** CI on this commit. No workflow was triggered from this environment, so there is no run URL and no CI log for the repair SHA. The numbers above are local runs, not CI results.
+**What I could not observe:** the CI log *text* (see below). The numbers above are local runs; the CI results are recorded separately in the CI section.
+
+### Commit and remote verification
+
+| Field | Value |
+|---|---|
+| Branch | `integration/ewor-evidence-baseline-2026-11-18` |
+| Commit | `fdb94c63fb8fe89a02a9b591aa95980b779fe14a` |
+| Tree | `9e6a6c1b0400044f275f32d4ddeecab20b6d7d43` |
+| Previous head | `0fdf4ca8197b7021cb5d4bc0d36de73ff37fd70c` |
+| Remote ref | `fdb94c63fb8fe89a02a9b591aa95980b779fe14a` — **exact match**, read back via `GET /git/ref/heads/...` |
+| `main` | `f9bd8da913fa194d7cff2e53b9c417ddb2a9f43a` — **unchanged**, the immutable base |
+| Files in commit | 8 changed, 6 added |
+
+Push mechanism: a temporary write-enabled deploy key (id `170347478`) was created, used once, then **deleted** — `GET /deploy_keys` returns `[]`, and the private key was shredded. This is recorded because a key that grants repo write is a real security artifact.
+
+### Observed CI on `fdb94c63`
+
+| Workflow | Run | Conclusion |
+|---|---|---|
+| **Prism Console Contract** | [44356203509](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/44356203509) | **success** — all 17 steps green, incl. *Console behavioural tests (React, real modules)*, *Console typecheck*, *Console production build*, *Workspace layout assertions (both identity modes)* |
+| **SG-02-FE.2-V** | [44356203836](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/44356203836) | **success** — all 33 steps green, incl. *CP10-B broader backend regression*, *CP10 API verification*, *CP10 browser route verification*, *CP10 mutation boundary*, *Enforce CP10 executable gates* |
+| Baseline Fingerprint Verification | 44356204006 | success |
+| Boot Syntax Boundary | 44356203779 | success |
+| **Lane Doc Currency** | [44356203906](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/44356203906) | **failure** — step 6 `Execute lane instruction-doc currency guard` |
+| **N-ATLAS external beta validation** | [44356203778](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/44356203778) | **failure** — `beta-beta-01-english` step 5; `beta-beta-02-hausa` **passed** |
+
+**Lane Doc Currency is the intended signal, not a surprise.** Step 6 is the offline guard, and it fails for exactly the reason documented above: the refreshed snapshot now reports open lane PRs in all four lanes while the four lane docs still declare `**Active thread:** none`. Steps 7–9 (`wiring guard`, `guard as the gate executes it`, `verify lane PR state against GitHub`) were **skipped** as a consequence — so the live oracle inside CI did not run either. **The laptop-level green cannot be claimed.**
+
+**N-ATLAS is unrelated and externally flaky — determined, not assumed.** The branch does not touch `.github/workflows/n-atlas-external-beta.yml` (`git diff --stat` against the base is empty). Within this single run, `beta-beta-02-hausa` **passed** while `beta-beta-01-english` failed — the opposite pattern from the previous head `212ce891`, where hausa was the red one. A workflow failing in a different job on each run, with an untouched definition, is environmental. Its downstream `bundle-beta-evidence` then fails at *Verify bundle shape* because one of the two expected artifacts is missing.
+
+**What I could not observe:** the log *text* for either failure. `GET /actions/jobs/{id}/logs` returns **HTTP 403 `"Must have admin rights to Repository."`** for every job, and the check-run annotations expose only `"Process completed with exit code 1."` So for Lane Doc Currency the cause is established from the workflow definition, the step name that failed, and the reproduced local failure (same guard, same drift, exit 1) — **but the CI log text itself was not read.** For N-ATLAS the cause is *attributed* from the untouched workflow, the flipped job-across-runs pattern, and the live external endpoint; it was **not diagnosed from a log**. Both should be re-run before any merge decision.
 
 ### Governance statement
 
