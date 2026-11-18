@@ -66,3 +66,38 @@ Do not collapse these three evidence classes into one maturity claim.
 - CI run IDs/links: none. Combined test result: none. Failure-node delta: not measured. This is not a passing or failing test result.
 - Disposition: **NOT ACCEPTED** for the EWOR portfolio pending combined CI execution on the exact candidate commit/tree, failure inspection, lane-state freshness check, and human acceptance.
 - Portfolio remains split: verified `main` snapshot at `f9bd8da913fa194d7cff2e53b9c417ddb2a9f43a`; additional PR #663–#667 contributions remain individually green but combined-validation-pending.
+
+
+## Combined CI validation — superseding update (2026-11-18)
+
+The earlier “NOT RUN” entry above is a historical record of the state before the owner manually dispatched the workflows. It is superseded for CI execution status by this addendum.
+
+### Tested revision and source equivalence
+
+- Branch: `integration/ewor-evidence-baseline-2026-11-18`
+- **Tested commit SHA:** `6dcdf0388c157b2b60f6530216167645b958988d`
+- **Tested tree SHA:** `23b1a9091bf5d42227b162448d977ce819a18547`
+- Original composed source commit: `31a8793f3a1afbff8ac2a5b563ecf9bf08288e49`
+- Original composed source tree: `8c4dfeff841ac6b5df88742a783e3ddb45327a12`
+- GitHub compare confirms the tested revision is two commits ahead of the source commit and zero behind. The only tree-level difference is this evidence-ledger file, added as 68 lines. No source or test path changed between the composed source commit and the tested revision.
+- Therefore, the two workflows below validate the same combined application/test source tree, with the evidence-ledger addition present. They did **not** execute at the original source commit SHA itself; the authoritative tested SHA is `6dcdf038...`.
+
+### Workflow results
+
+| Workflow | Run | Result | Job |
+|---|---|---|---|
+| Prism Console Contract | [44316333731](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/44316333731) | **SUCCESS** | `console-contract` completed successfully; all executed steps passed |
+| SG-02-FE.2-V | [44316536942](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/44316536942) | **SUCCESS** | `validate` completed successfully; all executed steps passed; conditional cleanup step was skipped |
+
+Both runs were manually dispatched on `integration/ewor-evidence-baseline-2026-11-18` and GitHub reports the same tested SHA, `6dcdf038...`, for both. No failed jobs or failed executed steps were reported.
+
+Artifacts:
+- SG-02-FE.2-V: `cp10-evidence-6dcdf0388c157b2b60f6530216167645b958988d` (artifact ID `14431384950`)
+- Prism Console Contract: `workspace-layout-evidence` (artifact ID `14431269307`)
+
+### Remaining acceptance checks
+
+- **Lane-state freshness: FAIL / stale.** The candidate snapshot records PR #657 at head `d41127e153b34e330d523622b29d27e96eadfd03` (updated 2026-11-16), while the live PR #657 head is `d49cc9a06b952aac19a6d4d2a59366d24d8fb0bf` (updated 2026-11-17). The derived lane-state snapshot must be re-derived and its live verification rerun before acceptance.
+- Test-node and failure-node deltas against the base snapshot have **not yet been measured**. The two workflow runs show no failures on the candidate, but this is not a baseline delta analysis.
+- No merge, deployment, production acceptance, or change to `main` was performed.
+- **Disposition: COMBINED CI PASSED; PORTFOLIO ACCEPTANCE STILL PENDING.** Re-derive and verify lane state, complete the base-versus-candidate test/failure-node comparison, then obtain the human acceptance decision. PRs #663–#667 must not yet be described as fully accepted.
