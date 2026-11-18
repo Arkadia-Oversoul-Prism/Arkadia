@@ -101,3 +101,49 @@ Artifacts:
 - Test-node and failure-node deltas against the base snapshot have **not yet been measured**. The two workflow runs show no failures on the candidate, but this is not a baseline delta analysis.
 - No merge, deployment, production acceptance, or change to `main` was performed.
 - **Disposition: COMBINED CI PASSED; PORTFOLIO ACCEPTANCE STILL PENDING.** Re-derive and verify lane state, complete the base-versus-candidate test/failure-node comparison, then obtain the human acceptance decision. PRs #663–#667 must not yet be described as fully accepted.
+
+
+## Baseline comparison and live lane-state reconciliation — 2026-11-18
+
+### Same-workflow base comparison
+
+The available successful `main` runs on the immutable base SHA `f9bd8da913fa194d7cff2e53b9c417ddb2a9f43a` were compared with the candidate runs. The same workflow definitions and test commands were used.
+
+| Workflow | Base `main` | Combined candidate | Result |
+|---|---|---|---|
+| Prism Console Contract | [44044565413](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/44044565413) | [44316333731](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/44316333731) | Both success |
+| SG-02-FE.2-V | [43923778175](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/43923778175) | [44316536942](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/44316536942) | Both success |
+
+Prism Console Contract log comparison:
+- React behavioural tests: 61 passed on both.
+- Broad backend pytest segment: 1,168 passed on base; 1,182 passed on candidate (+14).
+- Additional contract segment: 34 passed on both.
+- No failed executed steps in either workflow job.
+
+SG-02-FE.2-V full backend pytest comparison:
+- Base: 4,045 passed, 10 failed, 17 skipped, 1 collection error.
+- Candidate: 4,060 passed, 9 failed, 17 skipped, 1 collection error.
+- Net: +15 passing tests, one fewer failing test, no increase in skipped tests or collection errors.
+- The only base failure absent from the candidate failure list is `tests/test_lane_instruction_doc_currency.py::test_live_snapshot_is_fresh_against_current_main`, consistent with the #663 lane snapshot repair.
+- The remaining nine failed nodes and the `tests/test_autonomy.py` collection error are present on both base and candidate. They are pre-existing baseline failures, not newly introduced by this candidate.
+- This is a comparison of the two logged full-suite runs, not a claim that the entire repository test suite is green.
+
+### Live lane-state re-derivation finding
+
+A fresh read of the live open PR list and changed-file lists shows:
+- #663–#667 remain open.
+- #657 remains open and touches no exclusively-owned lane paths, so it remains unassigned.
+- Integration PR #668 is itself open and its aggregate diff contains lane-owned paths from all four lanes. Under the current `scripts/lane_state_refresh.py` classifier, #668 therefore matches lanes 1, 2, 3 and 4. Because its `updated_at` is newer than the individual lane PRs, the derivation would select #668 as the active PR in all four lanes.
+- The four lane instruction docs do not declare #668 as their active PR; their latest declarations are none/#564/#450/#605 respectively.
+
+This is a self-inclusion problem for an aggregate integration PR, not a reason to hand-edit or suppress live PR data. A mechanical refresh would produce a snapshot that then disagrees with the lane-doc pointers; `--verify-live` alone can establish that listed PRs are open, but the complete `--check --verify-live` gate would not be satisfied.
+
+No lane-state snapshot was overwritten and no lane docs were changed. The correct repair is a separately reviewed, tested rule for classifying/excluding explicitly designated aggregate evidence PRs from lane ownership, followed by a real refresh and `--check --verify-live` run. Do not silently omit #668 or point all four lane docs at the aggregator.
+
+### Updated disposition
+
+- Combined CI: **PASS** on tested SHA `6dcdf0388c157b2b60f6530216167645b958988d`.
+- Base comparison: **FAVOURABLE**; +15 passing, one fewer failing, no new failure nodes identified.
+- Live lane-state acceptance gate: **BLOCKED** by aggregate-PR self-inclusion in the current derivation model.
+- Human portfolio acceptance: **PENDING** until the lane-state classifier issue is resolved and the refreshed snapshot passes both the offline and live guards.
+- No merge, deployment, or change to `main` was performed.
