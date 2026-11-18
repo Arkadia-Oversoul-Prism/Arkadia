@@ -387,3 +387,61 @@ def test_negative_control_panel_never_hardcodes_an_author():
     assert _hardcoded_attribution_hits(invented) == ["captured_by", "authored_by", "author"]
     # A `key=` attribute and a data read are not literal attributions.
     assert _hardcoded_attribution_hits('<Row key={node.id} author={node.author} />') == []
+
+
+# ── console side: a bounded row list discloses its own bound ──────────────────
+#
+# The panel renders `graph.nodes.slice(0, PROVENANCE_ROWS)` with no disclosure,
+# so eight rows read as the complete record while `nodes` (the exact count fact
+# above them) can be larger. That is the same silent-cap class the Lab's
+# `renderClip.ts` names; the rule here is that a bounded view states its bound.
+# Every assertion below has a control that would fail against the pre-repair
+# panel (a bare `slice` with no notice), so the guard is not satisfied by the
+# detector agreeing with itself.
+
+def test_contracts_expose_a_bounded_row_notice():
+    source = _contracts_source()
+    assert "export function boundedRowNotice" in source
+
+
+def test_bounded_notice_is_silent_when_nothing_is_withheld():
+    """A complete list must NOT be labelled as truncated: a notice that always
+    fired would be as dishonest as one that never did."""
+    source = _contracts_source()
+    body = source.split("export function boundedRowNotice", 1)[1].split("\n}", 1)[0]
+    assert "total <= shown" in body, "the guard must be the comparison, not a constant"
+    assert "return null" in body
+
+
+def test_bounded_notice_states_both_counts():
+    source = _contracts_source()
+    body = source.split("export function boundedRowNotice", 1)[1].split("\n}", 1)[0]
+    assert "shown" in body and "total" in body, "the copy must name both the shown and total counts"
+
+
+def test_panel_discloses_the_row_cap():
+    """The panel that performs the `slice` must render the disclosure, and its
+    bound must come from the same constant the `slice` uses."""
+    source = PANEL_TSX.read_text(encoding="utf-8")
+    assert "boundedRowNotice" in source
+    assert 'data-testid="knowledge-graph-rows-bounded"' in source
+    assert "boundedRowNotice(PROVENANCE_ROWS, graph.nodes.length)" in source
+    assert "graph.nodes.slice(0, PROVENANCE_ROWS)" in source
+
+
+def test_negative_control_a_bare_slice_is_not_the_convention():
+    """Feed the detector the pre-repair shape: a panel that slices without a
+    notice. The property under test must be false for it."""
+    pre_repair = (
+        "{graph.nodes.length > 0 && (\n"
+        '  <ul data-testid="knowledge-graph-provenance-rows">\n'
+        "    {graph.nodes.slice(0, PROVENANCE_ROWS).map((node) => (\n"
+        "      <li>{node.title}</li>\n"
+        "    ))}\n"
+        "  </ul>\n"
+        ")}"
+    )
+    assert "boundedRowNotice" not in pre_repair
+    assert 'data-testid="knowledge-graph-rows-bounded"' not in pre_repair
+    # The shipped panel is the opposite of this control.
+    assert "boundedRowNotice" in PANEL_TSX.read_text(encoding="utf-8")

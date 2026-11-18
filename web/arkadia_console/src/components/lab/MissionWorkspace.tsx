@@ -61,6 +61,7 @@ import {
 import { LabWorkerDispatch } from "./LabWorkerDispatch";
 import { LabBoundedTest } from "./LabBoundedTest";
 import { LabRunTrace } from "./LabRunTrace";
+import { clipForDisplay } from "./renderClip";
 import type { LabArtifactRecord, LabEvidenceRecord } from "./labRunTrace";
 
 /** Which mutating act is currently awaiting a server response.
@@ -118,7 +119,7 @@ function recordJson(record: object, key: string, fallback: string): string {
   if (value === undefined || value === null) return fallback;
   try {
     const encoded = JSON.stringify(value);
-    return typeof encoded === "string" ? encoded.slice(0, 400) : fallback;
+    return typeof encoded === "string" ? clipForDisplay(encoded, 400) : fallback;
   } catch {
     return fallback;
   }
@@ -1056,7 +1057,7 @@ export function MissionWorkspace() {
                     <p className="mt-1 text-xs text-red-300">{o.error}</p>
                   ) : (
                     <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap break-words font-mono text-[11px] text-white/60">
-                      {(o.content ?? "").slice(0, 4000) || "— empty —"}
+                      {o.content ? clipForDisplay(o.content) : "— empty —"}
                     </pre>
                   )}
                 </li>

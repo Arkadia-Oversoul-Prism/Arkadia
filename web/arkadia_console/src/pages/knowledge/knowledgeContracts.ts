@@ -203,6 +203,26 @@ export function provenanceNotice(summary: ProvenanceSummary): string | null {
 }
 
 /* ───────────────────────────────────────────────────────────────────────────
+ * Bounded rendering — a cap states its own bound
+ *
+ * A `slice` without a disclosure renders a prefix that reads as a complete
+ * record: the reader sees eight rows and no reason to think there are more.
+ * The convention on this surface is that a bounded view *names* its bound, so
+ * `boundedRowNotice` is the one place the disclosure is composed. A caller that
+ * renders fewer rows than the contract returned must say so.
+ */
+
+/** Copy stating that a bounded list is a prefix of the readable set, or `null`
+ *  when nothing was withheld (a complete list needs no disclosure). */
+export function boundedRowNotice(shown: number, total: number): string | null {
+  if (total <= shown) return null;
+  return (
+    `Showing ${shown} of ${total} readable rows. The remainder is not rendered in this view; ` +
+    "the count facts above are exact."
+  );
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
  * Authorship — the second dimension of the same projection
  *
  * `provenance_for_note` returns `authorship: {authored_by, authored_by_kind,

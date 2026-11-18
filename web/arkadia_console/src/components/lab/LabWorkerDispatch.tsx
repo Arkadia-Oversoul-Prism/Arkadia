@@ -29,6 +29,7 @@ import {
   type LabDispatchResult,
   type LabGatewayView,
 } from "./missionContract";
+import { clipForDisplay } from "./renderClip";
 
 interface LabWorkerDispatchProps {
   sessionId: string;
@@ -279,7 +280,7 @@ export function LabWorkerDispatch({ sessionId, authorized, objective, onSettled 
                     {turn.tool_name ? ` · ${turn.tool_name}` : ""}
                   </p>
                   <p className="mt-1 whitespace-pre-wrap break-words text-xs text-white/70">
-                    {(turn.text ?? "").slice(0, 2000) || "—"}
+                    {turn.text ? clipForDisplay(turn.text, 2000) : "—"}
                   </p>
                 </li>
               ))}

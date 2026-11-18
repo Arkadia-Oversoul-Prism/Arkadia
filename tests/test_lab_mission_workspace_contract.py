@@ -878,3 +878,75 @@ def test_mission_control_does_not_mislabel_authorization_as_approval():
     assert "4 · Record human approval" not in workspace
     assert '"/engineering/sessions/{session_id}/authorize"' in routes
     assert "runtime.record_authorization(" in routes
+
+
+# -- bounded views must disclose their own truncation --------------------------
+
+
+def _silent_clips(source: str) -> list[str]:
+    """Return every bounded render in *source* that does not disclose its bound.
+
+    A `slice(0, N)` on a string that reaches the reader is a silent cap: the
+    reader sees a complete-looking value that is actually a prefix. The Lab's
+    own convention is the opposite — `LabRepositoryContext` says "Showing the
+    first N entries; the observation is capped at M", and `renderClip` appends
+    "… truncated in this view; the server record is authoritative". A literal
+    slice in a component bypasses that convention.
+
+    Date formatting is not content: `toISOString().slice(0, 19)` trims a fixed
+    ISO shape and hides nothing, so those lines are excluded. Pure source
+    detector, so the controls below can feed it the pre-repair shape.
+    """
+    return [
+        line.strip()
+        for line in source.splitlines()
+        if re.search(r"\.slice\(\s*0\s*,", line)
+        and "toISOString" not in line
+        and "clipForDisplay" not in line
+    ]
+
+
+def test_bounded_views_disclose_truncation():
+    """No lane-4 surface caps a reader-visible string without saying so."""
+    for path in (WORKSPACE, DISPATCH):
+        source = _read(path)
+        assert _silent_clips(source) == [], (
+            f"{path.name} truncates a reader-visible string without disclosing it: "
+            f"{_silent_clips(source)}"
+        )
+
+
+def test_the_clip_helper_is_the_single_source_of_the_disclosure():
+    """The disclosure text lives once, in `renderClip`, and is imported."""
+    clip_source = _read(CONSOLE / "components" / "lab" / "renderClip.ts")
+    assert "export function clipForDisplay" in clip_source
+    assert "truncated in this view" in clip_source
+    assert "import { clipForDisplay }" in _read(WORKSPACE)
+    assert "import { clipForDisplay }" in _read(DISPATCH)
+    # The bounded-test surface reuses the same helper rather than re-stating it.
+    bounded = _read(CONSOLE / "components" / "lab" / "LabBoundedTest.tsx")
+    assert "return clipForDisplay(value, limit);" in bounded
+
+
+def test_negative_control_detector_flags_a_silent_cap():
+    """The detector must flag the exact pre-repair shape it removes.
+
+    Measured at `main` `f9bd8da9`: `MissionWorkspace` rendered a run observation
+    as `(o.content ?? "").slice(0, 4000)` and `LabWorkerDispatch` rendered a
+    model turn as `(turn.text ?? "").slice(0, 2000)` — both complete-looking,
+    neither stating the bound. Fed those shapes the detector must report them.
+    """
+    pre_repair_workspace = (
+        '                      {(o.content ?? "").slice(0, 4000) || "— empty —"}'
+    )
+    pre_repair_dispatch = '                    {(turn.text ?? "").slice(0, 2000) || "—"}'
+    assert _silent_clips(pre_repair_workspace), (
+        "the detector must flag the pre-repair observation render"
+    )
+    assert _silent_clips(pre_repair_dispatch), (
+        "the detector must flag the pre-repair model-turn render"
+    )
+    # ...and it must stay silent on the repaired form, so it cannot be a
+    # detector that reports unconditionally.
+    repaired = '                      {o.content ? clipForDisplay(o.content) : "— empty —"}'
+    assert _silent_clips(repaired) == []
