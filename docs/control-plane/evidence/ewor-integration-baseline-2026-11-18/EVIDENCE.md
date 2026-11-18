@@ -55,3 +55,14 @@ Until the acceptance gates pass, present:
 - **Separate high-risk workstream:** PR #657, preserved and under independent review.
 
 Do not collapse these three evidence classes into one maturity claim.
+
+
+## Combined CI validation attempt — 2026-11-18
+
+- Branch head inspected: `f70483dd4d133d37b417f8838691668376f30853` (ledger commit; parent is the composed source commit `31a8793f3a1afbff8ac2a5b563ecf9bf08288e49`).
+- Exact candidate source commit: `31a8793f3a1afbff8ac2a5b563ecf9bf08288e49`; candidate tree: `8c4dfeff841ac6b5df88742a783e3ddb45327a12`.
+- Relevant workflow inspection: `Prism Console Contract` is path-filtered for PR events and supports `workflow_dispatch`; `SG-02-FE.2-V` is path-filtered for PR/push and supports `workflow_dispatch`. The Engineering Scheduler workflow supports PR and `workflow_dispatch`, but its PR path filter does not match this candidate's changed paths.
+- Execution result: **NOT RUN**. The connected GitHub actions interface available in this session exposes workflow-run inspection and rerun operations, but no workflow-dispatch operation. The repository fetch interface is read-only for workflow endpoints. No synthetic PR, branch push, or other trigger workaround was created.
+- CI run IDs/links: none. Combined test result: none. Failure-node delta: not measured. This is not a passing or failing test result.
+- Disposition: **NOT ACCEPTED** for the EWOR portfolio pending combined CI execution on the exact candidate commit/tree, failure inspection, lane-state freshness check, and human acceptance.
+- Portfolio remains split: verified `main` snapshot at `f9bd8da913fa194d7cff2e53b9c417ddb2a9f43a`; additional PR #663–#667 contributions remain individually green but combined-validation-pending.
