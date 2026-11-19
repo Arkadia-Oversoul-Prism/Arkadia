@@ -83,3 +83,24 @@ follow-on, not silently pre-satisfied.
 
 `lane-doc-currency` repaired on this branch. This is a **repository-source** claim:
 no merge, deployment or production acceptance was performed or is implied.
+
+## Runtime CI confirmation (head `d6db1b35`)
+
+The repair is not a local-only claim. On push of `d6db1b35`, `lane-doc-currency`
+completed **success** (previously `failure` at `5e147892`). 17 of 18 check-runs on that
+head are `success`.
+
+The one remaining red, `console-contract`, is **pre-existing and intermittent**, not
+attributable to this branch:
+
+- the failing step reports exactly `authorization record did not report human origin`
+  (authenticated mission harness, `render_check_layout.py`), the same text observed on
+  `main` `f9bd8da9` in run [43993655851](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/43993655851);
+- `main` `f9bd8da9` carries **three** console-contract runs at one SHA — `success`,
+  `failure`, `failure` — so the check is genuinely intermittent at a fixed revision;
+- each lane PR #664-#667 passed it, and the full console-contract domain run locally on
+  this branch has a failing/error node set **identical** to `main` (10 nodes,
+  sha256 `a57f7311…`).
+
+Playwright is absent from this environment, so the browser step itself cannot be
+reproduced locally; that limitation is recorded rather than papered over.
