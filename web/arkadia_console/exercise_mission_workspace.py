@@ -62,6 +62,21 @@ def _read_canonical_session_view(page, session_id: str) -> dict:
     )
 
 
+def _canonical_session_view_status_failure(read_result: dict) -> str | None:
+    """Return a failure message when the canonical read was not HTTP 200.
+
+    The status is part of the contract, not incidental metadata. A 401 or 500
+    response can still carry a JSON body with the expected keys, so a harness
+    that reads the body without checking the status would accept an
+    unauthenticated or failed read as a valid canonical view. This is kept as a
+    pure function so the assertion can be exercised without a browser.
+    """
+    status = read_result.get("status")
+    if status == 200:
+        return None
+    return f"canonical session view read returned HTTP {status}, expected 200"
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--base-url", required=True, help="Existing authenticated-test Vite server.")
@@ -209,7 +224,15 @@ def main() -> int:
                     .includes('READY_FOR_REVIEW')""",
                 timeout=20_000,
             )
-            session_view_payload = _read_canonical_session_view(page, session_id)["body"]
+            # Preserve the complete read result: the HTTP status is part of the
+            # contract and must be asserted before the body is extracted. A
+            # non-200 body can still carry the expected JSON keys, so reading
+            # the body first would let a 401/500 pass as a valid view.
+            session_view_read = _read_canonical_session_view(page, session_id)
+            status_failure = _canonical_session_view_status_failure(session_view_read)
+            if status_failure:
+                failures.append(status_failure)
+            session_view_payload = session_view_read.get("body") or {}
             session_view_session = session_view_payload.get("session", {})
             session_view_runs = session_view_payload.get("runs", [])
             session_view_evidence = session_view_payload.get("evidence", [])
