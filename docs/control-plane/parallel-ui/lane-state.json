@@ -1,6 +1,6 @@
 {
  "schema": "arkadia.lane-state/1.2",
- "observed_at": "2026-11-18T16:43:43Z",
+ "observed_at": "2026-11-19T04:50:03Z",
  "base_main": "f9bd8da913fa194d7cff2e53b9c417ddb2a9f43a",
  "source": "GitHub REST reads API (Arkadia-Oversoul-Prism/Arkadia), read-only, derived by scripts/lane_state_refresh.py",
  "note": "Machine-readable mirror of the four Prism UI lane threads, DERIVED from live PR state rather than hand-transcribed. Lane assignment is by exclusive path ownership (SHARED-CONTRACTS.md section 1); a PR touching more than one lane's owned paths appears in each. scripts/lane_state.py judges the docs against this file; --verify-live additionally requires every claimed-open PR to be authoritatively open. Refresh with scripts/lane_state_refresh.py --write.",
@@ -158,9 +158,9 @@
   {
    "number": 668,
    "branch": "integration/ewor-evidence-baseline-2026-11-18",
-   "head_sha": "0fdf4ca8197b7021cb5d4bc0d36de73ff37fd70c",
+   "head_sha": "a675a2a4576d6f94ff2c7df3f01f77e98970bcd6",
    "draft": true,
-   "updated_at": "2026-11-18T13:58:58Z",
+   "updated_at": "2026-11-19T03:00:34Z",
    "title": "integration: EWOR evidence baseline for #663\u2013#667",
    "classification": "aggregate",
    "lanes_touched": [
@@ -193,7 +193,7 @@
    "branch": "gate-hygiene/lane-doc-currency-post-659-refresh-01",
    "head_sha": "d8a36f0b278df04b2513fb5a1dd90b4bed34d280",
    "draft": true,
-   "updated_at": "2026-11-18T13:33:31Z",
+   "updated_at": "2026-11-19T01:46:58Z",
    "title": "fix(lane-currency): re-derive the lane snapshot after #659 edited its doc"
   }
  ],
