@@ -355,3 +355,22 @@ Evidence: `docs/control-plane/evidence/lane2-opportunity-control-integrity-02/EV
 
 Lane 2's next bounded PR opens only after this one merges. Merge, production deployment and
 acceptance remain human-only.
+
+## Status — 2026-11-19 (LANE 2; supersedes the idle declaration above)
+
+**Active branch:** `lane2/evidence-record-disclosure-01`
+**Active PR:** [#666](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/666) — draft, head `2327e3b969e742337fea027126d887b823676ed3`, base `main`.
+
+Lane 2 is not idle: it holds one bounded draft PR, so the idle declaration above is
+superseded by this pointer, which is the declaration the guard reads (last-wins).
+
+The slice is `ProjectOpportunityRadar.tsx` + `opportunityRadarContract.ts` — states an
+entry's evidence-record count, not only its status sentinel. Every path it touches is inside
+lane 2's exclusive ownership (`SHARED-CONTRACTS.md` §1).
+
+This block was appended by the aggregate integration ledger
+(`docs/control-plane/evidence/ewor-integration-baseline-2026-11-18/`) because its derived
+`lane-state.json` correctly records lane 2 as holding an open PR while this doc still
+declared idle — a disagreement that reddened `lane-doc-currency` on the combined tree. It
+records the live thread and asserts nothing about the slice's readiness: the PR stays
+**draft**. Merge, production deployment and acceptance remain human-only.
