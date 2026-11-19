@@ -108,3 +108,58 @@ check, not the hash.
 
 This is a **repository-source** repair. It is not deployment verification and not
 production acceptance. Merge remains human-only under GOV-03.
+
+---
+
+## 8. Addendum — the disclosure assertion was bound to prose, not to the value (2026-11-19)
+
+Appended record. Sections 1-7 remain the record of what they measured and are not rewritten.
+
+### Defect
+
+`test_the_clip_helper_is_the_single_source_of_the_disclosure` asserted
+
+```python
+assert "truncated in this view" in clip_source
+```
+
+against the whole of `renderClip.ts`. That substring is also present in the module
+**docstring** (line 6), so the assertion was satisfied by prose rather than by the constant
+the helper emits. Measured on this head (`75455e6`):
+
+| Control | Result |
+|---|---|
+| Replace `VIEW_CLIP_NOTICE` (line 15) with `"CLIPPED"`, docstring intact | **33 passed** — the guard did not bite |
+| Make `clipForDisplay` return a bare `value.slice(0, limit)` (silent cap), constant intact | **33 passed** — the guard did not bite |
+
+Both are the exact defects the file exists to prevent. A guard silent on the defect and its
+absence is not a guard.
+
+### Repair
+
+`_disclosure_bindings(source)` takes its domain as an argument and reports two facts:
+
+- `declared` — `VIEW_CLIP_NOTICE` is declared *with* the disclosure text;
+- `emitted` — `clipForDisplay` interpolates `${VIEW_CLIP_NOTICE}`, so a declaration nothing
+  reads cannot satisfy it.
+
+`test_negative_control_the_disclosure_binding_detects_a_neutered_constant` feeds the
+predicate the neutered module and the emission-stripped module, and asserts it stays silent
+on the real one, so it cannot report unconditionally.
+
+### Proof
+
+| Check | Before | After |
+|---|---|---|
+| `pytest tests/test_lab_mission_workspace_contract.py -q` | 33 passed | **34 passed** |
+| Live control: `VIEW_CLIP_NOTICE` → `"CLIPPED"` on the real tree | 33 passed (blind) | **2 failed, 32 passed** |
+| Restore byte-identically | — | **34 passed** |
+
+`--collect-only`: 33 → 34 (+1 = the new control node). Only
+`tests/test_lab_mission_workspace_contract.py` is modified (53 insertions, 1 deletion); no
+source, workflow, or authority surface is touched.
+
+### Not claimed
+
+Repository-source test-soundness repair only. No deployment, no acceptance. Merge remains
+human-only under GOV-03.
