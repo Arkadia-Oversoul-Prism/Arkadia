@@ -282,3 +282,154 @@ immediately after use; private half shredded.
 - Prism Console Contract: **RED**, attributed to the composed `web/` tree, not
   to this commit; log text unreachable.
 - Human acceptance: **PENDING**.
+
+---
+
+## 2026-11-19 — Final remediation: canonical session-view HTTP status assertion
+
+**Appended. No earlier section was modified or removed.**
+
+### Defect
+
+`f4f372ff` replaced the racy `expect_response` capture with an explicit read,
+but the capture object also carried `.status`. The assertion
+`if session_view_response.status != 200` was deleted with it and never
+re-established: `_read_canonical_session_view` still returned `status`, and the
+call site discarded it by subscripting straight to `["body"]`.
+
+A `401` or `500` response can still carry a JSON body with the expected keys, so
+the harness would accept an unauthenticated or failed read as a valid canonical
+view and report PASS. This was a real weakening introduced by the repair.
+
+### Remediation
+
+`web/arkadia_console/exercise_mission_workspace.py`:
+
+- The complete read result is preserved as `session_view_read`.
+- The status is asserted **before** the body is extracted.
+- The check is a pure function, `_canonical_session_view_status_failure`, so it
+  is exercisable without a browser.
+- No product code, no authentication change, no assertion removed, no skip.
+
+`tests/test_mission_workspace_canonical_status_assertion.py` (new, 11 tests):
+200 passes; 401 fails; 500 fails; absent status fails closed; the assertion is
+evaluated against the explicit read and precedes body extraction; the reader
+still returns status; the eight substrate assertions remain; fail-closed exit
+remains; authenticated identity remains; the poll remains; no skip/xfail.
+
+### Proof the tests catch the defect
+
+- Against defective `f4f372ff`: **5 failed, 6 passed**.
+- Against the remediation: **11 passed**.
+
+### Commit
+
+- Commit: `766d605c4c77e3c06ddbae8a09eed7729b9e0ebb`
+- Tree: `bc88ba258d644d4775d11f91f4d374741ac64306`
+- Branch: `integration/ewor-evidence-baseline-2026-11-18`
+- Remote ref read back via `GET /git/ref`: `766d605c…` — exact match.
+- Rebased onto `67b4d2f2` (two commits landed from another actor); no file
+  overlap, no force-push.
+
+### Focused tests
+
+```
+pytest tests/test_mission_workspace_canonical_status_assertion.py \
+       tests/test_mission_workspace_harness_determinism.py \
+       tests/test_lab_mission_workspace_contract.py \
+       tests/test_lane_instruction_doc_currency.py \
+       tests/test_lane_currency_ci_wiring.py \
+       tests/test_lane_aggregate_pr_classification.py -q
+135 passed
+```
+
+### Full suite vs immutable base `f9bd8da9`
+
+| Tree | Failed | Passed | Skipped | Errors |
+|---|---|---|---|---|
+| Base `f9bd8da9` | 180 | 3801 | 31 | 60 |
+| Head `766d605c` | 169 | 3857 | 31 | 64 |
+
+Node-level reconciliation (`comm` on sorted FAILED/ERROR node IDs):
+
+- **New failing nodes: 0.**
+- **New error nodes: 4**, all in `tests/test_prism_opportunity_entry_flow.py`,
+  all `TypeError [ERR_UNKNOWN_FILE_EXTENSION]: Unknown file extension ".ts"` for
+  `opportunityRadarContract.ts`. The contract probe shells out to `node` and
+  imports a `.ts` module; Node 20 cannot import TypeScript without a loader.
+  Environment, not behaviour. These four nodes are the ones #666 added, so they
+  cannot appear on the base tree at all.
+- **11 nodes fixed** relative to base (snapshot-freshness guard plus ten
+  `test_mission_lifecycle_adapter_contract.py` nodes that fail on base on a
+  missing `typescript.js`). Not claimed as a fix from this branch.
+- **Skips: 31 = 31**, unchanged.
+- The suite is **not green** and is not reported as such.
+
+### CI on `766d605c` — 12 runs
+
+| Workflow | Run | Conclusion |
+|---|---|---|
+| **Prism Console Contract** | 44593953326 | **success** — 14/14 steps, incl. **step 11 "Workspace layout assertions (rendered, authenticated test identity)"** |
+| SG-02-FE.2-V | 44593953374 | in progress at time of writing |
+| Lane Doc Currency | 44593953519 | success |
+| Baseline Fingerprint Verification | 44593953619 | success |
+| Boot Syntax Boundary | 44593953342 | success |
+| Canonical Render Runtime Probe | 44593953331 | success |
+| Operator Console Posture Currency | 44593953459 | success |
+| economic-seam-engine | 44593953454 | success |
+| security-secret-scan | 44593953428 | success |
+| N-ATLAS Developer Lab | 44593953764 | success |
+| N-ATLAS provider forensics | 44593953409 | success |
+| **N-ATLAS external beta validation** | 44593953542 | **failure** |
+
+### N-ATLAS — read from the job log, not inferred
+
+`beta-01-english` failed; `beta-02-hausa` **passed** in the same run — the
+reverse of the previous head. The branch does not touch that workflow.
+
+```
+"status": "FAILED",
+"reason": "external runtime did not return usable inference",
+"errors": []
+```
+
+`"errors": []` is decisive: no HTTP exception, no timeout. The Space probed
+healthy (`stage: RUNNING`, `zero-a10g`, domain `READY`), the Gradio call
+returned in ~1 s with no `response_text`, and hausa succeeded seconds later
+against the same Space. `bundle-beta-evidence` then failed on the missing
+artifact. Third-party ZeroGPU flakiness; **not called green**.
+
+### Lane-state gates
+
+```
+python3 scripts/lane_state.py --check
+lane instruction docs consistent with snapshot (4 guarded lanes)
+OFFLINE_EXIT=0
+
+python3 scripts/lane_state.py --check --verify-live
+LIVE_EXIT=1
+```
+
+Live gate **BLOCKED**: no `GH_TOKEN`/`GITHUB_TOKEN`/`GITHUB_PERSONAL_ACCESS_TOKEN`
+in this environment. The script fails closed — every claimed-open lane PR is
+reported UNKNOWN, not a pass. No unauthenticated transport was substituted.
+
+### Governance
+
+- `main` unchanged at `f9bd8da913fa194d7cff2e53b9c417ddb2a9f43a`.
+- No PR merged, closed, reopened or retargeted. #668 open and draft.
+- #668 remains aggregate-excluded; #657 remains unassigned and separately
+  reviewed; #663–#667 remain separate contribution records.
+- No deploy, commissioning, runtime credentials, workspace binding, L3
+  activation or autonomous scheduling.
+- Push key `170482917` created, used once, deleted; `deploy_keys: []` confirmed;
+  private half shredded.
+- **Human acceptance not issued.**
+
+### Disposition
+
+- Assertion defect: **REPAIRED and CI-proven** (step 11 green).
+- Lane-state offline: **PASS**. Live: **BLOCKED** (no token).
+- N-ATLAS: **unresolved external dependency**.
+- SG-02-FE.2-V: **not concluded** at time of writing.
+- Human acceptance: **PENDING**.
