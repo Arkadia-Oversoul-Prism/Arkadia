@@ -753,3 +753,56 @@ item is CLOSED.
 - Lane-state live, authenticated: **PASS** (exit 0). Previously **BLOCKED** —
   now **CLOSED**.
 - Human acceptance: **PENDING** — not issued, not implied.
+
+### 8. Addendum 2026-11-19T21:0xZ — CI on the push commit is GREEN (12/12)
+
+§7 item 2 above is **superseded**: CI *has* now run on the commit carrying §1–§7
+and every workflow passed. §7 is left standing as what was true when written.
+
+Pushed commit `3eac7dc0c9b208b9e2caf8e066a256e77fefcbd4`, tree
+`ae8c882978412791201067f54988390bdd38ec87`, remote ref verified an **exact
+match** by authenticated `GET /git/ref` after the push.
+
+| Workflow | Run ID | Conclusion |
+|---|---|---|
+| Prism Console Contract | 44613842964 | **success** |
+| SG-02-FE.2-V | 44613843467 | **success** |
+| **N-ATLAS external beta validation** | 44613843282 | **success** |
+| N-ATLAS Developer Lab | 44613843157 | **success** |
+| N-ATLAS provider forensics | 44613843651 | **success** |
+| Lane Doc Currency | 44613843064 | **success** |
+| Baseline Fingerprint Verification | 44613842954 | **success** |
+| Boot Syntax Boundary | 44613843538 | **success** |
+| Canonical Render Runtime Probe | 44613843464 | **success** |
+| Operator Console Posture Currency | 44613843161 | **success** |
+| economic-seam-engine | 44613843454 | **success** |
+| security-secret-scan | 44613843124 | **success** |
+
+**12 of 12 concluded `success`, 0 failures.** Both previously-red workflows —
+Prism Console Contract and N-ATLAS external beta — are green on this commit.
+The N-ATLAS pass is a fourth consecutive outcome on the same external Space,
+consistent with the transience attribution recorded earlier; the external
+dependency is **not** thereby declared reliable.
+
+Focused suites on this commit: `test_lane_instruction_doc_currency.py`,
+`test_lane_currency_ci_wiring.py`, `test_lane_aggregate_pr_classification.py`
+→ **82 passed**.
+
+Gate re-run on this commit: `--check` **exit 0**;
+`--check --verify-live` **exit 0** (authenticated).
+
+**Token containment, re-verified after the push:** the token does not appear in
+the working tree, and `git log --all -p` returns **0** occurrences across all
+history. It was never written to any tracked file.
+
+**Governance unchanged:** `main` = `f9bd8da913fa194d7cff2e53b9c417ddb2a9f43a`;
+PR #668 open, **draft**, unmerged, head `3eac7dc0`, base `main`;
+`deploy_keys: []`. No merge, deployment, commissioning, L3 or scheduling.
+**Human acceptance not issued.**
+
+### Disposition (final)
+
+- Lane-state offline: **PASS** (exit 0).
+- Lane-state live, authenticated: **PASS** (exit 0) — previously BLOCKED, now CLOSED.
+- CI on `3eac7dc0`: **12/12 success**.
+- Human acceptance: **PENDING** — not issued, not implied.
