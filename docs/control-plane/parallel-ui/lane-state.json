@@ -1,6 +1,6 @@
 {
  "schema": "arkadia.lane-state/1.2",
- "observed_at": "2026-11-19T04:50:03Z",
+ "observed_at": "2026-11-19T15:27:03Z",
  "base_main": "f9bd8da913fa194d7cff2e53b9c417ddb2a9f43a",
  "source": "GitHub REST reads API (Arkadia-Oversoul-Prism/Arkadia), read-only, derived by scripts/lane_state_refresh.py",
  "note": "Machine-readable mirror of the four Prism UI lane threads, DERIVED from live PR state rather than hand-transcribed. Lane assignment is by exclusive path ownership (SHARED-CONTRACTS.md section 1); a PR touching more than one lane's owned paths appears in each. scripts/lane_state.py judges the docs against this file; --verify-live additionally requires every claimed-open PR to be authoritatively open. Refresh with scripts/lane_state_refresh.py --write.",
@@ -16,7 +16,7 @@
      "branch": "lane1/title-writer-detector-binding-01",
      "head_sha": "fe9701653155870261833bbea0ce1a46630a9a78",
      "draft": true,
-     "updated_at": "2026-11-18T09:33:40Z",
+     "updated_at": "2026-11-19T14:15:35Z",
      "title": "test(lane1): bind the document-title writer sweep to its detector"
     }
    ],
@@ -63,7 +63,7 @@
      "branch": "lane2/evidence-record-disclosure-01",
      "head_sha": "2327e3b969e742337fea027126d887b823676ed3",
      "draft": true,
-     "updated_at": "2026-11-18T09:33:41Z",
+     "updated_at": "2026-11-19T14:15:36Z",
      "title": "fix(lane2): state an entry's evidence records, not only its status sentinel"
     }
    ],
@@ -94,7 +94,7 @@
      "branch": "lane3/graph-row-cap-disclosure-01",
      "head_sha": "31835b1641c446774aef049073b2598a69312c82",
      "draft": true,
-     "updated_at": "2026-11-18T09:33:42Z",
+     "updated_at": "2026-11-19T14:15:37Z",
      "title": "Lane 3: disclose the knowledge-graph row cap"
     }
    ],
@@ -123,9 +123,9 @@
     {
      "number": 664,
      "branch": "lane4/truncation-disclosure-01",
-     "head_sha": "75455e680b978f85e96273435b0d5dc3a7a686c5",
+     "head_sha": "b564325c4c813eef0a6790f2c1bb40480bd54798",
      "draft": true,
-     "updated_at": "2026-11-18T13:33:48Z",
+     "updated_at": "2026-11-19T14:15:23Z",
      "title": "fix(lab): disclose truncation on bounded lane-4 views"
     }
    ],
@@ -158,9 +158,9 @@
   {
    "number": 668,
    "branch": "integration/ewor-evidence-baseline-2026-11-18",
-   "head_sha": "a675a2a4576d6f94ff2c7df3f01f77e98970bcd6",
+   "head_sha": "1e5655108ed3eb84259eb60861fe2e7b62b6f453",
    "draft": true,
-   "updated_at": "2026-11-19T03:00:34Z",
+   "updated_at": "2026-11-19T15:25:25Z",
    "title": "integration: EWOR evidence baseline for #663\u2013#667",
    "classification": "aggregate",
    "lanes_touched": [
@@ -185,7 +185,7 @@
    "branch": "feat/chief-agent-foundation-001",
    "head_sha": "d49cc9a06b952aac19a6d4d2a59366d24d8fb0bf",
    "draft": true,
-   "updated_at": "2026-11-17T13:28:40Z",
+   "updated_at": "2026-11-19T14:15:49Z",
    "title": "feat: establish Arkadia Chief Agent founding scaffold"
   },
   {
@@ -193,7 +193,7 @@
    "branch": "gate-hygiene/lane-doc-currency-post-659-refresh-01",
    "head_sha": "d8a36f0b278df04b2513fb5a1dd90b4bed34d280",
    "draft": true,
-   "updated_at": "2026-11-19T01:46:58Z",
+   "updated_at": "2026-11-19T14:15:00Z",
    "title": "fix(lane-currency): re-derive the lane snapshot after #659 edited its doc"
   }
  ],
