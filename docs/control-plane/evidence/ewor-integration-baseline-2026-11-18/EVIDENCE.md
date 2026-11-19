@@ -433,3 +433,171 @@ reported UNKNOWN, not a pass. No unauthenticated transport was substituted.
 - N-ATLAS: **unresolved external dependency**.
 - SG-02-FE.2-V: **not concluded** at time of writing.
 - Human acceptance: **PENDING**.
+
+---
+
+## 2026-11-19 — Final evidence closure (three items)
+
+Scope: close the three items left open by the preceding section. No source
+change, no commit to product code, no push of anything but this append.
+
+Branch HEAD at time of writing: `85efbcb7184538dfebceb0534506207660f74a23`
+(tree `5978a8457366a42b6eaf0cf38f14de61e1480067`), byte-identical to
+`origin/integration/ewor-evidence-baseline-2026-11-18`.
+Validated repair commit: `766d605c4c77e3c06ddbae8a09eed7729b9e0ebb`.
+Immutable main: `f9bd8da913fa194d7cff2e53b9c417ddb2a9f43a` — unchanged.
+
+### 1. SG-02-FE.2-V on the evidence commit — CONCLUDED, success
+
+The preceding section recorded SG-02 as "not concluded" and explicitly refused
+to carry the code-commit result over to HEAD. That gap is now closed by reading
+the run for `85efbcb7` itself.
+
+| Field | Value |
+|---|---|
+| Workflow | SG-02-FE.2-V |
+| Run ID | `44596161193` |
+| Run URL | https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/44596161193 |
+| Tested SHA | `85efbcb7184538dfebceb0534506207660f74a23` |
+| Job | `validate` (`135814886023`) |
+| Conclusion | **success** |
+| Started / completed | 2026-11-19T19:13:58Z / 19:20:35Z |
+
+Step-level: 35 steps, 34 `success`, 1 `skipped`
+(`CP10 cleanup disposable Firebase identity`, step 30 — a conditional cleanup
+that is skipped when the disposable identity was not provisioned; it is not a
+test and its skip is expected). Notable green steps: `CP10-B broader backend
+regression` (step 21, ~5 min), `CP10 API verification` (24), `CP10 browser route
+verification` (29), `CP10 security artifact scan` (31), `CP10 mutation boundary`
+(32), `Enforce CP10 executable gates` (35).
+
+This is the evidence-commit result, not the code-commit result. Both are now
+green and both are recorded separately.
+
+### 2. N-ATLAS external beta — RECOVERED, success
+
+The preceding section recorded N-ATLAS as an unresolved external dependency and
+refused to call it green. On `85efbcb7` it passed, which is the confirmation the
+earlier reports asked for.
+
+| Field | Value |
+|---|---|
+| Workflow | N-ATLAS external beta validation |
+| Run ID | `44596161058` |
+| Run URL | https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/44596161058 |
+| Tested SHA | `85efbcb7184538dfebceb0534506207660f74a23` |
+| Conclusion | **success** |
+
+Job outcomes — all four `success`:
+
+| Job | ID | Result |
+|---|---|---|
+| `beta-beta-01-english` | 135814884838 | success — inference + evidence bundle uploaded |
+| `beta-beta-02-hausa` | 135814885375 | success — inference + evidence bundle uploaded |
+| `bundle-beta-evidence` | 135815368482 | success — both artifacts downloaded, bundle shape verified |
+| `native-arkadia-golden-workflow` | 135815368517 | success — native N-ATLaS golden path executed |
+
+Both required inference jobs produced evidence and the bundle verification
+passed, which is the acceptance condition the earlier sections set. This
+confirms the prior failures were external-runtime transience: the same branch,
+the same workflow definition, no code change between the failing run
+`44593953542` and this passing run.
+
+**No rerun was triggered by this agent.** The pass is the natural run for the
+evidence commit. Actions write permission was not available and was not needed.
+
+### 3. Lane-state gates — offline PASS, live BLOCKED
+
+```
+$ python3 scripts/lane_state.py --check
+base main: f9bd8da913fa194d7cff2e53b9c417ddb2a9f43a (current: f9bd8da913fa194d7cff2e53b9c417ddb2a9f43a)
+doc-guard lanes: ['1', '2', '3', '4']; deferred: []
+lane instruction docs consistent with snapshot (4 guarded lanes)
+OFFLINE_EXIT=0
+```
+
+```
+$ python3 scripts/lane_state.py --check --verify-live
+live PR state: 0 PR(s) read from Arkadia-Oversoul-Prism/Arkadia (4 claimed-open + declared doc pointers) -- no GitHub token in GH_TOKEN/GITHUB_TOKEN/GITHUB_PERSONAL_ACCESS_TOKEN
+  DRIFT live PR state unavailable (no GitHub token ...); every claimed-open lane PR is UNKNOWN, not a pass -- re-measure with GitHub read access
+  DRIFT live PR state unavailable (no GitHub token ...); declared lane-doc pointers are UNKNOWN, not a pass
+LIVE_EXIT=1
+```
+
+**Offline: PASS (exit 0). Live: BLOCKED (exit 1).**
+
+No `GH_TOKEN`, `GITHUB_TOKEN` or `GITHUB_PERSONAL_ACCESS_TOKEN` exists in this
+environment, and `gh` is not installed. The script fails closed: it reports
+`0 PR(s) read` and marks every claimed-open lane PR and every declared doc
+pointer UNKNOWN rather than treating absence of metadata as a pass. **No
+unauthenticated transport was substituted for the authenticated gate.** The
+live gate is recorded as BLOCKED, not passed.
+
+### 4. Focused tests on `85efbcb7`
+
+```
+$ python3 -m pytest tests/test_mission_workspace_canonical_status_assertion.py \
+                    tests/test_mission_workspace_harness_determinism.py \
+                    tests/test_lab_mission_workspace_contract.py \
+                    tests/test_lane_instruction_doc_currency.py \
+                    tests/test_lane_currency_ci_wiring.py \
+                    tests/test_lane_aggregate_pr_classification.py -q
+135 passed in 2.41s
+```
+
+### 5. Full CI matrix on `85efbcb7` — 12 runs, 12 success
+
+All twelve workflow runs for the evidence commit concluded `success`:
+
+| Workflow | Run ID | Conclusion |
+|---|---|---|
+| Prism Console Contract | 44596160907 | success |
+| SG-02-FE.2-V | 44596161193 | success |
+| N-ATLAS external beta validation | 44596161058 | success |
+| N-ATLAS Developer Lab | 44596160757 | success |
+| N-ATLAS provider forensics | 44596160977 | success |
+| Lane Doc Currency | 44596160886 | success |
+| Baseline Fingerprint Verification | 44596160761 | success |
+| Boot Syntax Boundary | 44596160750 | success |
+| Canonical Render Runtime Probe | 44596160732 | success |
+| Operator Console Posture Currency | 44596160960 | success |
+| economic-seam-engine | 44596160982 | success |
+| security-secret-scan | 44596160800 | success |
+
+This is the first commit in the sequence at which every workflow is green,
+including the two that had been red (Prism Console Contract step 11, and
+N-ATLAS external beta).
+
+### 6. Governance
+
+- `main` unchanged at `f9bd8da913fa194d7cff2e53b9c417ddb2a9f43a`.
+- PR #668 open, **draft**, unmerged; head `85efbcb7`, base `main`.
+- #668 remains aggregate-excluded from lane ownership and retained in
+  `aggregate_prs` for audit.
+- #657 remains unassigned and separately reviewed; not part of this integration.
+- #663–#667 remain separate contribution records; none merged, closed,
+  reopened or retargeted.
+- No deployment, commissioning, credential issuance, workspace binding, L3
+  activation or autonomous scheduling.
+- No source file changed in this closure; only this evidence section appended.
+- **Human acceptance not issued.** That decision remains with the human owner.
+
+### 7. Outstanding limitations
+
+1. **Live lane-state gate is BLOCKED** — requires a real GitHub token. This is
+   the only unmet acceptance condition.
+2. **Full-suite is not green** — 169 failed / 3857 passed / 31 skipped / 64
+   errors on `766d605c` against 180 / 3801 / 31 / 60 on base. Zero new failing
+   nodes; the 4 new errors are `node_modules`-absent environment artifacts in
+   `test_prism_opportunity_entry_flow.py`. Not reported as passing.
+3. **N-ATLAS remains an external dependency** — green here, but the underlying
+   ZeroGPU Space has failed intermittently across runs. A future red is not
+   evidence of a regression in this branch.
+
+### Disposition
+
+- SG-02-FE.2-V on the evidence commit: **CONCLUDED, success**.
+- N-ATLAS external beta: **RECOVERED, success** (both betas + bundle).
+- Lane-state offline: **PASS**. Live: **BLOCKED** (no token).
+- CI on `85efbcb7`: **12/12 success**.
+- Human acceptance: **PENDING**.
