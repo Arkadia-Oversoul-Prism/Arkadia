@@ -601,3 +601,155 @@ N-ATLAS external beta).
 - Lane-state offline: **PASS**. Live: **BLOCKED** (no token).
 - CI on `85efbcb7`: **12/12 success**.
 - Human acceptance: **PENDING**.
+
+---
+
+## Follow-up 2026-11-19T20:56Z — authenticated live lane-state gate UNBLOCKED
+
+**Append-only.** Every earlier section above is preserved unmodified. Where this
+section contradicts an earlier one, this section supersedes it; the earlier text
+is left standing as the record of what was true at the time it was written.
+
+### 1. What changed
+
+Every prior section recorded the live lane-state gate as **BLOCKED — no GitHub
+token**, and refused to substitute an unauthenticated transport. A token was
+supplied for this follow-up. The gate is now run against the real authenticated
+GitHub REST API. The BLOCKED item is **CLOSED**.
+
+Token handling: exported to the process environment only. **Not written to any
+file, commit, log or evidence document, and not printed in any output.** A
+one-way length check (40 chars, `ghp_` prefix shape) confirmed the export. No
+value is recorded here.
+
+### 2. Authentication confirmed before any gate ran
+
+Authenticated read of the repository, `HTTP 200`:
+
+- `full_name`: `Arkadia-Oversoul-Prism/Arkadia`
+- `default_branch`: `main`
+- `permissions`: admin, maintain, push, triage, pull
+- Authenticated open-PR read, `HTTP 200`, **7 open PRs**:
+  #657, #663, #664, #665, #666, #667, #668 — all `draft=true`, all
+  `base=main`.
+
+That 7-PR read is the authoritative denominator. The live gate reads a narrower
+set (4) because it fetches only the PRs the snapshot *claims* plus declared doc
+pointers — see §4.
+
+### 3. Gate results — both exit 0
+
+```
+$ python3 scripts/lane_state.py --check
+base main: f9bd8da913fa194d7cff2e53b9c417ddb2a9f43a
+           (current: f9bd8da913fa194d7cff2e53b9c417ddb2a9f43a)
+doc-guard lanes: ['1', '2', '3', '4']; deferred: []
+lane instruction docs consistent with snapshot (4 guarded lanes)
+OFFLINE_EXIT=0
+```
+
+```
+$ python3 scripts/lane_state.py --check --verify-live
+live PR state: 4 PR(s) read from Arkadia-Oversoul-Prism/Arkadia
+               (4 claimed-open + declared doc pointers)
+base main: f9bd8da913fa194d7cff2e53b9c417ddb2a9f43a
+           (current: f9bd8da913fa194d7cff2e53b9c417ddb2a9f43a)
+doc-guard lanes: ['1', '2', '3', '4']; deferred: []
+lane instruction docs consistent with snapshot (4 guarded lanes)
+LIVE_EXIT=0
+```
+
+**No drift lines. No DRIFT findings. Zero deferred lanes.** Compare the earlier
+unauthenticated attempt, which reported `0 PR(s) read` and emitted DRIFT lines
+marking every claimed-open PR UNKNOWN — it failed closed, correctly. The
+authenticated run resolves all four.
+
+### 4. PR state actually read
+
+Lane ownership, from `lane-state.json` (`observed_at 2026-11-19T15:27:03Z`),
+each verified open, draft and based on immutable `main`:
+
+| Lane | Doc | Active PR | Branch | doc_guard |
+|---|---|---|---|---|
+| 1 | AGENT-01-SHELL.md | **#665** | `lane1/title-writer-detector-binding-01` | current |
+| 2 | AGENT-02-NOVANET-OPPORTUNITY.md | **#666** | `lane2/evidence-record-disclosure-01` | current |
+| 3 | AGENT-03-SOLARIUN-KNOWLEDGE.md | **#667** | `lane3/graph-row-cap-disclosure-01` | current |
+| 4 | AGENT-04-ARKANA-WEAVER-LAB.md | **#664** | `lane4/truncation-disclosure-01` | current |
+
+Excluded from lane ownership, as required:
+
+- **#668** — `classification: aggregate`, `lanes_touched ['1','2','3','4']`,
+  retained in `aggregate_prs` for audit. Excluded because its diff spans all
+  four lanes by *carrying* their contributions, not by owning those lanes.
+  `aggregate_config`: present, source `aggregate-prs.json`, declared `[668]`.
+- **#657** — `unassigned_open_prs`, separate review. Not part of this work.
+- **#663** — `unassigned_open_prs`, gate-hygiene record, separate.
+
+The live gate's `4 PR(s) read` is therefore consistent, not a shortfall: the
+snapshot claims exactly four lane PRs, and the gate verifies exactly those plus
+declared doc pointers. #668, #657 and #663 are *deliberately* outside lane
+ownership and so are not claimed-open lane PRs to verify.
+
+### 5. Governance at time of this append
+
+- `main` = `f9bd8da913fa194d7cff2e53b9c417ddb2a9f43a` — **unchanged**
+  (authenticated `GET /git/ref/heads/main`).
+- Branch `integration/ewor-evidence-baseline-2026-11-18` =
+  `eeb4308a28e8d934db098cd77eed015ae7f27f8a` (authenticated ref read).
+- Local HEAD = `eeb4308a…`, tree `a419d6be49cd9560d3fd8c57c400c68bdaafaf4b`.
+- PR #668 — open, **draft**, **unmerged**. Snapshot records its head as
+  `1e5655108e…`; `git merge-base --is-ancestor` confirms that commit is an
+  ancestor of `eeb4308a`, so the snapshot reflects a real earlier point on the
+  same branch and not a foreign head. The staleness of the recorded head SHA is
+  cosmetic and is **not** treated here as verified-current.
+- #657 unassigned and separately reviewed. #663–#667 separate contribution
+  records. None merged, closed, reopened or retargeted.
+- Push used a temporary write-enabled deploy key, deleted immediately after use;
+  `deploy_keys: []` re-confirmed afterwards (no key remains).
+- No deployment, commissioning, credential issuance, workspace binding, L3
+  activation or autonomous scheduling.
+- **Human acceptance not issued.** That decision remains with the human owner.
+
+### 6. Acceptance condition status
+
+| Condition | Status |
+|---|---|
+| `lane_state.py --check` exits 0 | **PASS** (0) |
+| `lane_state.py --check --verify-live` exits 0 | **PASS** (0), authenticated |
+| Authenticated, no unauthenticated substitution | **MET** (7 PRs read, HTTP 200) |
+| `main` unchanged at `f9bd8da9` | **MET** |
+| #668 aggregate-excluded, open, draft, unmerged | **MET** |
+| #657 separately reviewed | **MET** |
+| #663–#667 independent records | **MET** |
+| No merge / deploy / commission / L3 / scheduling | **MET** |
+
+**All lane-state acceptance conditions are now met.** The previously BLOCKED
+item is CLOSED.
+
+### 7. Remaining limitations
+
+1. **This section is evidence-only.** It touches no guarded path, no source and
+   no classification data; the gate results in §3 were produced against the
+   committed tree and are unaffected by the append (verified by re-running both
+   gates after the append).
+2. **CI has not run on the commit carrying this section** — it is a
+   documentation-only commit; the 12/12 green matrix on record belongs to
+   `85efbcb7`.
+3. **Full suite remains not green** — 169 failed / 3857 passed / 31 skipped /
+   64 errors on `766d605c` vs 180 / 3801 / 31 / 60 on base. Zero new failing
+   nodes; the 4 new errors are `node_modules`-absent environment artifacts in
+   `test_prism_opportunity_entry_flow.py`. Unchanged by this follow-up, and not
+   reported as passing.
+4. **N-ATLAS remains an external dependency** — green on `85efbcb7`
+   (`44596161058`), but the underlying ZeroGPU Space has failed intermittently
+   across runs. A future red is not evidence of a regression in this branch.
+5. **The supplied token's lifetime and scope are outside this audit.** It
+   carried admin permission on the repository; it should be rotated by the
+   owner if it was shared beyond this run.
+
+### Disposition
+
+- Lane-state offline: **PASS** (exit 0).
+- Lane-state live, authenticated: **PASS** (exit 0). Previously **BLOCKED** —
+  now **CLOSED**.
+- Human acceptance: **PENDING** — not issued, not implied.
