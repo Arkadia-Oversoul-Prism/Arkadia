@@ -916,16 +916,68 @@ def test_bounded_views_disclose_truncation():
         )
 
 
+def _disclosure_bindings(source: str) -> dict[str, bool]:
+    """Where the disclosure text actually lives in ``renderClip``.
+
+    A bare ``"truncated in this view" in source`` is satisfied by the module
+    *docstring*, which quotes the same sentence. Measured: replacing the real
+    ``VIEW_CLIP_NOTICE`` constant with ``"CLIPPED"`` left the suite at 33 passed,
+    so the assertion was pinned to prose rather than to the value the helper
+    emits. The predicate below takes its domain as an argument so a control can
+    feed it a defective module without touching the live tree.
+    """
+    declared = re.search(
+        r'export const VIEW_CLIP_NOTICE\s*=\s*"([^"]*)"', source
+    )
+    return {
+        "declared": bool(declared) and "truncated in this view" in declared.group(1),
+        # The helper must *interpolate* the constant; a declaration nothing
+        # reads is not a disclosure.
+        "emitted": bool(
+            re.search(r"\$\{VIEW_CLIP_NOTICE\}", source)
+        ),
+    }
+
+
 def test_the_clip_helper_is_the_single_source_of_the_disclosure():
     """The disclosure text lives once, in `renderClip`, and is imported."""
     clip_source = _read(CONSOLE / "components" / "lab" / "renderClip.ts")
     assert "export function clipForDisplay" in clip_source
-    assert "truncated in this view" in clip_source
+    bindings = _disclosure_bindings(clip_source)
+    assert bindings["declared"], (
+        "VIEW_CLIP_NOTICE must be declared with the disclosure text; a docstring "
+        "mention is not the value the helper emits"
+    )
+    assert bindings["emitted"], "clipForDisplay must interpolate VIEW_CLIP_NOTICE"
     assert "import { clipForDisplay }" in _read(WORKSPACE)
     assert "import { clipForDisplay }" in _read(DISPATCH)
     # The bounded-test surface reuses the same helper rather than re-stating it.
     bounded = _read(CONSOLE / "components" / "lab" / "LabBoundedTest.tsx")
     assert "return clipForDisplay(value, limit);" in bounded
+
+
+def test_negative_control_the_disclosure_binding_detects_a_neutered_constant():
+    """The binding must flag the exact defect it was written for.
+
+    Measured at head `75455e6`: replacing line 15's ``VIEW_CLIP_NOTICE`` value
+    with ``"CLIPPED"`` — while the docstring on line 6 still quotes the sentence —
+    left ``test_the_clip_helper_is_the_single_source_of_the_disclosure`` passing.
+    Fed that module the predicate must report it.
+    """
+    real = _read(CONSOLE / "components" / "lab" / "renderClip.ts")
+    neutered = re.sub(
+        r'(export const VIEW_CLIP_NOTICE\s*=\s*)"[^"]*"', r'\1"CLIPPED"', real
+    )
+    assert neutered != real, "the control must actually change the constant"
+    # The prose survives the neutering, so a substring check would still pass.
+    assert "truncated in this view" in neutered
+    assert _disclosure_bindings(neutered)["declared"] is False
+
+    silent = real.replace("${VIEW_CLIP_NOTICE}", "")
+    assert _disclosure_bindings(silent)["emitted"] is False
+
+    # ...and it stays silent on the real module, so it cannot report always.
+    assert _disclosure_bindings(real) == {"declared": True, "emitted": True}
 
 
 def test_negative_control_detector_flags_a_silent_cap():
