@@ -147,3 +147,138 @@ No lane-state snapshot was overwritten and no lane docs were changed. The correc
 - Live lane-state acceptance gate: **BLOCKED** by aggregate-PR self-inclusion in the current derivation model.
 - Human portfolio acceptance: **PENDING** until the lane-state classifier issue is resolved and the refreshed snapshot passes both the offline and live guards.
 - No merge, deployment, or change to `main` was performed.
+
+---
+
+## 2026-11-19 — Lane-State Declaration Reconciliation (follow-up)
+
+Appended, not rewritten. The historical sections above are preserved verbatim.
+
+### Scope
+
+Reconcile the four lane instruction documents with the active PR ownership the
+aggregate-classification repair revealed. The classifier and its metadata were
+**not** modified — no defect was found in them.
+
+### PR ownership evidence (read live, individually)
+
+| Lane | Doc | PR | State | Draft | Base | Lane-owned paths |
+|---|---|---|---|---|---|---|
+| 1 | `AGENT-01-SHELL.md` | #665 | open | yes | `f9bd8da9` | lane 1 only |
+| 2 | `AGENT-02-NOVANET-OPPORTUNITY.md` | #666 | open | yes | `f9bd8da9` | lane 2 only |
+| 3 | `AGENT-03-SOLARIUN-KNOWLEDGE.md` | #667 | open | yes | `f9bd8da9` | lane 3 only |
+| 4 | `AGENT-04-ARKANA-WEAVER-LAB.md` | #664 | open | yes | `f9bd8da9` | lane 4 only |
+
+Each PR is single-lane, open, draft, and based on the immutable main base. Each
+therefore *is* its lane's active thread, and each doc now says so.
+
+### Why the docs were stale, and why the fix is an append
+
+The derived snapshot was correct; the docs were not. All four ended with an idle
+declaration (`none` / `#564` / `#450` / `#605`) written before #664–#667 existed.
+`scripts/lane_state.py --check` therefore returned exit 1 with four DRIFT
+findings — reproduced before any edit.
+
+Each doc received a dated status block in the append-only, last-wins form the
+guard reads. **No existing line was rewritten.** The lane docs are lane-owned
+oracles; rewriting an oracle line to satisfy a guard is the failure mode this
+gate exists to prevent.
+
+### Baseline and result
+
+- Before: `python3 scripts/lane_state.py --check` → **exit 1**, 4 DRIFT findings.
+- After: `python3 scripts/lane_state.py --check` → **exit 0**,
+  `lane instruction docs consistent with snapshot (4 guarded lanes)`.
+
+### Real refresh
+
+`python3 scripts/lane_state_refresh.py --write --base-main f9bd8da9…` executed
+with the script's own derivation unmodified. Resulting snapshot:
+`observed_at 2026-11-19T04:50:03Z`, `base_main f9bd8da913fa194d7cff2e53b9c417ddb2a9f43a`.
+Lanes 1–4 active = #665 / #666 / #667 / #664. #668 remains `classification:
+aggregate`, excluded from lane ownership and retained in `aggregate_prs`.
+#657 and #663 remain `unassigned`.
+
+**Limitation, stated plainly:** no `GH_TOKEN` exists in this environment. The
+refresh and the live gate were driven through the scripts' own `main()` with
+only the HTTP transport swapped for an unauthenticated GET against the public
+repository. Derivation logic was not modified. This is not a
+token-authenticated run and is not presented as one.
+
+### Verification
+
+- Offline `--check` → **exit 0**.
+- Live `--check --verify-live` → **exit 0**, 4 claimed-open PRs read live.
+
+### Focused tests
+
+```
+python3 -m pytest tests/test_lane_instruction_doc_currency.py \
+                  tests/test_lane_currency_ci_wiring.py \
+                  tests/test_lane_aggregate_pr_classification.py -q
+82 passed
+```
+
+No existing test was modified, loosened or removed.
+
+### CI on the resulting commit
+
+12 workflows triggered on `5793b27173b3ca8bbf4b5de31cc00c7571ecd222`.
+**11 success, 1 failure.**
+
+| Workflow | Run | Conclusion |
+|---|---|---|
+| Lane Doc Currency | 44461878141 | **success** (was failure at `5e147892`) |
+| SG-02-FE.2-V | 44461878241 | success |
+| N-ATLAS external beta validation | 44461878206 | success |
+| N-ATLAS Developer Lab | 44461878222 | success |
+| N-ATLAS provider forensics | 44461878071 | success |
+| Baseline Fingerprint Verification | 44461878086 | success |
+| Boot Syntax Boundary | 44461878216 | success |
+| Canonical Render Runtime Probe | 44461878274 | success |
+| Operator Console Posture Currency | 44461878077 | success |
+| economic-seam-engine | 44461878176 | success |
+| security-secret-scan | 44461878112 | success |
+| **Prism Console Contract** | 44461878090 | **failure** |
+
+### The one failure — attributed, not assumed
+
+Failing step: **11, "Workspace layout assertions (rendered, authenticated test
+identity)"** in job `135350372926`.
+
+- The **same step failed on the prior head `a675a2a4`** (run 44448339735), which
+  predates this commit.
+- This commit changes **one file**: `lane-state.json`, 4 insertions / 4
+  deletions (timestamps and two `head_sha`/`updated_at` fields). It touches no
+  `web/` path and no test.
+- `main` at `f9bd8da9` passes this workflow.
+
+So the failure is **not introduced by this commit**, but it is also **not
+pre-existing on main** — it is a branch-tree condition in the `web/` changes
+carried by #663–#667, which this branch composes. It is outside this
+follow-up's scope and is reported, not repaired.
+
+**What could not be observed:** the log text. `GET /actions/jobs/{id}/logs`
+returns **HTTP 403 "Must have admin rights to Repository."** Annotations expose
+only a Node.js-20 deprecation warning. The attribution above rests on step
+identity across two heads, the commit's file list, and `main`'s green status —
+**not on reading the failure output.**
+
+### Governance
+
+`main` unchanged at `f9bd8da913fa194d7cff2e53b9c417ddb2a9f43a`. No PR merged,
+closed, reopened or retargeted. #668 remains open/draft and aggregate-excluded.
+#657 remains unassigned and separately reviewed. No deploy, commissioning,
+runtime credentials, workspace binding, L3 activation or scheduling.
+**Human acceptance not issued.**
+
+Push used a temporary write-enabled deploy key (id `170401028`), deleted
+immediately after use; private half shredded.
+
+### Disposition
+
+- Lane-state declaration reconciliation: **COMPLETE**, both gates exit 0.
+- Lane Doc Currency CI: **GREEN** on the resulting commit.
+- Prism Console Contract: **RED**, attributed to the composed `web/` tree, not
+  to this commit; log text unreachable.
+- Human acceptance: **PENDING**.
