@@ -107,6 +107,21 @@ not a synthetic one: dropping the `/` terminator would let `/solariunish` borrow
 `console_contract_domain.py` already names this file, so the `prism-console-contract`
 gate executes the new control with **no workflow edit**.
 
+### 3.2.1 Runtime proof that CI executes the control
+
+A green job is not proof the control ran, so the step log was read rather than the job
+conclusion. On PR #671 head `675c91e2`, run `44694975543` (`console-contract`):
+
+```
+Console behavioural tests (React, real modules)   8 passed (8 files) / 61 passed (61)
+Verify the console contract guards                1219 passed in 44.43s
+Console-contract CI-wiring guard                  34 passed in 5.36s
+```
+
+`1219 passed` is the gate executing the derived domain including this module's new node —
+execution observed, not inferred from a `success` conclusion.
+
+
 ### 3.3 Delta attribution by node identity
 
 `--collect-only` for this file: **19** on `main` `4b91c2f4` → **20** on the branch.
@@ -130,6 +145,55 @@ repaired.
 The branch adds one passing node to this file and touches no other file, so the
 failing/error node set is unchanged by construction. This is stated as a property of the
 diff, not as a second full-suite run — the contract permits one full pass per pulse.
+
+### 3.5 Two red checks on the PR head — one external cause, not attributable
+
+PR #671 head `675c91e2` reports two failing checks. Both are the **N-ATLAS external beta
+validation** workflow (`n-atlas-external-beta.yml`), and they are one root cause:
+
+```
+beta-beta-01-english   FAILED   -> "external runtime did not return usable inference"
+bundle-beta-evidence   FAILED   -> statuses: {'beta-01-english.json': 'FAILED', 'beta-02-hausa.json': 'PASS'}
+```
+
+The bundle check fails *because* the English beta probe failed; it is a downstream reader,
+not a second defect. The probe drives a **live external provider**, so the result is a
+statement about that provider at that instant, not about this tree.
+
+Not attributable to this diff: `git diff --name-only origin/main...HEAD` is exactly two
+paths — `tests/test_console_legacy_route_coverage.py` and this evidence record — and
+neither is named by that workflow's trigger filter or its dependencies.
+
+Intermittent, not deterministic — and the decisive proof is **byte-identical inputs giving
+opposite outcomes**. The workflow executes two repository inputs, and their blob hashes are
+unchanged across four runs of the same branch that alternate conclusion:
+
+```
+                .github/workflows/n-atlas-external-beta.yml   tests/test_natlas_developer_lab.py   result
+766d605c        21a98307eaf72601149d69a4fa4ab4b9a47b5a71   7d37bff8961811ed4f62ea11008bbaa080036be2  failure
+85efbcb7        21a98307eaf72601149d69a4fa4ab4b9a47b5a71   7d37bff8961811ed4f62ea11008bbaa080036be2  success
+eeb4308a        21a98307eaf72601149d69a4fa4ab4b9a47b5a71   7d37bff8961811ed4f62ea11008bbaa080036be2  failure
+3eac7dc0        21a98307eaf72601149d69a4fa4ab4b9a47b5a71   7d37bff8961811ed4f62ea11008bbaa080036be2  success
+```
+
+Identical executed code, opposite results. Nothing in the tree can produce that, so the
+variable is outside it — the live provider. (The commits differ between those runs, but
+`git diff --name-only 766d605c 85efbcb7 -- <workflow> <probe test>` is empty, so the diff
+that separates them is irrelevant to what the job runs. Tree-level "unchanged" would have
+been the wrong claim; the input-level hashes are the right one.) The same class is already
+recorded in the ledger for `#657`.
+
+The repository gates that judge this change all pass: `console-contract` (1219 passed, see
+§3.2.1), `boot-syntax`, `test`, `Full-history secret scan`, `posture-currency`,
+`provider-forensics`, `beta-02-hausa`. `UNSTABLE` mergeStateStatus on #671 is therefore
+entirely the external provider, not this slice.
+
+
+Per the repo rule for an external-provider job this is **pre-existing / environmental**,
+and it is recorded here rather than "fixed" — repairing it is not in this lane's scope and
+the tree is not implicated.
+
+
 
 ---
 
