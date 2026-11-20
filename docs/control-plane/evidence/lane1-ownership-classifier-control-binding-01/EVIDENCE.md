@@ -401,3 +401,51 @@ file with no nodes in that set, so the set is unchanged by construction.
 
 **Disposition unchanged: IMPLEMENTED, draft, merge execution human-only (GOV-03).** This
 section corrects a citation; it does not claim the PR is merged, accepted, or deployed.
+
+---
+
+## 6. Head `94948fe2` — the external beta probe failed again, and this is NOT a regression
+
+The §5 correction was pushed as head `94948fe2` (one documentation commit, `+82/-0`, one
+file). CI on that head: **8 `success`, 2 `failure`, 1 `skipped`**.
+
+**The two failures are `beta-beta-02-hausa` and `bundle-beta-evidence`, and they are the
+same external-provider class §3.5 already recorded** — not a consequence of this commit.
+
+Four independent measurements support that, in order of strength:
+
+1. **Within a single run, the sibling probe passed.** Run `44709950236`, one tree, one
+   instant: `beta-beta-01-english` = **success**, `beta-beta-02-hausa` = **failure**. Both
+   jobs execute the same two repository inputs. A commit cannot pass one and fail the other.
+2. **The failing probe reports `errors: []`.** `RUN_FAILED` carries
+   `"reason": "external runtime did not return usable inference"` with an empty error list —
+   the provider returned no usable event, not a code defect surfaced by this tree.
+3. **`bundle-beta-evidence` is a downstream reader**, not a second defect. Its own output is
+   `statuses: {'beta-01-english.json': 'PASS', 'beta-02-hausa.json': 'FAILED'}` — it fails
+   *because* the Hausa probe failed.
+4. **The workflow alternates conclusion across unrelated branches.** Of the last 25 runs of
+   `n-atlas-external-beta.yml`, **7 failed and 18 passed**, spanning
+   `integration/ewor-evidence-baseline-2026-11-18`, `gate-hygiene/lane-snapshot-…`,
+   `lane1/second-router-…`, `lane1/ownership-classifier-…` and `lane4/truncation-…`. The
+   same branch flips: `5c41ea76` success → `94948fe2` failure, where the only tree delta is
+   a markdown record.
+
+The workflow declares **no `paths:` filter** (`on: pull_request: branches: [main]`), so it
+runs on every PR regardless of what the PR touches. Its conclusion is therefore not evidence
+about any particular diff.
+
+**The gate that actually judges this change is green at this head:**
+`console-contract` = **success**. So are `boot-syntax`, `test`, `Full-history secret scan`,
+`posture-currency`, `provider-forensics`, and `beta-beta-01-english`.
+
+**`native-arkadia-golden-workflow` is `skipped`** at this head, not passing. Recorded so a
+"10/10" reading is not carried forward: it was `success` at `5c41ea76`.
+
+**Correction to §5 and to the PR body.** §5 stated "10 `success`, 0 other" at the head it
+measured (`5c41ea76`), which was true. Head `94948fe2` supersedes that measurement, and its
+counts are the ones above. Stating the `5c41ea76` figure as a claim about the *current* head
+would repeat exactly the stale-citation defect §5 exists to repair.
+
+**Disposition unchanged: IMPLEMENTED, draft, merge execution human-only (GOV-03).** An
+external probe's failure is not merge evidence either way; it is recorded, not "fixed" —
+repairing it is outside this lane's scope and would be a scope expansion.
