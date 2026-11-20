@@ -986,3 +986,53 @@ contribution records. **No merge, deployment, commissioning, credential issuance
 workspace binding, L3 activation or scheduling occurred in this session** — the only
 operation performed was running the test suite on two existing worktrees and appending
 this section. **Human acceptance not issued.**
+
+
+### Governance addendum — `main` has advanced (recorded, not caused by this session)
+
+The task premise states `main` remains at `f9bd8da9`. **That is no longer true**, and the
+discrepancy is recorded here rather than reported as a clean confirmation.
+
+Measured at 2026-11-20T02:25Z via authenticated `git ls-remote` and `git fetch`:
+
+```
+refs/heads/main = 97dbe0125f5fc3c7fa59714fb924b55cd484b683
+```
+
+`f9bd8da9` **is** an ancestor of `97dbe012` (`git merge-base --is-ancestor` → true), so
+the immutable baseline was not rewritten or force-pushed. Three commits landed on `main`
+after it:
+
+```
+97dbe012  Lane 3: disclose the knowledge-graph row cap (#667)
+4dd4c05d  fix(lane2): state an entry's evidence records, not only its status sentinel (#666)
+a6fe4dda  fix(lane-currency): re-derive the lane snapshot after #659 edited its doc (#663)
+```
+
+**Attribution:** these are merges of #663, #666 and #667 — the lane PRs that PR #668
+composes. They were **not** performed in this session: no merge, push-to-main, or
+reference update was issued by this agent at any point. The only write this session
+performed was the append-only evidence commit `26bf2f92` to the integration branch.
+
+**Consequence for the reconciliation above:** the base worktree remains pinned at
+`f9bd8da9`, which is still the correct immutable comparison point for the composition —
+it is the commit PR #668 is parented on. The node-level reconciliation is therefore
+unaffected. But the statement "`main` remains unchanged" is **false as of this run** and
+must not be carried forward as a governance confirmation.
+
+**Consequence for PR #668:** `mergeable_state` is now `dirty` and `mergeable: false` —
+the branch no longer merges cleanly onto the advanced `main`. This is the merge-order
+constraint PR #668's own description predicted: a snapshot written by a PR that names
+other open PRs cannot survive their merge, and a follow-up lane-state refresh is
+required after the lane PRs land. **This is a human decision point, not something this
+agent resolves.**
+
+**PR #668 status:** open, **draft**, **unmerged**, head `26bf2f92`, base `main`,
+`merged: false`, `merge_commit_sha: null`. #657 remains open and separately reviewed.
+#663–#667 retain their independent contribution records (now merged to `main` as their
+own commits, each still individually attributable).
+
+**No deployment, commissioning, credential issuance, workspace binding, L3 activation or
+scheduling occurred.** Deploy key `170515502` was created, used once for the evidence
+push, and deleted; `deploy_keys: []` confirmed; private half shredded.
+**Human acceptance not issued.**
