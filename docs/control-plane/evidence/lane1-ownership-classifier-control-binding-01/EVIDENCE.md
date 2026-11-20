@@ -449,3 +449,29 @@ would repeat exactly the stale-citation defect §5 exists to repair.
 **Disposition unchanged: IMPLEMENTED, draft, merge execution human-only (GOV-03).** An
 external probe's failure is not merge evidence either way; it is recorded, not "fixed" —
 repairing it is outside this lane's scope and would be a scope expansion.
+
+---
+
+## 7. Final head `0d292011` — measured state at the end of this pulse
+
+CI on the final head `0d29201198d4a6747918fd238c021de12cb7c660`:
+
+| Conclusion | Count | Checks |
+|---|---|---|
+| `success` | **7** | `console-contract`, `boot-syntax`, `test`, `Full-history secret scan`, `posture-currency`, `provider-forensics`, `beta-beta-01-english` |
+| `failure` | **2** | `beta-beta-02-hausa`, `bundle-beta-evidence` |
+| `skipped` | **1** | `native-arkadia-golden-workflow` |
+
+This reproduces §6's classification on a second, independent head. `beta-beta-01-english`
+again **passed while `beta-beta-02-hausa` failed in the same run** — the sibling-probe
+control is the load-bearing evidence, and it has now held across two consecutive heads
+(`94948fe2`, `0d292011`).
+
+`console-contract` — the gate that judges this change — is **success** at both heads.
+
+PR state at the end of this pulse: `head 0d292011`, `base 4b91c2f4`, `mergeable: true`,
+**`draft: true`**, `state: open`. Base SHA unchanged, so the PR did not fall behind `main`.
+
+**Nothing is claimed as merged, deployed, or accepted.** Disposition: **IMPLEMENTED**,
+draft, awaiting human decision. Under GOV-03 merge execution is human-only; Weaver's
+assessment is advisory evidence only.
