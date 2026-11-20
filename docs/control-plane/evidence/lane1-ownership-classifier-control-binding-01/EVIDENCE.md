@@ -319,3 +319,85 @@ defect while proving a different property — read the returned **message**, not
 non-emptiness.
 
 
+
+---
+
+## 5. Currency correction — the head named in §3.6 is superseded (2026-11-20, later pulse)
+
+This record is append-only, so the superseded statement in §3.6 stands above and this
+section states which measurement replaces it.
+
+**Superseded:** §3.6 and the PR body both named `5eea4cc8` as the head at which "all ten
+checks" pass. That was true of `5eea4cc8`, but it is **not** the current head. Head
+`5c41ea76` ("record that the transient external failure resolved on the next head") landed
+after it and has never been the subject of a check-count claim.
+
+**Measured at head `5c41ea76`** (`GET /commits/5c41ea76…/check-runs`, full 40-char SHA):
+
+| Conclusion | Count |
+|---|---|
+| `success` | **10** |
+| other | 0 |
+
+So the *claim* is true at the current head; only the *citation* was stale. The named SHA
+`5eea4cc8` is the current head's parent, which is why the error was invisible — the parent
+really does carry ten green checks.
+
+Two related facts measured in the same pass, since a count alone is not the whole state:
+
+- **`GET /commits/5c41ea76…/status` (the legacy combined status) returns `pending`, not
+  `success`.** The ten green checks are check-runs; the combined status is a different
+  surface and is not evidence about this tree. A future reader must not read `pending`
+  there as a red gate.
+- **`main` `4b91c2f4` carries 5 `success` + 1 `skipped` check-run**, which matches §4's
+  "all 5 check-runs `completed/success`". That claim was accurate as written.
+
+**Independent re-verification of the slice itself, this pulse, in a detached worktree at
+`5c41ea76`:**
+
+```
+pytest tests/test_console_legacy_route_coverage.py -q          -> 20 passed
+pytest tests/architecture -q                                   -> 11 passed
+pytest tests/test_console_{legacy_route_coverage,shell_nav_contract,endpoint_registry_contract}.py -q -> 95 passed
+python scripts/lane_state.py --check                           -> exit 0
+printf '<2 PR paths>' | python scripts/cp10_mutation_boundary_policy.py --judge -> PASS, exit 0
+python -m py_compile api/main.py                               -> OK   (2597 lines, budget 2600)
+git diff --name-only origin/main...HEAD -- docs/control-plane/parallel-ui/ -> 0 paths
+git diff --name-only origin/main...HEAD -- api/                            -> 0 paths
+```
+
+**The control bites in four shapes, measured on the branch tree.** Each mutation was applied
+to the real helper, run, and the file restored byte-identically (`diff -q` → identical,
+`git status --porcelain` → empty):
+
+| Mutation to `_claimed_by_a_declared_surface` | Result |
+|---|---|
+| `return True` (silent-pass direction) | **1 failed**, 19 passed |
+| bare `startswith(root)` (prefix trap) | **1 failed**, 19 passed |
+| `return False` | **2 failed**, 18 passed |
+| `path == root` only (drops section ownership) | **2 failed**, 18 passed |
+
+**The defect is real on `main` itself**, which is what makes the control load-bearing rather
+than decorative. On `main` `4b91c2f4` — the tree *without* the new control — the same two
+mutations are invisible:
+
+| Mutation, on `main`'s own file | Result |
+|---|---|
+| `return True` | **19 passed** — nothing caught it |
+| bare `startswith(root)` | **19 passed** — nothing caught it |
+
+**Baseline re-measured this pulse** at `main` `4b91c2f4`, one full pass
+(`-q -rEf --continue-on-collection-errors`):
+
+```
+21 failed, 4232 passed, 22 skipped, 1 error in 285.73s
+```
+
+Sorted failing/error node set: **22 nodes**, sha256
+`828d330f6d73ae7c1ed39bfbf4a3498eba040a1090ab4ce3f57ed720bb673b75`. **Zero** are
+`test_console_*`. The single `ERROR` is the sovereign-reserved CE-01 `weaver.autonomy`
+module-vs-package collision — recorded, not repaired. The branch adds one passing node to a
+file with no nodes in that set, so the set is unchanged by construction.
+
+**Disposition unchanged: IMPLEMENTED, draft, merge execution human-only (GOV-03).** This
+section corrects a citation; it does not claim the PR is merged, accepted, or deployed.
