@@ -475,3 +475,48 @@ PR state at the end of this pulse: `head 0d292011`, `base 4b91c2f4`, `mergeable:
 **Nothing is claimed as merged, deployed, or accepted.** Disposition: **IMPLEMENTED**,
 draft, awaiting human decision. Under GOV-03 merge execution is human-only; Weaver's
 assessment is advisory evidence only.
+
+---
+
+## 8. Head `c1d84d4a` supersedes §7, and two section numbers are duplicated (2026-11-20, later pulse)
+
+**Superseded: the "final head" claim in §7.** §7 names `0d292011` as the head at the end of
+its pulse. That was true of the pulse that wrote it. The branch tip is now
+`c1d84d4a2e5a5fc76a8befb08fe9d70dc3edf408` (`docs(lane1): record the final head state and
+the second reproduction`), which landed after §7 was written — so §7's "PR state at the end
+of this pulse" is a statement about `0d292011`, not about the branch. Re-measured at
+`c1d84d4a` this pulse:
+
+| Field | Value |
+|---|---|
+| `head` | `c1d84d4a2e5a5fc76a8befb08fe9d70dc3edf408` |
+| `base` | `4b91c2f4` (unchanged — the PR has not fallen behind `main`) |
+| `mergeable` | `true` |
+| `draft` / `state` | `true` / `open` |
+
+CI at `c1d84d4a`, re-read from `commits/<sha>/check-runs` (full 40-char SHA):
+
+| Conclusion | Count | Checks |
+|---|---|---|
+| `success` | **7** | `console-contract`, `boot-syntax`, `test`, `Full-history secret scan`, `posture-currency`, `provider-forensics`, `beta-beta-01-english` |
+| `failure` | **2** | `beta-beta-02-hausa`, `bundle-beta-evidence` |
+| `skipped` | **1** | `native-arkadia-golden-workflow` |
+
+Identical tallies at `0d292011` and `c1d84d4a`, so §7's classification carries forward
+unchanged; only the SHA it binds to moves. The two failures remain the external-provider
+class §3.5 and §6 already established — `beta-beta-02-hausa` reports no usable provider
+event and `bundle-beta-evidence` is its downstream reader. **`console-contract`, the gate
+that judges this change, is `success` at the tip.**
+
+**Second defect: duplicated section numbers.** The headings run `## 5. Boundaries`,
+`## 6. Next permitted action`, then `## 5. Currency correction`, `## 6. Head 94948fe2`,
+`## 7. Final head`. Two numbers are each used twice, so a cross-reference to "§5" or "§6"
+is ambiguous — §5 is both *Boundaries* and the *currency correction*, §6 both *Next
+permitted action* and the `94948fe2` record. The append-only convention is what produced
+this: each pulse appended without renumbering. It is recorded rather than repaired by
+renumbering, because renumbering would invalidate every `§` citation already written above
+and in the PR body — the same stale-citation class §5 exists to catch. Read a bare `§5` or
+`§6` here as ambiguous and resolve it from its heading.
+
+**Nothing is claimed as merged, deployed, or accepted.** Disposition unchanged:
+**IMPLEMENTED**, draft. Merge execution is human-only under GOV-03.
