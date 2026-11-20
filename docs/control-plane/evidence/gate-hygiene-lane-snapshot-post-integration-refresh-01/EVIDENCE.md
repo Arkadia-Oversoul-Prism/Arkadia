@@ -169,3 +169,122 @@ re-derived for it yet). Two consequences for the next pulse:
 - No lane PR was opened: all four lanes are now idle, and this change *is* the
   reconciliation that had to precede lane continuity. Lane continuity is the next pulse's
   first action.
+
+---
+
+## 7. Refresh after the #657 merge — 2026-11-20T04:56Z
+
+**This section supersedes §4's snapshot measurements and §3's open-PR inventory. Sections 1–6
+are retained unedited as the provenance of the original repair.**
+
+### 7.1 Why the refresh was required
+
+The measurements above were taken at `main` `5f40e65c`. `main` has since advanced to
+`b842892b9fc64dede5e655db0d293da77248a430` (squash of PR #657, the Arkadia Chief Agent
+founding scaffold), so this PR was 1 commit behind and its snapshot's `base_main` named a
+superseded revision.
+
+Two facts made a refresh necessary rather than cosmetic:
+
+1. The snapshot recorded **PR #657 as `unassigned_open_prs`**. #657 is now merged, so that
+   entry named an open thread that no longer exists.
+2. The recorded evidence predated the merge, so no statement in it was a measurement of the
+   tree the merge produced.
+
+### 7.2 What changed
+
+```
+$ git rebase origin/main            # clean, no conflicts
+$ python scripts/lane_state_refresh.py --write --base-main b842892b9fc6...
+wrote docs/control-plane/parallel-ui/lane-state.json
+```
+
+Re-derivation — not a hand-edit. The snapshot diff against the rebased head is **one file,
+7 insertions / 7 deletions**:
+
+```
+- "observed_at": "2026-11-20T03:09:11Z"
+- "base_main":   "5f40e65c7a13b934f63f24310ffda90d5b18b351"
++ "observed_at": "2026-11-20T04:56:38Z"
++ "base_main":   "b842892b9fc64dede5e655db0d293da77248a430"
+
+  "unassigned_open_prs": [
+-   { "number": 657, "title": "feat: establish Arkadia Chief Agent founding scaffold", ... }
++   { "number": 669, "title": "fix(lane-currency): re-derive the lane snapshot ...", ... }
+  ]
+```
+
+The four lane docs and the four `merged_prs` lists are **unchanged** — the #664–#667
+reconciliation this PR was written to perform still holds. Only the two derived scalar fields
+and the `unassigned_open_prs` membership moved.
+
+### 7.3 Why #657 touches none of this PR's files
+
+Measured, not assumed:
+
+```
+$ git log --oneline 5f40e65c..b842892b -- docs/control-plane/parallel-ui/ \
+      scripts/lane_state.py scripts/lane_state_refresh.py \
+      tests/test_lane_instruction_doc_currency.py tests/test_lane_currency_ci_wiring.py
+0
+```
+
+#657 changes zero files under `docs/control-plane/parallel-ui/` and zero lane-currency
+surfaces, so the rebase was textually trivial. The refresh is a **record-currency**
+requirement (the snapshot named a merged PR open), not a conflict repair.
+
+### 7.4 Verification on the rebased head
+
+```
+$ python scripts/lane_state.py --check
+base main: b842892b… (current: b842892b…)
+lane instruction docs consistent with snapshot (4 guarded lanes)          exit 0
+
+$ python scripts/lane_state.py --check --verify-live
+live PR state: 4 PR(s) read from Arkadia-Oversoul-Prism/Arkadia (0 claimed-open + declared doc pointers)
+lane instruction docs consistent with snapshot (4 guarded lanes)          exit 0
+
+$ python -m pytest tests/test_lane_instruction_doc_currency.py tests/test_lane_currency_ci_wiring.py -q
+67 passed
+
+$ python -m pytest tests/architecture -q
+11 passed
+
+$ python -m pytest tests/test_m02a_ci_gate_integrity.py -q
+76 passed
+
+$ git diff --name-only | python scripts/cp10_mutation_boundary_policy.py --judge
+Mutation boundary PASS (M02A legitimate-surface + constitutional denylist)   exit 0
+```
+
+`base_main == current main` and both gate modes are green — the two conditions the original
+head satisfied only against the older `main`.
+
+### 7.5 The snapshot now records this PR, and that is safe post-merge
+
+Re-derivation necessarily writes the snapshot while this PR is open, so `unassigned_open_prs`
+now names **#669 itself**. Checked against the live decision function rather than assumed:
+
+```
+$ python -c "import lane_state as L; print(L.claimed_open_prs(state))"
+{}                              # empty -> #669 is in no judged open-claim
+```
+
+`claimed_open_prs` collects only `lanes[*].open_prs` and `lanes[*].deferred_to_pr`.
+`unassigned_open_prs` is **written and printed but judged nowhere** (`grep -rn
+unassigned_open_prs scripts/lane_state.py` → no reader). So #669's presence there cannot
+redden `lane-doc-currency` after this PR merges, unlike the `open_prs` self-inclusion defect
+recorded in `AGENTS.md` for #610/#614.
+
+This is stated as a limitation, not a guarantee: if a future change wires `unassigned_open_prs`
+into a judgement, this snapshot becomes a self-referential open-claim and will need
+re-derivation. That wiring is a separate bounded workstream — it changes what the gate judges.
+
+### 7.6 Boundaries preserved by this refresh
+
+- No merge executed. GOV-03 reserves merge execution to a human; this PR remains **draft**.
+- No deployment, no production mutation, no Vercel interaction (ADR-016).
+- No change to the guard, its decision logic, or any authority surface. The repair remains
+  scoped to one snapshot plus four appended doc blocks.
+- The four lane docs are untouched by this refresh; their appended `**Active thread:** none`
+  blocks from §3 stand byte-identical.
