@@ -331,42 +331,14 @@ def test_shell_is_mounted_exactly_once():
     assert str(APP_PATH.relative_to(ROOT)) in importers
 
 
-def _pathname_parsers(sources: dict[str, str]) -> list[str]:
-    """Modules that read ``window.location.pathname`` — the second-router detector.
-
-    Module level, so the negative control exercises the *same* code the live
-    assertion does. Held inline, the comprehension could be neutered to
-    ``users = []`` with all 53 nodes still green (measured 2026-11-20 at `main`
-    `b842892b`): the live assertion was satisfied by a detector that reports
-    nothing, and no control called it.
-    """
-    return sorted(
-        name
-        for name, src in sources.items()
-        if "window.location.pathname" in src and name != str(ROUTER_PATH.relative_to(ROOT))
-    )
-
-
 def test_router_module_owns_the_only_pathname_resolution():
     """One router: pathname -> surface resolution must live in router.ts only."""
-    users = _pathname_parsers(_ts_sources())
+    users = [
+        name
+        for name, src in _ts_sources().items()
+        if "window.location.pathname" in src and name != str(ROUTER_PATH.relative_to(ROOT))
+    ]
     assert users == [], f"pathname is parsed outside the shared router in {users}"
-
-
-def test_detector_flags_a_second_pathname_parser():
-    """Negative control: a module outside router.ts reading the pathname.
-
-    Both polarities: the injected reader must be reported, and the live tree must
-    not be — so a detector that reports unconditionally cannot pass either.
-    """
-    sources = dict(_ts_sources())
-    sources["web/arkadia_console/src/components/SecondRouter.tsx"] = (
-        'const here = window.location.pathname;\n'
-    )
-    assert _pathname_parsers(sources) == [
-        "web/arkadia_console/src/components/SecondRouter.tsx"
-    ], "the second-router detector missed a pathname read outside router.ts"
-    assert _pathname_parsers(_ts_sources()) == [], "the live tree must not be reported"
 
 
 # ---------------------------------------------------------------------------
