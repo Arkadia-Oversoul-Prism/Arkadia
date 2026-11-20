@@ -1,25 +1,16 @@
 {
  "schema": "arkadia.lane-state/1.2",
- "observed_at": "2026-11-16T18:18:03Z",
- "base_main": "f9bd8da913fa194d7cff2e53b9c417ddb2a9f43a",
+ "observed_at": "2026-11-20T03:09:11Z",
+ "base_main": "5f40e65c7a13b934f63f24310ffda90d5b18b351",
  "source": "GitHub REST reads API (Arkadia-Oversoul-Prism/Arkadia), read-only, derived by scripts/lane_state_refresh.py",
  "note": "Machine-readable mirror of the four Prism UI lane threads, DERIVED from live PR state rather than hand-transcribed. Lane assignment is by exclusive path ownership (SHARED-CONTRACTS.md section 1); a PR touching more than one lane's owned paths appears in each. scripts/lane_state.py judges the docs against this file; --verify-live additionally requires every claimed-open PR to be authoritatively open. Refresh with scripts/lane_state_refresh.py --write.",
  "lanes": {
   "1": {
    "doc": "AGENT-01-SHELL.md",
    "title": "Shell / navigation / design system / integration seam",
-   "active_pr": 665,
-   "active_branch": "lane1/title-writer-detector-binding-01",
-   "open_prs": [
-    {
-     "number": 665,
-     "branch": "lane1/title-writer-detector-binding-01",
-     "head_sha": "fe9701653155870261833bbea0ce1a46630a9a78",
-     "draft": true,
-     "updated_at": "2026-11-19T14:15:35Z",
-     "title": "test(lane1): bind the document-title writer sweep to its detector"
-    }
-   ],
+   "active_pr": null,
+   "active_branch": null,
+   "open_prs": [],
    "merged_prs": [
     {
      "number": 423,
@@ -48,25 +39,20 @@
     {
      "number": 610,
      "merge_commit_sha": "6b28ddba0f573fda190d77f14d8c740a98581515"
+    },
+    {
+     "number": 665,
+     "merge_commit_sha": "caac3949a390b129bbe97df4ab100a6cd386aa24"
     }
    ],
-   "doc_guard": "current"
+   "doc_guard": "idle"
   },
   "2": {
    "doc": "AGENT-02-NOVANET-OPPORTUNITY.md",
    "title": "NovaNet + project Opportunity Radar",
-   "active_pr": 666,
-   "active_branch": "lane2/evidence-record-disclosure-01",
-   "open_prs": [
-    {
-     "number": 666,
-     "branch": "lane2/evidence-record-disclosure-01",
-     "head_sha": "2327e3b969e742337fea027126d887b823676ed3",
-     "draft": true,
-     "updated_at": "2026-11-19T14:15:36Z",
-     "title": "fix(lane2): state an entry's evidence records, not only its status sentinel"
-    }
-   ],
+   "active_pr": null,
+   "active_branch": null,
+   "open_prs": [],
    "merged_prs": [
     {
      "number": 420,
@@ -79,25 +65,20 @@
     {
      "number": 492,
      "merge_commit_sha": "7030ccb2f2646d74d07b9871783bb586dda82298"
+    },
+    {
+     "number": 666,
+     "merge_commit_sha": "4dd4c05dac6e8c74b9e7e5cb484d2bbf1f556bd1"
     }
    ],
-   "doc_guard": "current"
+   "doc_guard": "idle"
   },
   "3": {
    "doc": "AGENT-03-SOLARIUN-KNOWLEDGE.md",
    "title": "Solariun + Knowledge OS",
-   "active_pr": 667,
-   "active_branch": "lane3/graph-row-cap-disclosure-01",
-   "open_prs": [
-    {
-     "number": 667,
-     "branch": "lane3/graph-row-cap-disclosure-01",
-     "head_sha": "31835b1641c446774aef049073b2598a69312c82",
-     "draft": true,
-     "updated_at": "2026-11-19T14:15:37Z",
-     "title": "Lane 3: disclose the knowledge-graph row cap"
-    }
-   ],
+   "active_pr": null,
+   "active_branch": null,
+   "open_prs": [],
    "merged_prs": [
     {
      "number": 421,
@@ -110,25 +91,20 @@
     {
      "number": 621,
      "merge_commit_sha": "30fba8528fb259088ac9fc431d8e2c62df9ddbda"
+    },
+    {
+     "number": 667,
+     "merge_commit_sha": "97dbe0125f5fc3c7fa59714fb924b55cd484b683"
     }
    ],
-   "doc_guard": "current"
+   "doc_guard": "idle"
   },
   "4": {
    "doc": "AGENT-04-ARKANA-WEAVER-LAB.md",
    "title": "Arkana + Weaver + Engineering Lab",
-   "active_pr": 664,
-   "active_branch": "lane4/truncation-disclosure-01",
-   "open_prs": [
-    {
-     "number": 664,
-     "branch": "lane4/truncation-disclosure-01",
-     "head_sha": "b564325c4c813eef0a6790f2c1bb40480bd54798",
-     "draft": true,
-     "updated_at": "2026-11-19T14:15:23Z",
-     "title": "fix(lab): disclose truncation on bounded lane-4 views"
-    }
-   ],
+   "active_pr": null,
+   "active_branch": null,
+   "open_prs": [],
    "merged_prs": [
     {
      "number": 422,
@@ -149,26 +125,20 @@
     {
      "number": 620,
      "merge_commit_sha": "1781288392618bca7aa97c82940c47b7834b2ffb"
+    },
+    {
+     "number": 664,
+     "merge_commit_sha": "210637e8a772bb3e4492292d7b7c5f59ffe5195f"
     }
    ],
-   "doc_guard": "current"
+   "doc_guard": "idle"
   }
  },
  "aggregate_prs": [
   {
    "number": 668,
-   "branch": "integration/ewor-evidence-baseline-2026-11-18",
-   "head_sha": "1e5655108ed3eb84259eb60861fe2e7b62b6f453",
-   "draft": true,
-   "updated_at": "2026-11-19T15:25:25Z",
-   "title": "integration: EWOR evidence baseline for #663\u2013#667",
    "classification": "aggregate",
-   "lanes_touched": [
-    "1",
-    "2",
-    "3",
-    "4"
-   ],
+   "state": "not_open",
    "reason": "EWOR evidence baseline composing #663-#667. Its diff spans all four lanes' owned paths because it carries their contributions, not because it owns those lanes. Excluded from lane ownership and active-thread selection; retained in aggregate_prs for audit."
   }
  ],
@@ -183,18 +153,10 @@
   {
    "number": 657,
    "branch": "feat/chief-agent-foundation-001",
-   "head_sha": "d41127e153b34e330d523622b29d27e96eadfd03",
+   "head_sha": "d49cc9a06b952aac19a6d4d2a59366d24d8fb0bf",
    "draft": true,
-   "updated_at": "2026-11-16T17:30:47Z",
+   "updated_at": "2026-11-20T01:20:37Z",
    "title": "feat: establish Arkadia Chief Agent founding scaffold"
-  },
-  {
-   "number": 663,
-   "branch": "gate-hygiene/lane-doc-currency-post-659-refresh-01",
-   "head_sha": "d8a36f0b278df04b2513fb5a1dd90b4bed34d280",
-   "draft": true,
-   "updated_at": "2026-11-19T14:15:00Z",
-   "title": "fix(lane-currency): re-derive the lane snapshot after #659 edited its doc"
   }
  ],
  "closed_unmerged": [

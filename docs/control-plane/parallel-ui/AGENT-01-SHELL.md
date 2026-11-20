@@ -525,3 +525,23 @@ This block was appended by the aggregate integration ledger
 declared idle — a disagreement that reddened `lane-doc-currency` on the combined tree. It
 records the live thread and asserts nothing about the slice's readiness: the PR stays
 **draft**. Merge, production deployment and acceptance remain human-only.
+
+## Status — 2026-11-20 (LANE 1, idle; supersedes the #665 pointer above)
+
+**Active thread:** none
+
+Lane 1 holds **no open PR**. PR #665 merged as `caac3949` ("test(lane1): bind the document-title writer sweep to its detector"), and the four
+lane threads #664-#667 landed together in the integration squash `5f40e65c7a13b934f63f24310ffda90d5b18b351` (PR #668), which
+was already `main` when this block was written.
+
+The #665 pointer above is retained as provenance, not as live work; this declaration is the
+one the guard reads (last-wins). It is the truthful idle form, not silence:
+`scripts/lane_state.py` requires an idle lane to *state* that it holds no active thread, and
+cross-checks the claim against `lane-state.json` — a lane that declares idle while the
+snapshot still lists its own open PRs is reported as drift.
+
+Measured at `main` `5f40e65c7a13b934f63f24310ffda90d5b18b351`; the snapshot was re-derived in the same change, so the docs and
+the snapshot cannot disagree. Lane 1 at zero open PRs is a **deficit**, not a resting
+state: the next action is to open lane 1's next bounded draft PR from freshly fetched
+`main`, inside the lane's owned paths (`SHARED-CONTRACTS.md` §1). Merge, production
+deployment and acceptance remain human-only under GOV-03.
