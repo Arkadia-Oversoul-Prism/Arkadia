@@ -1,6 +1,6 @@
 {
  "schema": "arkadia.lane-state/1.2",
- "observed_at": "2026-11-19T15:27:03Z",
+ "observed_at": "2026-11-16T18:18:03Z",
  "base_main": "f9bd8da913fa194d7cff2e53b9c417ddb2a9f43a",
  "source": "GitHub REST reads API (Arkadia-Oversoul-Prism/Arkadia), read-only, derived by scripts/lane_state_refresh.py",
  "note": "Machine-readable mirror of the four Prism UI lane threads, DERIVED from live PR state rather than hand-transcribed. Lane assignment is by exclusive path ownership (SHARED-CONTRACTS.md section 1); a PR touching more than one lane's owned paths appears in each. scripts/lane_state.py judges the docs against this file; --verify-live additionally requires every claimed-open PR to be authoritatively open. Refresh with scripts/lane_state_refresh.py --write.",
@@ -183,9 +183,9 @@
   {
    "number": 657,
    "branch": "feat/chief-agent-foundation-001",
-   "head_sha": "d49cc9a06b952aac19a6d4d2a59366d24d8fb0bf",
+   "head_sha": "d41127e153b34e330d523622b29d27e96eadfd03",
    "draft": true,
-   "updated_at": "2026-11-19T14:15:49Z",
+   "updated_at": "2026-11-16T17:30:47Z",
    "title": "feat: establish Arkadia Chief Agent founding scaffold"
   },
   {
