@@ -127,7 +127,39 @@ change:
   independent of CI. It is 16 commits behind `main`; a diff against `main` reads as
   destructive and is pure staleness — measure against its own merge base `a1009ddf`.
 
-## 5. Boundaries preserved
+## 5. Composition hazard — measured, and it constrains merge order
+
+The repair appends a block to the **end** of each of the four lane docs. A lane PR branched
+from the *pre-repair* `main` and carrying its own appended `**Active PR:**` block therefore
+conflicts textually at EOF. Measured in a detached worktree at `5f40e65c`:
+
+```
+$ git merge --no-edit gate-hygiene/lane-snapshot-post-integration-refresh-01
+Auto-merging docs/control-plane/parallel-ui/AGENT-01-SHELL.md
+CONFLICT (content): Merge conflict in docs/control-plane/parallel-ui/AGENT-01-SHELL.md
+```
+
+The hazard is an artifact of the stale base, not of the repair: a lane PR opened from the
+**repaired** `main` merges with zero conflicts and the guard judges it correctly —
+
+```
+$ (probe branch from repaired main appending **Active PR:** #999)
+$ python scripts/lane_state.py --check
+  DRIFT lane 1 (AGENT-01-SHELL.md): declares PR #999, which is not an open lane PR in the
+  snapshot (open: [])
+```
+
+which is the *correct* finding (a pointer was declared and the snapshot has not been
+re-derived for it yet). Two consequences for the next pulse:
+
+1. **Open the next lane PR from `main` after #669 merges**, never from the pre-#669 tree.
+   This is already the lane-scheme rule (N4 — branch from freshly fetched `main`); the
+   measurement shows it is now load-bearing for merge cleanliness as well.
+2. **A lane PR that appends its own pointer and a snapshot refresh must land together**, or
+   the pointer will be judged against a snapshot that does not yet list it. That is the same
+   one-change rule §2 of this record applies to the repair itself.
+
+## 6. Boundaries preserved
 
 - No merge was executed. GOV-03 makes merge execution human-only; this PR is `draft` and
   stays draft until a human reviews and merges it.
