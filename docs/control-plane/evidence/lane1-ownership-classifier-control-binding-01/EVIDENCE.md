@@ -193,6 +193,25 @@ Per the repo rule for an external-provider job this is **pre-existing / environm
 and it is recorded here rather than "fixed" — repairing it is not in this lane's scope and
 the tree is not implicated.
 
+### 3.6 The transient resolved on the next head — observed, not predicted
+
+The evidence-only commit `5eea4cc8` re-ran the same workflow against a tree that differs
+from `675c91e2` **only** by this markdown record. All ten checks then passed, including the
+two that had been red:
+
+```
+bundle-beta-evidence   pass  7s
+beta-beta-01-english   pass  17s
+native-arkadia-golden-workflow pass 48s   (was: skipping)
+console-contract       pass  2m59s
+```
+
+`mergeStateStatus` moved `UNSTABLE` -> `CLEAN`, `mergeable` `MERGEABLE`, at head
+`5eea4cc817c36c21cefa2358d8a06ebf62efee38`. A documentation-only diff cannot repair a
+provider probe, so the earlier red was external and transient, exactly as §3.5 argued. The
+prediction and the observation now agree; the observation is the load-bearing one.
+
+
 
 
 ---
