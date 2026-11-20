@@ -419,29 +419,56 @@ def test_bounded_notice_states_both_counts():
     assert "shown" in body and "total" in body, "the copy must name both the shown and total counts"
 
 
+# The literals the row-cap convention requires, hoisted so the live assertion and
+# its negative control feed the *same* detector. `_row_cap_defects` is the detector
+# both call; neither restates the property.
+ROW_CAP_REQUIRED_LITERALS: tuple[tuple[str, str], ...] = (
+    ("boundedRowNotice", "the panel must render the bounded-row notice"),
+    ('data-testid="knowledge-graph-rows-bounded"', "the notice needs its own test id"),
+    (
+        "boundedRowNotice(PROVENANCE_ROWS, graph.nodes.length)",
+        "the notice must receive the slice bound and the true total",
+    ),
+    (
+        "graph.nodes.slice(0, PROVENANCE_ROWS)",
+        "the slice must use the same constant the notice is given",
+    ),
+)
+
+PRE_REPAIR_PANEL_BODY = (
+    "{graph.nodes.length > 0 && (\n"
+    '  <ul data-testid="knowledge-graph-provenance-rows">\n'
+    "    {graph.nodes.slice(0, PROVENANCE_ROWS).map((node) => (\n"
+    "      <li>{node.title}</li>\n"
+    "    ))}\n"
+    "  </ul>\n"
+    ")}"
+)
+
+
+def _row_cap_defects(source: str) -> list[str]:
+    """Every row-cap convention literal `source` is missing.
+
+    Module level so the live assertion and the negative control call the *same*
+    predicate: an edit that empties `ROW_CAP_REQUIRED_LITERALS`, or one that makes
+    this function answer `[]` unconditionally, reddens the control.
+    """
+    return [reason for literal, reason in ROW_CAP_REQUIRED_LITERALS if literal not in source]
+
+
 def test_panel_discloses_the_row_cap():
     """The panel that performs the `slice` must render the disclosure, and its
     bound must come from the same constant the `slice` uses."""
-    source = PANEL_TSX.read_text(encoding="utf-8")
-    assert "boundedRowNotice" in source
-    assert 'data-testid="knowledge-graph-rows-bounded"' in source
-    assert "boundedRowNotice(PROVENANCE_ROWS, graph.nodes.length)" in source
-    assert "graph.nodes.slice(0, PROVENANCE_ROWS)" in source
+    assert _row_cap_defects(PANEL_TSX.read_text(encoding="utf-8")) == []
 
 
 def test_negative_control_a_bare_slice_is_not_the_convention():
     """Feed the detector the pre-repair shape: a panel that slices without a
-    notice. The property under test must be false for it."""
-    pre_repair = (
-        "{graph.nodes.length > 0 && (\n"
-        '  <ul data-testid="knowledge-graph-provenance-rows">\n'
-        "    {graph.nodes.slice(0, PROVENANCE_ROWS).map((node) => (\n"
-        "      <li>{node.title}</li>\n"
-        "    ))}\n"
-        "  </ul>\n"
-        ")}"
+    notice. It must be reported, and the shipped panel must not be — a detector
+    that flagged everything would pass the first half alone."""
+    reported = _row_cap_defects(PRE_REPAIR_PANEL_BODY)
+    assert reported, "the detector must report a bare slice with no notice"
+    assert "the panel must render the bounded-row notice" in reported
+    assert _row_cap_defects(PANEL_TSX.read_text(encoding="utf-8")) == [], (
+        "the shipped panel must be clean under the same detector the control used"
     )
-    assert "boundedRowNotice" not in pre_repair
-    assert 'data-testid="knowledge-graph-rows-bounded"' not in pre_repair
-    # The shipped panel is the opposite of this control.
-    assert "boundedRowNotice" in PANEL_TSX.read_text(encoding="utf-8")
