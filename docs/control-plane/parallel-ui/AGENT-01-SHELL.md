@@ -506,3 +506,22 @@ Evidence: `docs/control-plane/evidence/lane1-composition-case-comment-blindness-
 
 Lane 1's next bounded PR opens only after this one merges. Merge, production deployment and
 acceptance remain human-only.
+
+## Status — 2026-11-19 (LANE 1; supersedes the idle declaration above)
+
+**Active branch:** `lane1/title-writer-detector-binding-01`
+**Active PR:** [#665](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/665) — draft, head `fe9701653155870261833bbea0ce1a46630a9a78`, base `main`.
+
+Lane 1 is not idle: it holds one bounded draft PR, so the idle declaration above is
+superseded by this pointer, which is the declaration the guard reads (last-wins).
+
+The slice is `tests/test_console_document_title_contract.py` — binds the document-title
+writer sweep to the detector that proves it. Every path it touches is inside lane 1's
+exclusive ownership (`SHARED-CONTRACTS.md` §1).
+
+This block was appended by the aggregate integration ledger
+(`docs/control-plane/evidence/ewor-integration-baseline-2026-11-18/`) because its derived
+`lane-state.json` correctly records lane 1 as holding an open PR while this doc still
+declared idle — a disagreement that reddened `lane-doc-currency` on the combined tree. It
+records the live thread and asserts nothing about the slice's readiness: the PR stays
+**draft**. Merge, production deployment and acceptance remain human-only.

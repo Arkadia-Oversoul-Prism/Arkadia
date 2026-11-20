@@ -249,3 +249,22 @@ Evidence: `docs/control-plane/evidence/lane3-positional-read-detector-binding-01
 
 Lane 3's next bounded PR opens only after this one merges. Merge, production deployment and
 acceptance remain human-only.
+
+## Status — 2026-11-19 (LANE 3; supersedes the idle declaration above)
+
+**Active branch:** `lane3/graph-row-cap-disclosure-01`
+**Active PR:** [#667](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/667) — draft, head `31835b1641c446774aef049073b2598a69312c82`, base `main`.
+
+Lane 3 is not idle: it holds one bounded draft PR, so the idle declaration above is
+superseded by this pointer, which is the declaration the guard reads (last-wins).
+
+The slice is `KnowledgeGraphPanel.tsx` + `knowledgeContracts.ts` — discloses the knowledge-
+graph row cap. Every path it touches is inside lane 3's exclusive ownership (`SHARED-
+CONTRACTS.md` §1).
+
+This block was appended by the aggregate integration ledger
+(`docs/control-plane/evidence/ewor-integration-baseline-2026-11-18/`) because its derived
+`lane-state.json` correctly records lane 3 as holding an open PR while this doc still
+declared idle — a disagreement that reddened `lane-doc-currency` on the combined tree. It
+records the live thread and asserts nothing about the slice's readiness: the PR stays
+**draft**. Merge, production deployment and acceptance remain human-only.

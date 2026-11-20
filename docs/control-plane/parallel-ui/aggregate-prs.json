@@ -1,0 +1,13 @@
+{
+ "_contract": "Explicit aggregate-PR classification for the Prism UI lane-state snapshot. An aggregate PR composes other PRs' contributions (an integration/evidence baseline) and therefore touches paths owned by several lanes without taking ownership of any of them. Declared here as data so the classifier never infers it from a title substring or a branch prefix -- either would silently strip a genuine multi-lane implementation PR from lane ownership. Read by scripts/lane_state_refresh.py; a malformed file aborts the refresh (exit 2) rather than falling back to 'nothing is aggregate'.",
+ "_schema": "arkadia.lane-aggregate-prs/1",
+ "aggregate_prs": [
+  {
+   "number": 668,
+   "branch": "integration/ewor-evidence-baseline-2026-11-18",
+   "reason": "EWOR evidence baseline composing #663-#667. Its diff spans all four lanes' owned paths because it carries their contributions, not because it owns those lanes. Excluded from lane ownership and active-thread selection; retained in aggregate_prs for audit.",
+   "declared_at": "2026-11-18",
+   "composes": [663, 664, 665, 666, 667]
+  }
+ ]
+}

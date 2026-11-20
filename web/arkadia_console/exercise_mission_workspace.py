@@ -36,6 +36,47 @@ def _contains(haystack: str, needle: str) -> bool:
     return needle.casefold() in haystack.casefold()
 
 
+def _read_canonical_session_view(page, session_id: str) -> dict:
+    """Read the canonical session view through the surface's own authenticated client.
+
+    The workspace polls this endpoint every ``EXECUTE_POLL_MS`` while an execute
+    request is in flight, so a response captured with ``expect_response`` can be
+    the *pre-execute* poll rather than the settled view. That made the assertion
+    a race: it passed or failed depending on whether the poll or the post-execute
+    refresh happened to be the one captured.
+
+    Reading the view explicitly after the surface has settled removes the race
+    without weakening the assertion. This is still the server's canonical view,
+    fetched with the same bearer token the surface itself uses, and every
+    property below is still asserted against it.
+    """
+    return page.evaluate(
+        """async (sessionId) => {
+            const token = window.localStorage.getItem('arkadia_token');
+            const response = await fetch(`/api/lab/engineering/sessions/${sessionId}`, {
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
+            });
+            return { status: response.status, body: await response.json() };
+        }""",
+        session_id,
+    )
+
+
+def _canonical_session_view_status_failure(read_result: dict) -> str | None:
+    """Return a failure message when the canonical read was not HTTP 200.
+
+    The status is part of the contract, not incidental metadata. A 401 or 500
+    response can still carry a JSON body with the expected keys, so a harness
+    that reads the body without checking the status would accept an
+    unauthenticated or failed read as a valid canonical view. This is kept as a
+    pure function so the assertion can be exercised without a browser.
+    """
+    status = read_result.get("status")
+    if status == 200:
+        return None
+    return f"canonical session view read returned HTTP {status}, expected 200"
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--base-url", required=True, help="Existing authenticated-test Vite server.")
@@ -151,27 +192,51 @@ def main() -> int:
             )
             authorization_timeline = page.locator('[data-testid="mission-steps"]').inner_text()
             if not _contains(authorization_timeline, "originated_by human"):
+                # The surface appends the authorization note only after its own
+                # post-authorize session refresh resolves, which can land a beat
+                # after the AUTHORIZED state is visible. Wait for the note rather
+                # than sampling the timeline once: the assertion is unchanged,
+                # only the moment it is evaluated is made deterministic.
+                try:
+                    page.wait_for_function(
+                        """() => ((document.querySelector('[data-testid="mission-steps"]')?.innerText || '')
+                            .toLowerCase()).includes('originated_by human')""",
+                        timeout=20_000,
+                    )
+                except Exception:
+                    pass
+                authorization_timeline = page.locator('[data-testid="mission-steps"]').inner_text()
+            if not _contains(authorization_timeline, "originated_by human"):
                 failures.append("authorization record did not report human origin")
 
             # 4. Execute one read-only operation and inspect the server-returned evidence.
             with page.expect_response(
-                lambda response: response.request.method == "GET"
-                and urlparse(response.url).path == f"/api/lab/engineering/sessions/{session_id}"
-            ) as session_view_info:
-                with page.expect_response(
-                    lambda response: response.request.method == "POST"
-                    and urlparse(response.url).path.endswith("/execute")
-                ) as authorized_response_info:
-                    page.locator('[data-testid="mission-execute"]').click()
-                authorized_response = authorized_response_info.value
-            session_view_response = session_view_info.value
-            session_view_payload = session_view_response.json()
+                lambda response: response.request.method == "POST"
+                and urlparse(response.url).path.endswith("/execute")
+            ) as authorized_response_info:
+                page.locator('[data-testid="mission-execute"]').click()
+            authorized_response = authorized_response_info.value
+            # The surface settles its own view after the execute request returns;
+            # wait for the rendered state before reading the canonical view so the
+            # read below cannot observe a pre-execute poll.
+            page.wait_for_function(
+                """() => (document.querySelector('[data-testid="mission-session-meta"]')?.innerText || '')
+                    .includes('READY_FOR_REVIEW')""",
+                timeout=20_000,
+            )
+            # Preserve the complete read result: the HTTP status is part of the
+            # contract and must be asserted before the body is extracted. A
+            # non-200 body can still carry the expected JSON keys, so reading
+            # the body first would let a 401/500 pass as a valid view.
+            session_view_read = _read_canonical_session_view(page, session_id)
+            status_failure = _canonical_session_view_status_failure(session_view_read)
+            if status_failure:
+                failures.append(status_failure)
+            session_view_payload = session_view_read.get("body") or {}
             session_view_session = session_view_payload.get("session", {})
             session_view_runs = session_view_payload.get("runs", [])
             session_view_evidence = session_view_payload.get("evidence", [])
             session_view_events = session_view_payload.get("events", [])
-            if session_view_response.status != 200:
-                failures.append(f"canonical session-view read returned HTTP {session_view_response.status}")
             if session_view_session.get("state") != "READY_FOR_REVIEW":
                 failures.append(f"canonical session view did not reach READY_FOR_REVIEW: {session_view_session.get('state')}")
             if not session_view_runs or session_view_runs[-1].get("state") != "VERIFYING":

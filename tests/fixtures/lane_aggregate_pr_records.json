@@ -1,0 +1,91 @@
+{
+ "_provenance": "Real GitHub PR detail records, live GET https://api.github.com/repos/Arkadia-Oversoul-Prism/Arkadia/pulls/{n} on 2026-11-18 (unauthenticated, read-only). Trimmed to the fields the classifier reads plus real context fields; PR body omitted. Values are not invented.",
+ "_shape": "GET /repos/{owner}/{repo}/pulls/{number} (GitHub REST, 2022-11-28)",
+ "records": {
+  "664": {
+   "number": 664,
+   "state": "open",
+   "draft": true,
+   "title": "fix(lab): disclose truncation on bounded lane-4 views",
+   "merged": false,
+   "updated_at": "2026-11-18T13:33:48Z",
+   "labels": [],
+   "head": {
+    "ref": "lane4/truncation-disclosure-01",
+    "sha": "75455e680b978f85e96273435b0d5dc3a7a686c5"
+   },
+   "base": {
+    "ref": "main",
+    "sha": "f9bd8da913fa194d7cff2e53b9c417ddb2a9f43a"
+   }
+  },
+  "665": {
+   "number": 665,
+   "state": "open",
+   "draft": true,
+   "title": "test(lane1): bind the document-title writer sweep to its detector",
+   "merged": false,
+   "updated_at": "2026-11-18T09:33:40Z",
+   "labels": [],
+   "head": {
+    "ref": "lane1/title-writer-detector-binding-01",
+    "sha": "fe9701653155870261833bbea0ce1a46630a9a78"
+   },
+   "base": {
+    "ref": "main",
+    "sha": "f9bd8da913fa194d7cff2e53b9c417ddb2a9f43a"
+   }
+  },
+  "666": {
+   "number": 666,
+   "state": "open",
+   "draft": true,
+   "title": "fix(lane2): state an entry's evidence records, not only its status sentinel",
+   "merged": false,
+   "updated_at": "2026-11-18T09:33:41Z",
+   "labels": [],
+   "head": {
+    "ref": "lane2/evidence-record-disclosure-01",
+    "sha": "2327e3b969e742337fea027126d887b823676ed3"
+   },
+   "base": {
+    "ref": "main",
+    "sha": "f9bd8da913fa194d7cff2e53b9c417ddb2a9f43a"
+   }
+  },
+  "667": {
+   "number": 667,
+   "state": "open",
+   "draft": true,
+   "title": "Lane 3: disclose the knowledge-graph row cap",
+   "merged": false,
+   "updated_at": "2026-11-18T09:33:42Z",
+   "labels": [],
+   "head": {
+    "ref": "lane3/graph-row-cap-disclosure-01",
+    "sha": "31835b1641c446774aef049073b2598a69312c82"
+   },
+   "base": {
+    "ref": "main",
+    "sha": "f9bd8da913fa194d7cff2e53b9c417ddb2a9f43a"
+   }
+  },
+  "668": {
+   "number": 668,
+   "state": "open",
+   "draft": true,
+   "title": "integration: EWOR evidence baseline for #663\u2013#667",
+   "merged": false,
+   "updated_at": "2026-11-18T13:58:58Z",
+   "labels": [],
+   "head": {
+    "ref": "integration/ewor-evidence-baseline-2026-11-18",
+    "sha": "0fdf4ca8197b7021cb5d4bc0d36de73ff37fd70c"
+   },
+   "base": {
+    "ref": "main",
+    "sha": "f9bd8da913fa194d7cff2e53b9c417ddb2a9f43a"
+   }
+  }
+ }
+}

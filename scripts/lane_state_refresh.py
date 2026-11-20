@@ -40,6 +40,19 @@ REPO = Path(__file__).resolve().parents[1]
 LANE_DIR = REPO / "docs" / "control-plane" / "parallel-ui"
 LANE_STATE = LANE_DIR / "lane-state.json"
 
+# Explicit, auditable aggregate-PR classification. An *aggregate* PR composes
+# other PRs' contributions (an integration/evidence baseline) and therefore
+# touches paths owned by several lanes without taking ownership of any of them.
+# Path ownership alone cannot tell that apart from genuine multi-lane work, so
+# the distinction is declared here as data rather than inferred from a title
+# substring or a branch-name convention -- both of which would silently
+# misclassify a real multi-lane implementation PR.
+#
+# This file is the single source of truth. It is version-controlled, so every
+# classification decision is reviewable in the same diff as the code that reads
+# it, and no PR number is hardcoded in classifier logic.
+AGGREGATE_CONFIG = LANE_DIR / "aggregate-prs.json"
+
 API = "https://api.github.com"
 DEFAULT_REPO = "Arkadia-Oversoul-Prism/Arkadia"
 
@@ -181,6 +194,91 @@ def lanes_for(changed: list[str]) -> list[str]:
     return sorted(matched)
 
 
+# --------------------------------------------------------------- aggregate PRs
+#
+# Classification contract
+# -----------------------
+# A PR is classified into exactly one of three kinds:
+#
+#   AGGREGATE   declared in ``aggregate-prs.json``. It composes other PRs'
+#               contributions. It is recorded in ``aggregate_prs`` (an explicit,
+#               auditable collection) and is EXCLUDED from every lane's
+#               ``open_prs`` and from ``active_pr`` selection. It is never
+#               dropped: it stays visible in the snapshot and in the evidence
+#               record.
+#   LANE        not declared aggregate, and its changed paths match at least one
+#               lane's exclusive ownership. Recorded in each matching lane --
+#               including a genuine multi-lane PR, which appears in every lane it
+#               touches. This is the pre-existing behaviour, preserved.
+#   UNASSIGNED  not declared aggregate, and matches no lane. Recorded under
+#               ``unassigned_open_prs``.
+#
+# Why not infer it: a title substring ("integration:") or a branch prefix
+# ("integration/") would classify a genuine multi-lane implementation PR as
+# aggregate and silently strip it from lane ownership. The declaration is
+# therefore explicit data, and the classifier reads only that.
+#
+# Failure behaviour (fail closed, never silently "ordinary"):
+#   * config file absent            -> no PR is aggregate; every PR is classified
+#                                      by path ownership as before, and the
+#                                      snapshot records ``aggregate_config``
+#                                      status ``absent`` so the omission is
+#                                      visible rather than assumed.
+#   * config unreadable / malformed -> the refresh ABORTS (exit 2). It does not
+#                                      fall back to "nothing is aggregate",
+#                                      because that fallback would silently
+#                                      re-admit an aggregate PR as a lane owner
+#                                      -- the exact defect being repaired.
+#   * a declared number not open    -> recorded in ``aggregate_prs`` with
+#                                      ``state: "not_open"`` so a stale
+#                                      declaration is visible, not silent.
+#   * a declared number that is also a genuine lane PR -> still aggregate: the
+#                                      declaration wins, and the snapshot records
+#                                      the overlap under ``aggregate_prs`` so a
+#                                      reviewer can see the conflict.
+
+
+class AggregateConfigError(RuntimeError):
+    """The aggregate classification config exists but cannot be trusted."""
+
+
+def load_aggregate_config(path: Path | None = None) -> dict:
+    """Read the explicit aggregate-PR declaration.
+
+    Returns ``{"status": ..., "numbers": set[int], "entries": [...]}``. A missing
+    file is a *reported* state, not an error: a repository that has never needed
+    an aggregate PR should not be forced to create the file. A file that exists
+    but cannot be parsed is an error, because the only safe reading of "I cannot
+    tell which PRs are aggregate" is to stop, not to assume none are.
+    """
+    target = AGGREGATE_CONFIG if path is None else path
+    if not target.exists():
+        return {"status": "absent", "numbers": set(), "entries": []}
+    try:
+        raw = json.loads(target.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise AggregateConfigError(
+            f"aggregate classification config {target} is unreadable: {exc}"
+        ) from exc
+    if not isinstance(raw, dict) or not isinstance(raw.get("aggregate_prs"), list):
+        raise AggregateConfigError(
+            f"aggregate classification config {target} must be an object with an "
+            f"'aggregate_prs' list"
+        )
+    numbers: set[int] = set()
+    entries: list[dict] = []
+    for item in raw["aggregate_prs"]:
+        if not isinstance(item, dict) or not isinstance(item.get("number"), int):
+            raise AggregateConfigError(
+                f"aggregate classification config {target}: every entry needs an "
+                f"integer 'number', got {item!r}"
+            )
+        numbers.add(item["number"])
+        entries.append(dict(item))
+    return {"status": "present", "numbers": numbers, "entries": entries}
+
+
+
 def _active_thread(open_prs: list[dict]) -> tuple[int | None, str | None]:
     """The lane PR its instruction doc should name, chosen by a stated rule.
 
@@ -206,7 +304,11 @@ def _active_thread(open_prs: list[dict]) -> tuple[int | None, str | None]:
 
 
 def build(
-    open_prs: list[dict], files: dict[int, list[str]], base_main: str, repo: str
+    open_prs: list[dict],
+    files: dict[int, list[str]],
+    base_main: str,
+    repo: str,
+    aggregate: dict | None = None,
 ) -> dict:
     lanes: dict[str, dict] = {
         lane_no: {
@@ -221,7 +323,11 @@ def build(
         for lane_no, spec in LANE_OWNERSHIP.items()
     }
 
+    aggregate = aggregate or {"status": "absent", "numbers": set(), "entries": []}
+    aggregate_numbers: set[int] = set(aggregate.get("numbers") or set())
+
     unassigned: list[dict] = []
+    aggregate_prs: list[dict] = []
     for pr in open_prs:
         number = pr["number"]
         changed = files.get(number, [])
@@ -234,6 +340,30 @@ def build(
             "title": pr["title"],
         }
         matched = lanes_for(changed)
+
+        if number in aggregate_numbers:
+            # Declared aggregate: recorded in its own auditable collection and
+            # excluded from lane ownership and active-thread selection. It is
+            # NOT dropped -- ``lanes_touched`` keeps the fact that its diff spans
+            # those lanes visible to a reviewer, which is the whole reason it
+            # used to be misclassified as their owner.
+            aggregate_prs.append(
+                {
+                    **entry,
+                    "classification": "aggregate",
+                    "lanes_touched": matched,
+                    "reason": next(
+                        (
+                            e.get("reason")
+                            for e in aggregate.get("entries", [])
+                            if e.get("number") == number
+                        ),
+                        None,
+                    ),
+                }
+            )
+            continue
+
         if not matched:
             unassigned.append(entry)
             continue
@@ -245,6 +375,22 @@ def build(
                 # name a thread that never touches the doc -- a permanent
                 # exemption dressed up as ownership.
                 lanes[lane_no]["deferred_to_pr"] = number
+
+    # A declared aggregate PR that is no longer open is recorded as such, so a
+    # stale declaration is visible instead of silently inert.
+    open_numbers = {pr["number"] for pr in open_prs}
+    for declared in aggregate.get("entries", []):
+        if declared["number"] not in open_numbers:
+            aggregate_prs.append(
+                {
+                    "number": declared["number"],
+                    "classification": "aggregate",
+                    "state": "not_open",
+                    "reason": declared.get("reason"),
+                }
+            )
+    aggregate_prs.sort(key=lambda p: p["number"])
+
 
     # Disposition, in the vocabulary the guard accepts (``current``/``deferred``/
     # ``idle``). A lane with a live thread is judged; a lane whose doc is being
@@ -286,6 +432,12 @@ def build(
             "open. Refresh with scripts/lane_state_refresh.py --write."
         ),
         "lanes": lanes,
+        "aggregate_prs": aggregate_prs,
+        "aggregate_config": {
+            "status": aggregate.get("status", "absent"),
+            "source": str(AGGREGATE_CONFIG.relative_to(REPO)),
+            "declared": sorted(aggregate_numbers),
+        },
         "unassigned_open_prs": sorted(unassigned, key=lambda p: p["number"]),
     }
 
@@ -373,8 +525,15 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     existing = json.loads(LANE_STATE.read_text(encoding="utf-8"))
+    try:
+        aggregate = load_aggregate_config()
+    except AggregateConfigError as exc:
+        # Fail closed. Falling back to "nothing is aggregate" would silently
+        # re-admit an aggregate PR as a lane owner -- the defect being repaired.
+        print(f"aggregate classification unavailable: {exc}", file=sys.stderr)
+        return 2
     open_prs, files = fetch_all(token, args.repo)
-    state = build(open_prs, files, base_main, args.repo)
+    state = build(open_prs, files, base_main, args.repo, aggregate=aggregate)
     merged, closed = merge_history(existing, open_prs, token, args.repo)
     for lane_no, entries in merged.items():
         if lane_no in state["lanes"]:
@@ -388,6 +547,11 @@ def main(argv: list[str] | None = None) -> int:
             f"merged={[e['number'] for e in lane['merged_prs']]}"
         )
     print(f"unassigned open PRs: {[p['number'] for p in state['unassigned_open_prs']]}")
+    print(
+        f"aggregate PRs (excluded from lane ownership): "
+        f"{[p['number'] for p in state['aggregate_prs']]} "
+        f"(config: {state['aggregate_config']['status']})"
+    )
     print(f"closed unmerged: {[e['number'] for e in closed]}")
 
     rendered = json.dumps(state, indent=1, sort_keys=False) + "\n"
