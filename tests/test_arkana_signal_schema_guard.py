@@ -162,7 +162,20 @@ def _errors(instance) -> list[tuple[str, str]]:
 
 
 def _iter_schema_keywords(node):
-    """Yield every keyword name used anywhere in the schema."""
+    """Yield every keyword name used anywhere in the schema.
+
+    This is a *generator*, so it has a silent-pass failure mode that an
+    ordinary helper does not: any body that yields nothing — ``return []``,
+    ``return iter(())``, an early return — makes
+    ``test_the_stdlib_validator_covers_every_keyword_the_schema_uses`` compare
+    an **empty** set against ``_SUPPORTED_KEYWORDS`` and pass while judging
+    nothing. Measured at ``main`` ``4b91c2f4`` by replacing the body with
+    ``return []``: 11 passed, including the coverage node. That is the same
+    vacuity the module docstring says the node exists to prevent, one level
+    down: the node could be disarmed by disarming its extractor.
+
+    ``test_the_keyword_extractor_is_bound_in_both_polarities`` binds it.
+    """
     if isinstance(node, dict):
         for key, value in node.items():
             if key in ("properties", "$defs"):
@@ -206,6 +219,45 @@ def test_the_stdlib_validator_covers_every_keyword_the_schema_uses():
     assert not unsupported, (
         f"the schema uses keywords this stdlib validator ignores: {sorted(unsupported)}; "
         "extend the validator or the pin would pass vacuously"
+    )
+
+
+def test_the_keyword_extractor_is_bound_in_both_polarities():
+    """The coverage node above is only a guard while its extractor reports.
+
+    Both polarities, because they fail differently. A dead extractor (positive
+    side) makes the coverage assertion compare an empty set and pass. An
+    over-eager extractor that reports property *names* as keywords (negative
+    side) would make the coverage node report keywords the schema never uses,
+    which is a false alarm rather than a silent pass — and is exactly what the
+    ``properties``/``$defs`` special case in the extractor exists to prevent.
+    """
+    # Positive: a nested keyword is reached, and a name under `properties` is
+    # not mistaken for a keyword.
+    reported = set(
+        _iter_schema_keywords(
+            {
+                "type": "object",
+                "properties": {"type": {"type": "string"}, "minimum": {"type": "number"}},
+                "$defs": {"inner": {"maxLength": 3}},
+            }
+        )
+    )
+    assert reported, "the extractor yielded nothing; the coverage node would pass vacuously"
+    assert "type" in reported, "the extractor missed a top-level keyword"
+    assert "maxLength" in reported, "the extractor did not descend into $defs"
+    assert "minimum" not in reported, (
+        "the extractor reported a property NAME as a keyword; "
+        "the properties/$defs name-map special case is broken"
+    )
+
+    # The real schema must report a non-trivial keyword set through the same
+    # call the coverage node makes.
+    live = set(_iter_schema_keywords(_load_schema()))
+    assert len(live) >= 5, f"the live schema reported only {sorted(live)}"
+    assert live <= _SUPPORTED_KEYWORDS, (
+        "the live schema reports keywords outside the supported subset: "
+        f"{sorted(live - _SUPPORTED_KEYWORDS)}"
     )
 
 
