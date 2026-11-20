@@ -9,6 +9,7 @@ import {
   canAdvance,
   entryFacts,
   entryPathFromBoard,
+  evidenceReading,
   fact,
   parseEntryResponse,
   statusColumns,
@@ -196,8 +197,18 @@ export function ProjectOpportunityRadar({ readPath }: { readPath: string }) {
                         .filter((value) => value !== UNVERIFIED)
                         .join(" · ") || "Location, commodity and buyer type not yet recorded"}
                     </p>
-                    <p className="mt-2 font-mono text-[10px] uppercase tracking-wider text-white/35">
-                      Evidence: {entry.evidence_status ?? "not reported"}
+                    {/* The evidence reading. `evidence_status` is a sentinel
+                        (`NONE`) and the handler accepts `evidence` records
+                        independently of it, so an entry can carry evidence while
+                        the status still reads `NONE` — rendering the status alone
+                        stated "NONE" over a board that holds evidence. The reading
+                        names both the handler's status and its record count, and
+                        claims the sentinel only when the entry carries neither. */}
+                    <p
+                      className="mt-2 font-mono text-[10px] uppercase tracking-wider text-white/35"
+                      data-testid={`opportunity-entry-evidence-${entry.id}`}
+                    >
+                      Evidence: {evidenceReading(entry).label}
                     </p>
                     {/* The captured reconnaissance grid — every descriptive and
                         commercial field the handler declares, each rendered through

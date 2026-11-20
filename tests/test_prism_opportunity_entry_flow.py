@@ -551,6 +551,19 @@ const withEvidence = { ...entry, id: "e5", evidence_status: "FIELD_VISIT" };
 out.summary_evidence = m.summarize([entry, withEvidence]);
 out.summary_evidence_none_only = m.summarize([entry, settled]).withEvidence;
 
+// The per-entry evidence reading. `evidence_status` is a sentinel and the PATCH
+// handler accepts `evidence` records independently of it, so the status alone can
+// state NONE over an entry that carries evidence. The reading must name both the
+// handler's status and its own record count.
+out.evidence_none_only = m.evidenceReading(entry);
+out.evidence_status_only = m.evidenceReading(withEvidence);
+out.evidence_records_under_sentinel = m.evidenceReading({
+  ...entry, id: "e6", evidence_status: "NONE", evidence: [{ kind: "quote" }, { kind: "invoice" }],
+});
+out.evidence_records_and_status = m.evidenceReading({
+  ...entry, id: "e7", evidence_status: "FIELD_VISIT", evidence: [{ kind: "quote" }],
+});
+
 // The per-entry ADVANCE step: one status forward, never past the ceiling.
 out.advance_from_uncontacted = m.advanceBody("UNCONTACTED");
 out.advance_from_requirement = m.advanceBody("REQUIREMENT_CAPTURED");
@@ -1565,3 +1578,71 @@ def test_surface_renders_a_recorded_note_gated_on_its_presence():
     assert "opportunity-entry-notes-" in surface, "the note must be identifiable per entry"
     # It reads the field off the entry the board read returned, not a re-typed copy.
     assert "{entry.notes}" in surface
+
+
+# ---------------------------------------------------------------------------
+# Evidence records — the entry's own evidence list, not only its sentinel
+# ---------------------------------------------------------------------------
+
+
+def test_evidence_reading_states_the_record_count_the_handler_returns(contract_probe):
+    """An entry carrying evidence must not read as the `NONE` sentinel alone.
+
+    `BuyerReconEntryPatch` accepts `evidence` independently of `evidence_status`,
+    so an entry can hold records while its status still reads `NONE` — verified
+    against the live handler by `test_edit_populates_evidence_on_an_entry_that_had_none`.
+    A surface that rendered the sentinel alone stated "Evidence: NONE" over a
+    board that holds evidence.
+    """
+    records_only = contract_probe["evidence_records_under_sentinel"]
+    assert records_only["status"] == "NONE"
+    assert records_only["records"] == 2
+    assert records_only["recorded"] is True
+    assert "NONE" in records_only["label"]
+    assert "2 records" in records_only["label"], "the handler's own count must be stated"
+
+
+def test_evidence_reading_claims_the_sentinel_only_when_the_entry_carries_none(contract_probe):
+    """An entry with neither a status nor records still reads the sentinel."""
+    none_only = contract_probe["evidence_none_only"]
+    assert none_only["status"] == "NONE"
+    assert none_only["records"] == 0
+    assert none_only["recorded"] is False
+    assert none_only["label"] == "NONE", "the sentinel is stated verbatim, not decorated"
+
+
+def test_evidence_reading_names_a_status_and_its_records_together(contract_probe):
+    """A status and records are both the handler's values; both must be stated."""
+    both = contract_probe["evidence_records_and_status"]
+    assert both["status"] == "FIELD_VISIT" and both["records"] == 1
+    assert both["recorded"] is True
+    assert "1 record" in both["label"], "a single record must not read as plural"
+    status_only = contract_probe["evidence_status_only"]
+    assert status_only["records"] == 0 and status_only["recorded"] is True
+
+
+def test_negative_control_the_status_only_reading_would_hide_the_records(contract_probe):
+    """Prove the record count is load-bearing, not decorative.
+
+    Under the pre-change render (`entry.evidence_status ?? "not reported"`) the
+    entry carrying two evidence records while its status sits at the sentinel
+    states "NONE" — evidence the board holds, reported as none. The control
+    reconstructs that reading and shows it diverges from the measured one, so a
+    detector that reported the sentinel unconditionally cannot pass.
+    """
+    records_only = contract_probe["evidence_records_under_sentinel"]
+    pre_change_reading = "NONE"  # `evidence_status ?? "not reported"` for this entry
+    assert pre_change_reading != records_only["label"], (
+        "the status-only reading must diverge from the record-aware one"
+    )
+    assert records_only["records"] > 0, "the control entry must actually carry records"
+
+
+def test_surface_reads_evidence_through_the_shared_reading():
+    """The surface renders the reading, not a bare status, and is per-entry identifiable."""
+    surface = SURFACE_TS.read_text(encoding="utf-8")
+    assert "evidenceReading(entry)" in surface, "the surface must read the shared detector"
+    assert "entry.evidence_status ?? \"not reported\"" not in surface, (
+        "the status-only reading is the defect this guard exists to catch"
+    )
+    assert "opportunity-entry-evidence-" in surface, "the reading must be identifiable per entry"
