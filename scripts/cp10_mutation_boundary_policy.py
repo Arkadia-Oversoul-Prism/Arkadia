@@ -156,6 +156,22 @@ LEGIT = re.compile(
     # ordinary commit touching growth/ reddens the CP10 gate. It is a
     # first-class operating-layer source surface, so it is enumerated.
     r"|growth/"
+    # executive_office/ carries the ARKADIA-CHIEF-001 founding scaffold
+    # (identity record, authority policy, broker/control/registry modules,
+    # integration map and runbook), introduced by PR #657. Enumerated in the
+    # same change that introduces the tree: the completeness invariant
+    # (test_allowlist_covers_every_tracked_surface) rejects any tracked surface
+    # this list omits, so the first commit touching executive_office/ would
+    # otherwise redden the CP10 gate. Measured on PR #657's own head: the
+    # delegated judge exits 1 with "Unexpected path outside legitimate
+    # surfaces: executive_office/ARCHITECTURE.md" (17 tracked paths), and
+    # tests/test_m02a_ci_gate_integrity.py is 3 failed / 69 passed, while both
+    # are green on main. The tree is a first-class product surface (the
+    # proposal is inert: lifecycle_status PROPOSED_NOT_COMMISSIONED,
+    # default_effect DENY), not scratch space, so it is enumerated rather than
+    # left to the generic rules. The trailing slash keeps it from
+    # over-admitting lookalike roots such as `executive_office_evil/`.
+    r"|executive_office/"
     # runtime state, archive and asset trees the repository tracks
     r"|data/|archive/|artifacts/|attached_assets/|\"?attached_assets/"
     # vault/ tracks only its scaffold; generated notes stay outside the boundary

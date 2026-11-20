@@ -167,6 +167,18 @@ def _db() -> sqlite3.Connection:
     auth_columns = {row["name"] for row in conn.execute("PRAGMA table_info(ew_authorizations)").fetchall()}
     if "acceptance_id" not in auth_columns:
         conn.execute("ALTER TABLE ew_authorizations ADD COLUMN acceptance_id TEXT")
+    # Gate 1C: an authorization may be issued under an executive delegation, so
+    # that revoking the delegation can withdraw it. Existing rows keep NULL —
+    # they predate the delegation model and are not agent-associated.
+    if "delegation_id" not in auth_columns:
+        conn.execute("ALTER TABLE ew_authorizations ADD COLUMN delegation_id TEXT")
+    # Gate 1C reconciliation: the credential epoch in force when the
+    # authorization was issued. The dispatch guard compares this against the
+    # delegation's *current* epoch, so a suspend/revoke that bumped the epoch
+    # invalidates the authorization even if its own expires_at has not passed
+    # and even if the revocation cascade only partially completed.
+    if "delegation_epoch" not in auth_columns:
+        conn.execute("ALTER TABLE ew_authorizations ADD COLUMN delegation_epoch INTEGER")
     conn.commit()
     return conn
 
@@ -265,6 +277,13 @@ class Authorization:
     expires_at: float | None
     granted_at: float
     correlation_id: str
+    # Gate 1C reconciliation: the executive delegation (if any) this
+    # authorization was issued under. Persisted at creation and read back on
+    # every load, so the Weaver dispatch guard can independently re-read the
+    # delegation and fail closed even if the revocation cascade partially
+    # failed. NULL means the authorization is not agent-associated.
+    delegation_id: str | None = None
+    delegation_epoch: int | None = None
     def to_dict(self): return asdict(self)
 
 @dataclass(frozen=True)
@@ -444,7 +463,9 @@ class EnterpriseOrchestrationStore:
     def authorize(self, *, subject: str, proposal_id: str, authority_event_id: str,
                   scope: Any, constraints: Any, expires_at: float | None = None,
                   acceptance_id: str | None = None,
-                  correlation_id: str | None = None) -> Authorization:
+                  correlation_id: str | None = None,
+                  delegation_id: str | None = None,
+                  delegation_epoch: int | None = None) -> Authorization:
         proposal = self._row("ew_proposals", proposal_id)
         authority = self._row("ew_authority_events", authority_event_id)
         if not proposal or not authority:
@@ -470,14 +491,30 @@ class EnterpriseOrchestrationStore:
                 raise ValueError("authorization scope exceeds accepted scope")
         cid = correlation_id or proposal["correlation_id"]
         rid = _id("auth"); now = _now()
-        row = Authorization(rid, subject, proposal_id, authority_event_id, acceptance_id, scope, constraints, expires_at, now, cid)
+        # Gate 1C reconciliation: when an authorization is issued under an
+        # executive delegation, stamp the delegation's *current* credential
+        # epoch unless the caller supplied one. Without this, a caller that
+        # passed only delegation_id would leave the epoch NULL and the dispatch
+        # guard's supersession check would be silently skipped.
+        if delegation_id and delegation_epoch is None:
+            try:
+                from executive_office.registry import DelegationRegistry
+
+                delegation_epoch = DelegationRegistry().get(str(delegation_id)).credential_epoch
+            except Exception:  # noqa: BLE001
+                # Cannot resolve the delegation: refuse to mint an authorization
+                # that claims a linkage we cannot verify.
+                raise ValueError("delegation could not be resolved for authorization")
+        row = Authorization(rid, subject, proposal_id, authority_event_id, acceptance_id, scope, constraints, expires_at, now, cid, delegation_id, delegation_epoch)
         with _db() as c:
             c.execute("""INSERT INTO ew_authorizations
                          (id, subject, proposal_id, authority_event_id, acceptance_id,
-                          scope, constraints, expires_at, granted_at, correlation_id)
-                         VALUES (?,?,?,?,?,?,?,?,?,?)""",
+                          scope, constraints, expires_at, granted_at, correlation_id,
+                          delegation_id, delegation_epoch)
+                         VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
                       (rid, subject, proposal_id, authority_event_id, acceptance_id,
-                       _json(scope), _json(constraints), expires_at, now, cid))
+                       _json(scope), _json(constraints), expires_at, now, cid,
+                       delegation_id, delegation_epoch))
             c.execute("UPDATE ew_proposals SET status='AUTHORIZED' WHERE id=?", (proposal_id,))
         return row
 
@@ -485,10 +522,16 @@ class EnterpriseOrchestrationStore:
         row = self._row("ew_authorizations", authorization_id)
         if not row or row["subject"] != subject:
             raise ValueError("valid matching authorization required")
+        # `delegation_id` is read back so the dispatch guard can re-read the
+        # linked delegation. Older rows (and rows written before the column
+        # existed) yield None, which is correct: they are not agent-associated.
+        keys = row.keys() if hasattr(row, "keys") else []
+        delegation_id = row["delegation_id"] if "delegation_id" in keys else None
+        delegation_epoch = row["delegation_epoch"] if "delegation_epoch" in keys else None
         return Authorization(
             row["id"], row["subject"], row["proposal_id"], row["authority_event_id"],
             row["acceptance_id"], json.loads(row["scope"]), json.loads(row["constraints"]), row["expires_at"],
-            row["granted_at"], row["correlation_id"],
+            row["granted_at"], row["correlation_id"], delegation_id, delegation_epoch,
         )
 
     def complete_execution_attempt(self, *, subject: str, execution_attempt_id: str,

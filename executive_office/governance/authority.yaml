@@ -1,0 +1,144 @@
+schema_version: "1.0"
+policy_id: "ARK-EXEC-AUTH-001"
+status: "PROPOSED_NOT_ACTIVE"
+version: 1
+principal: "Human Founder"
+subject: "ARKADIA-CHIEF-001"
+default_effect: "DENY"
+human_authority_is_final: true
+agent_may_modify_this_policy: false
+agent_may_grant_or_escalate_its_own_permissions: false
+agent_may_approve_its_own_requests: false
+
+levels:
+  L0_OBSERVE:
+    proposed_capabilities:
+      - inspect_approved_repository_content
+      - read_approved_project_status
+      - collect_public_research
+      - produce_internal_reports
+    default: "ALLOW_AFTER_COMMISSIONING"
+
+  L1_ANALYSE:
+    proposed_capabilities:
+      - compare_options
+      - assess_risk_and_evidence
+      - draft_priorities_and_recommendations
+    default: "ALLOW_AFTER_COMMISSIONING"
+
+  L2_BOUNDED_OPERATIONS:
+    proposed_capabilities:
+      - create_internal_tasks_through_approved_api
+      - update_non_sensitive_internal_documentation
+      - run_tests_in_isolated_environment
+      - prepare_pull_request_branches
+      - open_pull_requests_for_human_review
+    constraints:
+      - "Only through existing Arkadia authorization and execution interfaces."
+      - "No direct push to protected main."
+      - "No secrets access unless separately approved for a specific tool."
+    default: "DENY_UNTIL_EXPLICIT_TOOL_ALLOWLIST"
+
+  L3_SCOPED_EXECUTIVE_DELEGATION:
+    proposed_capabilities:
+      - set_operational_priorities_within_approved_strategy
+      - initiate_reversible_internal_work
+      - coordinate_approved_projects
+      - prepare_business_and_technical_proposals
+      - recommend_resource_allocation_within_approved_limits
+    constraints:
+      - "L3 is a target delegation tier, not an active permission."
+      - "Every capability must be separately enumerated, scoped, and tested."
+      - "Budget, workspace, data, time, and tool boundaries must be explicit."
+      - "No authority to amend this policy or override human decisions."
+    default: "DENY_UNTIL_SIGNED_DELEGATION"
+
+  L4_RESERVED_HUMAN_AUTHORITY:
+    capabilities:
+      - execute_payments_or_move_funds
+      - sign_or_accept_contracts
+      - make_legal_representations
+      - hire_or_terminate_people
+      - change_identity_or_authority_policy
+      - change_credentials_or_security_configuration
+      - merge_protected_production_changes
+      - deploy_or_change_production_infrastructure
+      - disclose_confidential_or_personal_data_externally
+      - make_irreversible_external_commitments
+    default: "HUMAN_ONLY"
+
+enforcement:
+  authentication_is_not_authorization: true
+  capability_is_not_authority: true
+  approval_is_not_execution: true
+  execution_is_not_completion: true
+  unknown_or_stale_policy_means_deny: true
+  every consequential_action_requires_audit_event: true
+  approval_must_bind_to_subject_tool_payload_and_policy_version: true
+  approval_must_be_independent_of_requester: true
+  revocation_must_be_supported: true
+  credential_expiry_and_rotation_required: true
+  emergency_kill_switch_required: true
+
+commissioning_requirements:
+  - human_approval_of_this_exact_policy_version
+  - reviewed_tool_allowlist
+  - verified_subject_identity
+  - durable_audit_and_decision_records
+  - tested_revocation_and_expiry
+  - negative_tests_for_all_reserved_actions
+  - recovery_test_after_runtime_restart
+  - documented_operational_owner_and_escalation_path
+
+# Identity, workspace and revocation contract
+identity_access_contract: "../IDENTITY_ACCESS_AND_REVOCATION.md"
+principal_type: "machine_service"
+authentication:
+  issuer: "Dedicated Arkadia Executive Identity Broker"
+  audience: "arkadia-executive-api"
+  token_max_ttl_seconds: 300
+  firebase_user_impersonation: false
+  broker_signing_key_accessible_to_agent: false
+  live_delegation_check_per_request: true
+  live_delegation_check_before_execution: true
+
+workspace_access:
+  default: "DENY"
+  owner: "Founder UID derived only from verified Firebase session at commissioning"
+  workspace: "One exact existing canonical SolSpire workspace ID"
+  agent_may_select_owner_or_workspace: false
+  agent_may_create_workspace_to_gain_access: false
+  initial_project_scope: "Explicit project/workload IDs only"
+  initial_record_scope:
+    - "approved Arkadia repository paths, read-only"
+    - "approved project/workload metadata"
+    - "Founder-workspace proposals and feedback"
+    - "Founder-workspace WorkEvents"
+    - "Founder-workspace operational and authorization metadata, redacted"
+    - "curated organizational Knowledge OS collection only"
+  denied_record_scope:
+    - "private conversations and chat transcripts"
+    - "personal Codex and personal profile files"
+    - "unselected Founder-owned notes"
+    - "credentials, API keys, tokens, environment variables and secrets"
+    - "personal, family, health and financial records"
+    - "other users' workspaces or records"
+
+revocation:
+  durable_delegation_registry_required: true
+  append_only_delegation_events_required: true
+  credential_epoch_required: true
+  disable_broker_issuance_on_revoke: true
+  invalidate_outstanding_authorizations_on_revoke: true
+  cancel_queued_work_on_revoke: true
+  fail_closed_if_registry_unavailable: true
+  agent_may_revoke_or_reactivate_own_delegation: false
+  terminal_revocation_requires_new_delegation_to_reactivate: true
+
+commissioning_blockers:
+  - "Identity broker and workload authentication mechanism implemented and reviewed"
+  - "Founder owner UID and exact existing workspace bound by authenticated commissioning"
+  - "Durable delegation registry, audit history and credential epoch implemented"
+  - "Curated Knowledge OS data boundary implemented; broad owner-UID retrieval prohibited"
+  - "Enterprise Authorization expiry and revocation enforced at Weaver dispatch"
+  - "Negative access-control and revocation tests pass"

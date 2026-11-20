@@ -43,6 +43,21 @@ class ToolError(RuntimeError):
     """Raised when a tool call cannot be honoured (never silently swallowed)."""
 
 
+class ToolDenied(ToolError):
+    """Raised when the dispatch guard refuses a tool call.
+
+    Deliberately distinct from an ordinary ``ToolError``. An ordinary tool
+    error is fed back to the model as an observation so it can adjust; a
+    *denial* is terminal for the run. Withdrawn authority must stop execution,
+    not steer it — offering the model a retry against a revoked delegation
+    would turn a refusal into a negotiation.
+    """
+
+    def __init__(self, message: str, *, tool_name: str = "") -> None:
+        super().__init__(message)
+        self.tool_name = tool_name
+
+
 def _specs() -> dict[str, ToolSpec]:
     return {
         "filesystem.list": ToolSpec(
@@ -112,9 +127,15 @@ class ToolRegistry:
     run was not granted is reported as ``denied``, not executed.
     """
 
-    def __init__(self, sandbox: Sandbox, granted: tuple[str, ...] | None = None) -> None:
+    def __init__(
+        self,
+        sandbox: Sandbox,
+        granted: tuple[str, ...] | None = None,
+        dispatch_guard: Callable[[str], None] | None = None,
+    ) -> None:
         self._sandbox = sandbox
         self._granted = set(granted) if granted is not None else None
+        self._dispatch_guard = dispatch_guard
         self._specs = _specs()
 
     def available(self) -> list[dict[str, Any]]:
@@ -135,6 +156,28 @@ class ToolRegistry:
         Errors are returned as ``{"ok": False, "error": ...}`` so the loop can
         feed the failure back to the model rather than crashing the run.
         """
+        # ── the last responsible boundary ──────────────────────────────
+        # Runs before every other branch: before the unknown-tool check, before
+        # the grant check, before the sandbox is touched. This is the point a
+        # tool is actually invoked, so the executive-delegation contract
+        # (status / expiry / credential epoch / revocation) is re-read *here,
+        # per call* — not once when the tool list was derived. A delegation
+        # revoked between two turns of the same run is therefore caught at the
+        # next invocation rather than being frozen into the envelope at start.
+        #
+        # Fail-closed twice over: a guard that raises denies, and a guard that
+        # itself fails *also* denies. An unverifiable authority is never
+        # treated as permission.
+        if self._dispatch_guard is not None:
+            try:
+                self._dispatch_guard(name)
+            except ToolDenied:
+                raise
+            except Exception as exc:  # noqa: BLE001 - any guard failure denies
+                raise ToolDenied(
+                    f"tool '{name}' denied: {exc}", tool_name=name
+                ) from exc
+
         spec = self._specs.get(name)
         if spec is None:
             return {"tool": name, "ok": False, "error": f"unknown tool '{name}'"}

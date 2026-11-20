@@ -594,6 +594,70 @@ def test_delegated_verdict_admits_google_workspace_and_rejects_lookalikes():
         assert rc != 0, f"{path} must stay outside the boundary"
 
 
+# ---------------------------------------------------------------------------
+# `executive_office/` is the ARKADIA-CHIEF-001 founding scaffold (identity
+# record, authority policy, broker/control/registry modules, integration map,
+# runbook), introduced by PR #657. The allowlist omitted it, so three fitness
+# tests were red on that branch's head and the next ordinary commit touching
+# the tree would have failed CP10. The omission landed silently because the
+# gate is path-filtered and #657 touches no path in this gate's filter, so the
+# completeness invariant never executed at that revision. It is pinned here so
+# a future removal of the entry reddens the same change that removes it.
+# ---------------------------------------------------------------------------
+_EXECUTIVE_OFFICE_CHANGESET = [
+    "executive_office/README.md",
+    "executive_office/ARCHITECTURE.md",
+    "executive_office/CHARTER.md",
+    "executive_office/IMPLEMENTATION_PLAN.md",
+    "executive_office/INTEGRATION_MAP.md",
+    "executive_office/RUNBOOK.md",
+    "executive_office/IDENTITY_ACCESS_AND_REVOCATION.md",
+    "executive_office/__init__.py",
+    "executive_office/broker.py",
+    "executive_office/control.py",
+    "executive_office/knowledge_access.py",
+    "executive_office/policy.py",
+    "executive_office/registry.py",
+    "executive_office/revocation.py",
+    "executive_office/tokens.py",
+    "executive_office/governance/authority.yaml",
+    "executive_office/identity/identity.yaml",
+]
+
+
+def test_executive_office_surface_is_legitimate():
+    ok, msg = evaluate_changed_paths(["executive_office/ARCHITECTURE.md"])
+    assert ok is True, msg
+
+
+def test_shipped_executive_office_changeset_passes_policy():
+    """The exact change set PR #657 ships must pass the gate it runs under."""
+    ok, msg = evaluate_changed_paths(_EXECUTIVE_OFFICE_CHANGESET)
+    assert ok is True, msg
+
+
+def test_executive_office_admission_is_not_overbroad():
+    """Admitting the tree must not admit its prefix lookalikes or unknown roots."""
+    for path in (
+        "executive_office_evil/x.py",
+        "executive_officex/README.md",
+        "executiveoffice/broker.py",
+        ".executive_office/x.py",
+    ):
+        ok, msg = evaluate_changed_paths([path])
+        assert ok is False, f"{path} should still be rejected ({msg})"
+
+
+def test_delegated_verdict_admits_executive_office_and_rejects_lookalikes():
+    """The CLI the workflow executes must reach the same verdict as the API."""
+    for path in _EXECUTIVE_OFFICE_CHANGESET:
+        rc, out = _run_judge(path)
+        assert rc == 0, f"{path} must be admitted by the delegated judge: {out}"
+    for path in ("executive_office_evil/x.py", "executive_officex/README.md"):
+        rc, out = _run_judge(path)
+        assert rc != 0, f"{path} must stay outside the boundary"
+
+
 def test_allowlist_admits_every_tracked_top_level_prefix():
     """A tracked prefix the allowlist omits reddens main on the next real commit."""
     # `vault/` is tracked only as scaffold and is deliberately outside the

@@ -19,6 +19,10 @@ from __future__ import annotations
 from typing import Any
 
 from lab.engineering_lab.sandbox import Sandbox, SandboxPolicy
+from weaver.authorization_revocation import (
+    AuthorizationRevocationStore,
+    assert_dispatchable,
+)
 from weaver.enterprise_orchestration import EnterpriseOrchestrationStore
 
 READ_ONLY_TOOLS = frozenset({
@@ -33,9 +37,21 @@ READ_ONLY_TOOLS = frozenset({
 class WeaverConsoleAdapter:
     """Dispatch one already-authorized Console action through Weaver."""
 
-    def __init__(self, *, store: EnterpriseOrchestrationStore, repo_root: str = "."):
+    def __init__(
+        self,
+        *,
+        store: EnterpriseOrchestrationStore,
+        repo_root: str = ".",
+        revocations: AuthorizationRevocationStore | None = None,
+        registry: Any | None = None,
+    ):
         self.store = store
         self.repo_root = repo_root
+        self.revocations = revocations or AuthorizationRevocationStore()
+        # Gate 1C reconciliation: the delegation registry the dispatch guard
+        # re-reads for agent-associated authorizations. Left None, the guard
+        # constructs the default registry itself.
+        self.registry = registry
 
     def _sandbox(self, *, root: str) -> Sandbox:
         return Sandbox(
@@ -84,6 +100,26 @@ class WeaverConsoleAdapter:
 
         sandbox = self._sandbox(root=authorized_root)
         try:
+            # ── Final revocation gate (Gate 1C) ──────────────────────────────
+            # Runs at the last responsible boundary, immediately before the
+            # sandbox executes. An authorization that has not expired is still
+            # refused if a durable revocation exists, so revoking a delegation
+            # cannot leave an outstanding authorization usable. For an
+            # authorization linked to an executive delegation the guard also
+            # re-reads the delegation itself, so a partially-failed revocation
+            # cascade cannot leave a live path.
+            #
+            # Deliberately INSIDE the try: a denial here is a PermissionError,
+            # and the `except PermissionError` branch below is what records the
+            # attempt as BLOCKED. Called outside the try, the denial escaped
+            # before the attempt was ever marked, stranding it in ATTEMPTED —
+            # a terminal-looking state that no later step would correct.
+            assert_dispatchable(
+                authorization=auth,
+                revocations=self.revocations,
+                registry=self.registry,
+            )
+
             if tool == "filesystem.read":
                 target = str(request_payload.get("path") or "")
                 if not target:

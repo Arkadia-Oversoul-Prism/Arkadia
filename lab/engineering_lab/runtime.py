@@ -242,6 +242,28 @@ def _capability_operations(capabilities: tuple[str, ...]) -> set[str]:
     return ops
 
 
+#: Inverse of OPERATION_TOOLS: which authorized operation a tool belongs to.
+#: Built from the same mapping so the two directions cannot disagree — adding a
+#: tool to OPERATION_TOOLS automatically gives the per-call dispatch guard the
+#: operation to authorize.
+TOOL_OPERATIONS: dict[str, str] = {
+    tool: operation
+    for operation, tools in OPERATION_TOOLS.items()
+    for tool in tools
+}
+
+
+def _tool_operation_kind(tool_name: str) -> str | None:
+    """The authorization operation a tool call requires, or None if unknown.
+
+    ``None`` means the name is not a registered tool, so no execution can occur
+    and there is nothing to authorize. Every *real* tool resolves to an
+    operation, which is what makes the per-call guard total: there is no tool
+    the loop can invoke that the guard has no opinion about.
+    """
+    return TOOL_OPERATIONS.get(tool_name)
+
+
 def effective_tools(
     *,
     capabilities: tuple[str, ...],
@@ -381,12 +403,20 @@ class EngineeringLabRuntime:
         duration_minutes: int = 60,
         merge: bool = False,
         production: bool = False,
+        delegation_id: str | None = None,
+        delegation_epoch: int | None = None,
     ) -> dict[str, Any]:
         """Record a human-originated authorization for a bounded scope.
 
         The substrate cannot originate authority; ``originated_by`` is fixed to
         ``human`` and the store rejects anything else. Merge and production are
         human-only and are recorded as prohibited.
+
+        ``delegation_id`` / ``delegation_epoch`` link the grant to an executive
+        delegation (Gate 2). When present, the dispatch gate re-reads that
+        delegation and refuses if it is revoked, suspended, expired, missing or
+        superseded — the same contract Weaver enforces. When absent the grant is
+        a plain human authorization and the delegation check is a no-op.
         """
         record = {
             "authorization_id": f"AUTH-{uuid.uuid4().hex[:12]}",
@@ -398,6 +428,8 @@ class EngineeringLabRuntime:
             "production": False if not production else "PROHIBITED_TO_SUBSTRATE",
             "merge_prohibited": True,
             "production_prohibited": True,
+            "delegation_id": delegation_id,
+            "delegation_epoch": delegation_epoch,
             "created_at": utc_now(),
         }
         return self._store.record_authorization(record, subject_ref)
@@ -700,7 +732,16 @@ class EngineeringLabRuntime:
                    {"objective": objective, "provider": provider,
                     "effective_tools": list(effective)}, run_id=run_id)
 
-        registry = ToolRegistry(sandbox, granted=effective)
+        # The loop's tool registry is bound to the delegation-aware dispatch
+        # guard. `granted=effective` bounds *which* tools exist; the guard
+        # decides, at the moment each one is invoked, whether the executive
+        # delegation that authorizes the run still permits it. Both are needed:
+        # the envelope is derived once, but authority can be withdrawn between
+        # two turns of the same run.
+        registry = ToolRegistry(
+            sandbox, granted=effective,
+            dispatch_guard=self._agent_loop_dispatch_guard(session, subject_ref),
+        )
         gateway = get_gateway()
         descriptor = gateway.describe(provider)
         selection = gateway.select(preferred=provider)
@@ -907,7 +948,157 @@ class EngineeringLabRuntime:
                 f"the linked human authorization does not permit "
                 f"'{operation_kind}'; record an authorization that names it"
             )
+        # ── Gate 2: executive delegation contract ────────────────────────────
+        # An authorization linked to an executive delegation is only usable
+        # while that delegation is still serviceable. This is the SAME function
+        # Weaver's dispatch guard calls, so the two routes cannot drift: a
+        # delegation revoked, suspended, expired, missing or superseded refuses
+        # here exactly as it does at the Weaver boundary. A grant with no
+        # delegation_id is a plain human authorization and this is a no-op.
+        #
+        # Runs last, after the grant's own checks, so a refusal names the most
+        # specific reason available.
+        from weaver.authorization_revocation import (
+            AuthorizationRevoked,
+            assert_delegation_dispatchable,
+        )
+
+        try:
+            assert_delegation_dispatchable(
+                delegation_id=authorization.get("delegation_id"),
+                delegation_epoch=authorization.get("delegation_epoch"),
+            )
+        except AuthorizationRevoked as exc:
+            # Re-raised as the Lab's own boundary type so every caller on this
+            # route already handles it (the API maps it to 400/409) and the
+            # refusal is recorded as a refusal, not an unexpected error.
+            raise BoundaryViolation(
+                f"executive delegation no longer permits '{operation_kind}': {exc}"
+            ) from exc
         return operations
+
+    def _agent_loop_dispatch_guard(
+        self, session: dict[str, Any], subject_ref: str
+    ) -> Any:
+        """A per-tool-call gate bound to the agent loop's tool boundary.
+
+        ``_authorization_operations`` derives the tool *envelope* once, before
+        the run starts. That is a start-of-run decision, and on its own it makes
+        authority a snapshot: a delegation revoked after the envelope was
+        computed would still let every remaining turn execute, because nothing
+        re-reads it. Gate 2 closed that window for ``execute_bounded_task`` and
+        the direct ``/n-atlas/run`` route; the native agent loop was the one
+        execution surface still deciding authority exactly once.
+
+        This returns a callable that ``ToolRegistry`` invokes immediately
+        before every tool call. It re-reads the authorization from the store and
+        re-applies the *delegation* contract — status, expiry, credential epoch,
+        revocation — through ``assert_delegation_dispatchable``, the same
+        function Weaver's dispatch guard calls. It also re-checks that the grant
+        itself is still usable, since a grant revoked mid-run must stop the run
+        for the same reason.
+
+        Deliberately *not* re-checked here: the grant's ``scope_ref``. That is
+        an envelope concern settled when the session was authorized, and
+        ``attach_authorization`` refuses to rebind a session once it leaves
+        PROPOSED, so the reference cannot be swapped mid-run. The grant's
+        *operation naming* IS re-checked (Gate 2c): ``el_authorizations`` stores
+        the record as a mutable JSON blob, so ``operations_allowed`` can be
+        narrowed after the envelope was computed, and a withdrawal must take
+        effect on the next tool call rather than the next run. That check only
+        narrows — it can never widen authority.
+
+        Failure is a ``ToolDenied``; the loop ends BLOCKED. Any unexpected
+        error also denies, because an authority that cannot be verified is not
+        an authority that can be used.
+        """
+        from .tools import ToolDenied
+        from weaver.authorization_revocation import (
+            AuthorizationRevoked,
+            assert_delegation_dispatchable,
+        )
+
+        authorization_ref = session.get("authorization_ref")
+
+        def _guard(tool_name: str) -> None:
+            if _tool_operation_kind(tool_name) is None:
+                # Not a known tool: nothing can execute, so there is nothing to
+                # authorize. invoke() reports the unknown tool itself.
+                return
+            try:
+                authorization = (
+                    self._store.get_authorization(authorization_ref, subject_ref)
+                    if authorization_ref
+                    else None
+                )
+                if not authorization:
+                    raise ToolDenied(
+                        f"tool '{tool_name}' denied: no linked authorization",
+                        tool_name=tool_name,
+                    )
+                if not self._authorization_is_usable(authorization):
+                    raise ToolDenied(
+                        f"tool '{tool_name}' denied: authorization is revoked, "
+                        "expired or already consumed",
+                        tool_name=tool_name,
+                    )
+                # ── Gate 2c: the grant's operation naming, re-read per call ──
+                # The envelope derived at start is a *ceiling*, not a licence.
+                # `el_authorizations` stores the record as a mutable JSON blob,
+                # so `operations_allowed` can be narrowed after the envelope was
+                # computed. Without this check a human who withdrew an operation
+                # mid-run would still see the remaining turns execute it — the
+                # withdrawal would only take effect on the *next* run.
+                #
+                # This only ever narrows: a tool already outside the envelope is
+                # refused by `granted` in ToolRegistry, and this refuses a tool
+                # the envelope still lists but the grant no longer names. It
+                # cannot widen authority, so existing human-authorized execution
+                # semantics are preserved, not loosened.
+                operation_kind = _tool_operation_kind(tool_name)
+                permitted = set(authorization.get("operations_allowed") or ())
+                if operation_kind not in permitted:
+                    raise ToolDenied(
+                        f"tool '{tool_name}' denied: the linked human "
+                        f"authorization no longer permits '{operation_kind}'",
+                        tool_name=tool_name,
+                    )
+                assert_delegation_dispatchable(
+                    delegation_id=authorization.get("delegation_id"),
+                    delegation_epoch=authorization.get("delegation_epoch"),
+                )
+            except ToolDenied:
+                raise
+            except AuthorizationRevoked as exc:
+                raise ToolDenied(
+                    f"tool '{tool_name}' denied: executive delegation no longer "
+                    f"permits it: {exc}",
+                    tool_name=tool_name,
+                ) from exc
+            except Exception as exc:  # noqa: BLE001 - unreadable state must deny
+                raise ToolDenied(
+                    f"tool '{tool_name}' denied: authorization could not be "
+                    f"verified ({type(exc).__name__})",
+                    tool_name=tool_name,
+                ) from exc
+
+        return _guard
+
+    def assert_session_dispatchable(
+        self,
+        session: dict[str, Any],
+        subject_ref: str,
+        operation_kind: str,
+    ) -> set[str]:
+        """Public dispatch gate for routes that execute outside ``execute_*``.
+
+        ``/engineering/n-atlas/run`` drives a model call directly rather than
+        going through ``execute_bounded_task``, so it never reached the private
+        gate. This exposes the same check — grant usability, session scoping,
+        operation naming, and the executive delegation contract — so that route
+        is judged by the identical rules instead of a weaker session-state test.
+        """
+        return self._require_authorization_for(session, subject_ref, operation_kind)
 
     def _recheck_authorization_for(
         self,

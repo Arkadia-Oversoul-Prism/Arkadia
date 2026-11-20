@@ -20,7 +20,7 @@ from typing import Any
 
 from .contracts import utc_now
 from .gateway import ModelGateway, ModelUnavailable
-from .tools import ToolRegistry
+from .tools import ToolDenied, ToolRegistry
 
 
 #: Terminal states the loop may stop on. No state implies a later one.
@@ -157,7 +157,24 @@ class AgentLoop:
             emit("TOOL_INTENT", {"turn_index": turn_index, "tool": name,
                                  "arguments": arguments})
 
-            observation = self._tools.invoke(name, arguments)
+            # ── dispatch boundary ────────────────────────────────
+            # A ToolDenied means the dispatch guard refused: the tool did not
+            # run. It is recorded as a turn and emitted as evidence, but it is
+            # never handed back to the model as a retryable observation — a
+            # withdrawn delegation ends the run instead of inviting the model
+            # to route around it with a different tool.
+            try:
+                observation = self._tools.invoke(name, arguments)
+            except ToolDenied as exc:
+                denial = {"tool": name, "ok": False, "denied": True,
+                          "error": str(exc)}
+                turns.append(AgentTurn(turn_index, response.text, name, arguments,
+                                       denial, "DENIED"))
+                emit("TOOL_DENIED", {"turn_index": turn_index, "tool": name,
+                                     "detail": str(exc)})
+                emit("BLOCKED", {"reason": "dispatch_denied", "detail": str(exc)})
+                return LoopResult(state="BLOCKED", turns=turns, reason=str(exc))
+
             emit("TOOL_OBSERVATION", {"turn_index": turn_index, "tool": name,
                                       "ok": observation.get("ok", False)})
 

@@ -297,7 +297,11 @@ def test_c_no_second_registry_construction_can_widen_the_envelope():
         "exactly one ToolRegistry construction is expected in the runtime; a "
         "second site could omit `granted` and widen the loop"
     )
-    assert "ToolRegistry(sandbox, granted=effective)" in source
+    # Strengthened when the delegation-aware dispatch guard was bound at the
+    # tool boundary: the pin now also requires the guard to be passed, so the
+    # single construction site cannot be edited into a guard-less one.
+    assert "granted=effective" in source
+    assert "dispatch_guard=self._agent_loop_dispatch_guard(" in source
 
 
 # ── D. filesystem boundary ───────────────────────────────────────────────────

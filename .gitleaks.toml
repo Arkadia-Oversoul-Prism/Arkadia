@@ -16,4 +16,11 @@ regexes = [
   '''^arkadia[.]ais[.]diagnostic-handoff[.]v1$''',
   '''^arkadia[.]ais[.]capability-portfolio[.]v1$''',
   '''^EXAVITQu4vr4xnSDxMaL$''',
+  # `broker_ed25519_private.pem` is a PEM *filename* the broker composes with
+  # os.path.join to locate its keypair on disk (executive_office/broker.py:71).
+  # It is a path component, not key material: the broker generates the keypair
+  # at runtime via Ed25519PrivateKey.generate() and no key bytes are committed.
+  # Verified on PR #657's head: the range scan reports exactly this one finding,
+  # and `git grep -nE "BEGIN|PRIVATE KEY"` finds no key material in the tree.
+  '''^broker_ed25519_private[.]pem$''',
 ]

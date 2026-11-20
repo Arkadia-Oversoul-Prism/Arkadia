@@ -2580,6 +2580,12 @@ app.include_router(_version_router)
 from api.ceo_chat_routes import router as _ceo_chat_router
 app.include_router(_ceo_chat_router)
 
+# ── Executive Office identity and governance (ARKADIA-CHIEF-001, Gate 1) ─────
+# Founder control routes use human auth; machine routes use broker tokens.
+# Mounted via include_router so this module stays within the architecture budget.
+from api.executive_routes import router as _executive_router
+app.include_router(_executive_router)
+
 # ── Canonical single-origin frontend composition ────────────────────────────
 from api.frontend_routes import configure_frontends
 
