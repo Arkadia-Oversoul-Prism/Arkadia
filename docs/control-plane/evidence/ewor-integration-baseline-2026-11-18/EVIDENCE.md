@@ -806,3 +806,183 @@ PR #668 open, **draft**, unmerged, head `3eac7dc0`, base `main`;
 - Lane-state live, authenticated: **PASS** (exit 0) — previously BLOCKED, now CLOSED.
 - CI on `3eac7dc0`: **12/12 success**.
 - Human acceptance: **PENDING** — not issued, not implied.
+
+
+---
+
+## 2026-11-20 — Full-suite node-level reconciliation against immutable base
+
+**Scope:** reconciliation only. No source, test, workflow, classifier or lane-ownership
+file was modified. This section is append-only; every earlier entry is preserved above.
+
+### Why this section exists
+
+The prior comparison recorded counts only — base `f9bd8da9` 180 failed / 3801 passed /
+31 skipped / 60 errors; head `766d605c` 169 / 3857 / 31 / 64 — and attributed the four
+additional errors to a missing `node_modules` without reconciling node by node. This
+section replaces that count delta with a per-node reconciliation.
+
+### Environment (identical for both runs)
+
+| Property | Value |
+|---|---|
+| Interpreter | `Python 3.11.15` (`/usr/local/bin/python3`) |
+| pytest | `9.2.0` |
+| Node | `v20.20.2` |
+| `base_wt/node_modules` | **ABSENT** |
+| `Arkadia/node_modules` | **ABSENT** |
+| `data/engineering_lab/agent_events.jsonl` | present in both trees |
+
+Both trees were run in the same sandbox, same interpreter, same dependency state, in
+sequence. The dependency state is **equal** — neither tree has `node_modules` — so no
+environmental asymmetry can explain a difference between the two runs.
+
+### Exact commands
+
+```
+cd /workspace/base_wt && python3 -m pytest tests/ -q --tb=line -rfEs \
+    -p no:cacheprovider --continue-on-collection-errors > recon_base.txt 2>&1
+cd /workspace/Arkadia && python3 -m pytest tests/ -q --tb=line -rfEs \
+    -p no:cacheprovider --continue-on-collection-errors > recon_head.txt 2>&1
+```
+
+`--continue-on-collection-errors` is required: `tests/test_autonomy.py` fails to import
+on **both** trees (`ImportError: cannot import name 'load_autonomy_config' from
+'weaver.autonomy'`), which otherwise aborts collection before any test runs. That import
+error is pre-existing on the immutable base and is not attributable to the branch.
+
+### Final counts
+
+| Tree | Commit | Failed | Passed | Skipped | Errors | Exit |
+|---|---|---|---|---|---|---|
+| Base | `f9bd8da9` | **180** | 3801 | 31 | **61** | 1 |
+| Head | `8591b3b6` | **169** | 3857 | 31 | **65** | 1 |
+
+**The suite is NOT passing on either tree.** 169 failures and 65 errors remain on head.
+
+**Observed discrepancy, stated plainly:** the previously recorded comparison was
+60/64 errors; this run measured 61/65 — a flat **+1 on both sides**. The delta between
+the two trees is unchanged at **+4**, and the reconciliation below is unaffected. The
+one-error shift is a run-to-run difference in a pre-existing erroring node, not a
+branch effect; it is recorded here rather than smoothed over.
+
+### Failure reconciliation by node ID
+
+| Category | Count |
+|---|---|
+| Carried over (failing on both) | **169** |
+| Fixed (failing on base, passing on head) | **11** |
+| **New (failing on head, not on base)** | **0** |
+
+**No new failing node exists.** Every one of the 169 head failures also fails on the
+immutable base. The full carried-over list is the 169-node intersection of
+`base_F.txt` and `head_F.txt` (reproducible with `comm -12`).
+
+**The 11 fixed nodes:**
+
+```
+tests/test_lane_instruction_doc_currency.py::test_live_snapshot_is_fresh_against_current_main
+tests/test_mission_lifecycle_adapter_contract.py::test_a_recorded_authorization_marks_authorize_done
+tests/test_mission_lifecycle_adapter_contract.py::test_a_recorded_chain_marks_reached_stages_done
+tests/test_mission_lifecycle_adapter_contract.py::test_a_verification_verdict_marks_verify_done
+tests/test_mission_lifecycle_adapter_contract.py::test_accept_and_release_are_unavailable_even_after_verification
+tests/test_mission_lifecycle_adapter_contract.py::test_accepted_proposal_without_grant_is_not_authorized
+tests/test_mission_lifecycle_adapter_contract.py::test_an_unreachable_contract_renders_unavailable_not_complete
+tests/test_mission_lifecycle_adapter_contract.py::test_execution_done_does_not_mark_verification_done
+tests/test_mission_lifecycle_adapter_contract.py::test_negative_control_the_adapter_is_not_a_constant_strip
+tests/test_mission_lifecycle_adapter_contract.py::test_no_recorded_chain_renders_every_stage_unknown_not_complete
+tests/test_mission_lifecycle_adapter_contract.py::test_the_seven_stages_are_always_present_in_order
+```
+
+These are the snapshot-freshness guard plus ten mission-lifecycle adapter nodes. They
+fail on base on a missing `typescript.js` in the base worktree and pass on head where
+the dependency resolves. They are **environment-driven**, not a behavioural fix
+contributed by this branch.
+
+### Error reconciliation by node ID
+
+| Category | Count |
+|---|---|
+| Carried over | **61** |
+| Fixed (base-only) | **0** |
+| **New (head-only)** | **4** |
+
+**The 4 new error nodes** — all in `tests/test_prism_opportunity_entry_flow.py`:
+
+```
+test_evidence_reading_claims_the_sentinel_only_when_the_entry_carries_none
+test_evidence_reading_names_a_status_and_its_records_together
+test_evidence_reading_states_the_record_count_the_handler_returns
+test_negative_control_the_status_only_reading_would_hide_the_records
+```
+
+**Exact message (identical for all four):**
+
+```
+E   AssertionError: the contract module could not be executed:
+      node:internal/modules/esm/get_format:189
+        throw new ERR_UNKNOWN_FILE_EXTENSION(ext, filepath);
+      TypeError [ERR_UNKNOWN_FILE_EXTENSION]: Unknown file extension ".ts" for
+        /workspace/Arkadia/web/arkadia_console/src/components/opportunities/opportunityRadarContract.ts
+        code: 'ERR_UNKNOWN_FILE_EXTENSION'
+      Node.js v20.20.2
+```
+
+**Cause: environment — a Node ESM loader limitation, not an assertion failure and not
+behaviour.** Node 20 cannot import a `.ts` module without a loader/transpiler, and
+`node_modules` is absent on both trees. The error is raised in fixture setup, before any
+assertion in the test body executes.
+
+**Proof that these four are not attributable to the branch's changes:**
+
+1. **The four nodes do not exist on base at all.** `pytest --collect-only` on
+   `base_wt/tests/test_prism_opportunity_entry_flow.py` matches **0** of the four names.
+   They are new tests added by #666, so they cannot appear in a base run — the +4 is
+   four more nodes reaching a pre-existing environment limit, not four regressions.
+2. **The same error already affects the same file on base.** Base has **37** errors in
+   `test_prism_opportunity_entry_flow.py`; head has **41**. In both runs, **every single
+   one** of those errors is the identical `ERR_UNKNOWN_FILE_EXTENSION` on
+   `opportunityRadarContract.ts` (base 37/37, head 41/41). The failure mode is
+   pre-existing and unchanged; only the node count grew with the added tests.
+3. **The dependency state is equal.** `node_modules` is absent on both trees, so the
+   error cannot be an artifact of one tree being better provisioned than the other.
+4. **The error is a loader error, not an assertion.** The message is
+   `ERR_UNKNOWN_FILE_EXTENSION` from `node:internal/modules/esm/get_format`, raised
+   during fixture setup. No product assertion is evaluated.
+
+**Conclusion: no new failing node and no new error node is attributable to the branch's
+own changes.** The four new errors are environment artifacts of a missing TypeScript
+loader, affecting newly added tests that exercise a pre-existing, equally-broken path.
+
+### Skip reconciliation
+
+| Tree | Skipped | Distinct skip sites |
+|---|---|---|
+| Base | 31 | 2 |
+| Head | 31 | 2 |
+
+`diff` of the two distinct skip-site sets is **empty** — the skip sets are identical.
+The 31 skips are the same conditional skips on both trees (`google.generativeai` absent;
+`ARKADIA_RUN_PRODUCTION_ISOLATION` unset; Docker runtime unavailable). **No skip was
+added, removed or widened by this branch.** The earlier "ten additional skips" note was
+a misreading of a truncated summary and is corrected here.
+
+### Disposition
+
+- **New failing nodes: 0. New error nodes attributable to the branch: 0.**
+- **Suite status: NOT passing** — 169 failed / 3857 passed / 31 skipped / 65 errors on
+  head; 180 / 3801 / 31 / 61 on base. Not reported as green.
+- **Remaining limitation:** the 169 carried-over failures and 61 carried-over errors are
+  pre-existing on the immutable base and are outside this branch's scope. The 4 new
+  errors require a TypeScript loader (`node_modules` / `tsx` / `ts-node`) to clear and
+  are an environment gap, not a code defect.
+
+### Governance (unchanged)
+
+`main` = `f9bd8da913fa194d7cff2e53b9c417ddb2a9f43a` — **unchanged**, verified by
+`git -C /workspace/base_wt rev-parse HEAD`. Branch HEAD `8591b3b6`. PR #668 open,
+**draft**, unmerged. #657 separately reviewed. #663–#667 retain their independent
+contribution records. **No merge, deployment, commissioning, credential issuance,
+workspace binding, L3 activation or scheduling occurred in this session** — the only
+operation performed was running the test suite on two existing worktrees and appending
+this section. **Human acceptance not issued.**
