@@ -249,6 +249,12 @@ def _claimed_by_a_declared_surface(path: str, declared_paths: set[str]) -> bool:
     (`/solariun/knowledge`), which is how the console expresses a lens — the same
     ownership `LENS_ALIASES` encodes. Comparing by string equality would report
     every lens path as unaccounted.
+
+    Both call sites are `== []` assertions, so a classifier that answers `True`
+    unconditionally satisfies them and the disposition guard reads green while
+    judging nothing (measured 2026-11-20 at `main` `4b91c2f4`: `return True` left
+    all 19 nodes passing). `test_detector_flags_a_path_outside_every_declared_surface`
+    binds both polarities to this function so that shape cannot recur.
     """
     return any(path == root or path.startswith(root + "/") for root in declared_paths)
 
@@ -880,6 +886,44 @@ def test_detector_flags_a_legacy_path_that_falls_through_to_home():
         "control premise: `/codex` is a deferred legacy path that falls through to home"
     )
     assert "/codex" not in declared_paths
+
+
+def test_detector_flags_a_path_outside_every_declared_surface():
+    """Negative control: the ownership classifier must answer both ways.
+
+    `test_every_non_map_inbound_path_has_a_reconciliation_disposition` asserts
+    `unaccounted == []` and `fell_through == []`, and both are decided by
+    `_claimed_by_a_declared_surface`. A classifier that returns `True`
+    unconditionally satisfies both, so the guard reads green while judging
+    nothing -- measured 2026-11-20 at `main` `4b91c2f4`: replacing the body with
+    `return True` left all 19 nodes in this module passing.
+
+    This control holds the classifier to its contract in both polarities, so that
+    shape reddens instead of passing: a path no declared surface owns must be
+    reported, and a path a surface *does* own -- its root, and a section beneath
+    it -- must not be. The section case is the reason the classifier exists at
+    all: string equality would report every lens path as unaccounted.
+    """
+    declared_paths = _declared_paths(SURFACES)
+
+    # Positive polarity: ownership by root and by section beneath a root.
+    assert _claimed_by_a_declared_surface("/solariun", declared_paths), (
+        "a declared surface must own its own root path"
+    )
+    assert _claimed_by_a_declared_surface("/solariun/knowledge", declared_paths), (
+        "a declared surface must own the section paths beneath its root -- this is "
+        "how the console expresses a lens"
+    )
+
+    # Negative polarity: the direction that makes the `== []` assertions real.
+    # `/solariunish` is the prefix trap -- a bare `startswith(root)` would call it
+    # owned by `/solariun`; only the `/`-terminated prefix keeps the two apart.
+    # `/solspire` is the reserved backend namespace the SPA must never claim.
+    for outside in ("/totally-invented", "/solariunish", "/solspire"):
+        assert not _claimed_by_a_declared_surface(outside, declared_paths), (
+            f"{outside!r} is not owned by any declared surface, but the classifier "
+            f"claimed it -- the disposition guard would be vacuous"
+        )
 
 
 def test_detector_flags_a_non_map_inbound_family_the_archive_stops_declaring():

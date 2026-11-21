@@ -111,9 +111,9 @@ def test_reaction_vocabulary_is_the_backends_own():
 
 def test_no_invented_counts():
     """A count the server did not return reads the server's own zero."""
-    src = _read(ENGAGEMENT)
-    assert "reactions?.[type] ?? 0" in src, "a missing reaction count must read 0, not be invented"
-    assert "typeof transmission.reposts" in src, "reposts must be the server value when present"
+    assert _invented_count_defects(_read(ENGAGEMENT)) == [], _invented_count_defects(
+        _read(ENGAGEMENT)
+    )
 
 
 def test_reposts_carries_no_control():
@@ -141,6 +141,43 @@ _REACTION_VOCAB = re.compile(
     r'REACTION_TYPES\s*=\s*\[\s*"heart"\s*,\s*"fire"\s*,\s*"star"\s*,\s*"mind"\s*\]'
 )
 _ZERO_FALLBACK = re.compile(r"reactions\?\.\[type\]\s*\?\?\s*0")
+_REPOST_READ = re.compile(
+    r"typeof transmission\.reposts\s*===\s*[\"']number[\"']\s*\?\s*transmission\.reposts\s*:\s*0"
+)
+
+# The two count readings that must come from the server, hoisted so the live
+# assertion and its negative control feed the *same* predicate. `test_no_invented_counts`
+# previously asserted the reaction fallback by regex and the repost reading by the
+# bare substring `typeof transmission.reposts`, which a fabrication satisfies:
+# measured 2026-11-20 at `main` `4b91c2f4`, rewriting the repost binding to
+# `typeof transmission.reposts === "number" ? 7 : 0` left all 15 nodes passing,
+# because the substring survived while the server value no longer reached the
+# surface.
+_COUNT_READINGS: tuple[tuple[str, re.Pattern[str], str], ...] = (
+    (
+        "reaction",
+        _ZERO_FALLBACK,
+        "a missing reaction count must read 0, not be invented",
+    ),
+    (
+        "repost",
+        _REPOST_READ,
+        "the repost reading must be the server value with 0 as its only fallback",
+    ),
+)
+
+
+def _invented_count_defects(source: str) -> list[str]:
+    """Every count reading in `source` that fabricates a value.
+
+    Module level so the live assertion and the negative control call the *same*
+    predicate: an edit that empties `_COUNT_READINGS`, or one that makes this
+    function answer `[]` unconditionally, reddens the control.
+    """
+    if "export function EngagementBar" not in source:
+        return []
+    return [reason for _, pattern, reason in _COUNT_READINGS if not pattern.search(source)]
+
 
 
 def _third_path_defect(source: str) -> bool:
@@ -158,8 +195,13 @@ def _inline_path_defect(source: str) -> bool:
 
 
 def _invented_count_defect(source: str) -> bool:
-    """True when the surface fabricates a count instead of defaulting to zero."""
-    return "export function EngagementBar" in source and not _ZERO_FALLBACK.search(source)
+    """True when the surface fabricates a count instead of defaulting to zero.
+
+    Kept as the boolean view of the shared predicate so the detector-silence
+    sweep below stays one line per property; `test_no_invented_counts` and its
+    control both read :func:`_invented_count_defects`.
+    """
+    return bool(_invented_count_defects(source))
 
 
 def _vocabulary_defect(source: str) -> bool:
@@ -206,13 +248,34 @@ def test_detector_flags_an_inline_path():
 
 
 def test_detector_flags_an_invented_count():
-    """Negative control: a bar that fabricates engagement."""
-    defect = (
+    """Negative control: a bar that fabricates engagement.
+
+    Two shapes, because the live assertion previously bound only one of them.
+    The first is the reaction fallback removed entirely; the second keeps the
+    reading's *substring* intact while replacing the server value with a
+    constant — measured 2026-11-20 at `main` `4b91c2f4`, that form left all 15
+    nodes passing, so the guard judged the comment and not the reading.
+    """
+    fabricated = (
         "export function EngagementBar({ transmission }) {\n"
         "  return <span>{transmission.resonance || 7}</span>;\n"
         "}\n"
     )
-    assert _invented_count_defect(defect), "the invented-count detector missed a fabricated value"
+    assert _invented_count_defect(fabricated), "the invented-count detector missed a fabricated value"
+
+    constant_repost = (
+        "export function EngagementBar({ transmission }) {\n"
+        '  const reposts = typeof transmission.reposts === "number" ? 7 : 0;\n'
+        "  return <span>{reposts}</span>;\n"
+        "}\n"
+    )
+    reported = _invented_count_defects(constant_repost)
+    assert reported, "the detector missed a repost reading that ignores the server value"
+    assert any("the repost reading must be the server value" in r for r in reported), (
+        f"the fabrication was reported, but not as a repost-reading defect: {reported}"
+    )
+    # ...and the shipped surface is clean under the same predicate the control used.
+    assert _invented_count_defects(_read(ENGAGEMENT)) == []
 
 
 def test_detector_flags_a_divergent_vocabulary():
