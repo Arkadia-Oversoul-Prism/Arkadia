@@ -30,16 +30,25 @@ the empty set, `unsupported` the empty set, and the assertion **pass**. The node
 reports success while judging no keyword at all — the vacuity it is named to prevent,
 one level down: the node could be disarmed by disarming its extractor.
 
-Measured at `main` `4b91c2f4` by replacing the body of `_iter_schema_keywords` with
-`return []`:
+Measured by replacing the body of `_iter_schema_keywords` with `return []`:
 
 ```
-MUTATION (extractor yields nothing):   14 passed   <-- the coverage node still passes
+on this branch (control present):   13 passed, 1 failed   <-- the new control reddens
+on `main` `4b91c2f4` (pre-PR):      13 passed             <-- the coverage node still passes
 ```
 
-Before this PR the same measurement read `11 passed`, and the coverage node was among
-them. The module had **zero** nodes that called the extractor in a way that would
-notice.
+The module collects **13** nodes on `main` `4b91c2f4` and **14** on this branch
+(`--collect-only`, measured 2026-11-21). In both runs the coverage node
+`test_the_stdlib_validator_covers_every_keyword_the_schema_uses` still passes with a dead
+extractor, so the module had **zero** nodes that called the extractor in a way that would
+notice. The single node that notices now is the control this PR adds.
+
+**Correction — supersedes the first draft of this section.** It read `14 passed` for the
+branch mutation and `11 passed` for the pre-PR measurement. Both were wrong: `14` is this
+branch's node *count*, not its pass count — the mutation fails one node on this branch —
+and the pre-PR module collects 13 nodes, not 11. The PR body's left-hand column carried
+the same `11` and is corrected with it. The substantive claim is unchanged and is
+re-measured above.
 
 ### Why the existing controls could not catch it
 
