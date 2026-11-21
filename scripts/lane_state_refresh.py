@@ -124,6 +124,7 @@ LANE_OWNERSHIP: dict[str, dict] = {
             "weaver/engineering_router.py",
             "weaver/github_readonly_evidence_adapter.py",
             "tests/test_arkana_signal_schema_guard.py",
+            "tests/test_lab_repository_surface_contract.py",
         ),
     },
 }

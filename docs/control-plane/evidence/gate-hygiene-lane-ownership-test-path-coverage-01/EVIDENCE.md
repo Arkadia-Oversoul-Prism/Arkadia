@@ -101,3 +101,70 @@ configuration. `api/main.py` untouched.
   and `tests/test_console_legacy_route_coverage.py` fails 6 nodes on missing `cryptography` — a
   sandbox dependency gap, not repository debt. Their CI evidence is the `console-contract`,
   `conformance`, `test` and `arkana-signal-conformance` checks on each PR.
+
+## Addendum — the inventory gap reappears by composition (PR #680)
+
+Measured 2026-11-21 at `main` `1bff8c42e78f153203641db6d8a90818f7ff6ab2`, with the six open PRs
+(#675, #676, #677, #678, #679, #680) composed onto it in a detached worktree: **zero** conflicted
+files.
+
+The composed tree reintroduced the defect this PR repairs. `LANE_OWNERSHIP` listed
+`tests/test_arkana_signal_schema_guard.py` for lane 4, but lane 4's *open* PR #680
+(`lane4/details-scanner-nesting-control-01`, head `0023c781`) adds
+`tests/test_lab_repository_surface_contract.py`, which the derivation assigned to **no lane**:
+
+```
+tests/test_lab_repository_surface_contract.py -> []
+tests/test_console_shell_nav_contract.py      -> ['1']
+tests/test_prism_novanet_engagement_readings.py -> ['2']
+tests/test_knowledge_graph_provenance_boundary.py -> ['3']
+```
+
+No single PR could observe this: #676 measured its inventory before #680 opened, and #680's own
+branch does not carry #676's map. It is the composition hazard already recorded for content-derived
+gate domains — the branch that adds a member cannot validate the domain it joins.
+
+Repair (both inside this PR's declared objective, "assign the lanes' own test files to their lanes"):
+
+1. `tests/test_lab_repository_surface_contract.py` added to lane 4's paths.
+2. The pinned `LANE_TEST_PATHS` dict updated to the lane-4 path that actually exists on the
+   composed tree.
+3. A **derived** guard added so a *newly added* map entry cannot escape the same assertion:
+   `_declared_lane_test_paths()` reads every `tests/` path the map declares, and
+   `test_every_declared_lane_test_path_is_assigned_to_its_lane[lane]` requires each to classify to
+   its own lane. A hand-maintained list in one place drifts; a derivation cannot.
+4. A floor, `test_every_lane_declares_at_least_one_test_path`, so the derivation cannot be emptied
+   into vacuity, plus `test_the_floor_bites_on_a_lane_with_no_test_path` proving the floor predicate
+   reports a lane carrying only product paths.
+
+After the repair, on the same tree: `tests/test_lab_repository_surface_contract.py -> ['4']`.
+
+### Negative controls (live, on the real files)
+
+- Remove the added lane-4 line from `scripts/lane_state_refresh.py` →
+  `1 failed, 3 passed`, failing exactly
+  `test_lane_owned_test_file_is_assigned_to_its_lane[4-tests/test_lab_repository_surface_contract.py]`.
+- Declare a lane-1-owned test under lane 2 →
+  `2 failed, 2 passed`, failing
+  `test_every_declared_lane_test_path_is_assigned_to_its_lane[1]` and `[2]` — the derived guard
+  discriminates a cross-lane declaration rather than reporting everything.
+- Both files restored byte-identically (`sha256sum -c` OK).
+
+### Measured on this branch
+
+- `tests/test_lane_instruction_doc_currency.py` **66 passed** (60 before this addendum; `+6` = 1
+  floor test, 1 floor control, 4 derived parametrizations).
+- `tests/test_lane_instruction_doc_currency.py` + `tests/test_lane_currency_ci_wiring.py`
+  **78 passed**; `tests/test_lane_aggregate_pr_classification.py` **15 passed**.
+- `python scripts/lane_state.py --check` → exit **0**.
+- `tests/architecture` **11 passed**.
+- Composed tree (#675–#680 in a worktree): touched test files **178 passed**, architecture
+  **11 passed**, composition-hazard guards (`test_m02a_ci_gate_integrity`,
+  `test_prism_console_ci_wiring`, `test_economic_seam_ci_wiring`, `test_lane_currency_ci_wiring`,
+  `test_ci_gate_trigger_coverage`) **242 passed**.
+
+### Not claimed
+
+- No merge, no deployment, no acceptance. GOV-03: merge execution is human-only; this is
+  eligibility evidence.
+- The console frontend was not rebuilt locally for #679; its `frontend` CI job passed at that head.

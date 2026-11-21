@@ -1176,8 +1176,18 @@ LANE_TEST_PATHS = {
     "1": "tests/test_console_legacy_route_coverage.py",
     "2": "tests/test_prism_novanet_engagement_readings.py",
     "3": "tests/test_knowledge_graph_provenance_boundary.py",
-    "4": "tests/test_arkana_signal_schema_guard.py",
+    "4": "tests/test_lab_repository_surface_contract.py",
 }
+
+# Every lane's own tests, as the map declares them. The pinned dict above is the
+# measured inventory; this derivation keeps a *newly added* map entry from being
+# exempt from the same assertion, which is how the lane-4 gap reappeared when
+# PR #680 opened after #676 measured its inventory.
+def _declared_lane_test_paths(ownership: dict[str, dict]) -> dict[str, list[str]]:
+    return {
+        lane: [p for p in spec["paths"] if p.startswith("tests/")]
+        for lane, spec in ownership.items()
+    }
 
 
 def _load_refresh():
@@ -1202,3 +1212,29 @@ def test_unowned_test_file_is_assigned_to_no_lane():
     """Negative control: the ownership matcher is not trivially true."""
     refresh = _load_refresh()
     assert refresh.lanes_for(["tests/test_lane_instruction_doc_currency.py"]) == []
+
+
+def test_every_lane_declares_at_least_one_test_path():
+    """Floor: the derived coverage below cannot be emptied into vacuity."""
+    declared = _declared_lane_test_paths(_load_refresh().LANE_OWNERSHIP)
+    assert sorted(declared) == ["1", "2", "3", "4"], declared
+    assert all(declared.values()), declared
+
+
+def test_the_floor_bites_on_a_lane_with_no_test_path():
+    """Negative control for the floor: a lane carrying only product paths fails it."""
+    declared = _declared_lane_test_paths(
+        {"1": {"paths": ("web/arkadia_console/src/App.tsx",)}}
+    )
+    assert declared == {"1": []}
+    assert not all(declared.values())
+
+
+@pytest.mark.parametrize("lane_no", ["1", "2", "3", "4"])
+def test_every_declared_lane_test_path_is_assigned_to_its_lane(lane_no):
+    refresh = _load_refresh()
+    for path in _declared_lane_test_paths(refresh.LANE_OWNERSHIP)[lane_no]:
+        assert refresh.lanes_for([path]) == [lane_no], (
+            f"{path} is declared by lane {lane_no} but the derivation assigned "
+            f"{refresh.lanes_for([path])}"
+        )
