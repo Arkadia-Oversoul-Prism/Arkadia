@@ -188,6 +188,49 @@ def test_mission_workspace_is_the_first_child_of_the_page() -> None:
     )
 
 
+def test_the_details_scanner_counts_nesting_rather_than_the_first_close() -> None:
+    """Nested polarities: the scanner must return the close that closes the container.
+
+    The live page holds exactly one ``<details>`` element, so the structural
+    assertions above never reach the nesting-aware branch: replacing the scanner
+    body with ``page.find("</details>", open_index)`` leaves every one of them
+    green. That makes the nesting claim in its docstring unproven, and a
+    regression to a first-close scan invisible. This control feeds the scanner a
+    nested container and requires the outer close.
+    """
+    page = (
+        '<details data-testid="lab-engineering-details">'
+        "<details><summary>inner</summary>nested</details>"
+        "<LabRepositoryContext />"
+        "</details>"
+        "<p>after</p>"
+    )
+    open_index = page.find("<details")
+    close_index = _matching_details_close(page, open_index)
+
+    assert page[close_index:] == "</details><p>after</p>", (
+        "the scanner returned the inner close, not the container's own close"
+    )
+    assert open_index < page.find("<LabRepositoryContext />") < close_index
+    assert page.find("</details>", open_index) != close_index, (
+        "control premise: a naive first-close scan must disagree with the "
+        "nesting-aware scanner on a nested container"
+    )
+
+
+def test_the_details_scanner_returns_the_first_close_on_a_flat_container() -> None:
+    """Flat polarity: with no nesting the first close *is* the container's close.
+
+    Bounds the control above — a scanner that always returned the last close in
+    the document would satisfy the nested case while being wrong for every flat
+    container.
+    """
+    page = '<details data-testid="lab-engineering-details">body</details><p>after</p>'
+    open_index = page.find("<details")
+
+    assert _matching_details_close(page, open_index) == page.find("</details>")
+
+
 # ---------------------------------------------------------------------------
 # Handler binding — the fields the projection reads must exist upstream
 # ---------------------------------------------------------------------------
