@@ -1161,3 +1161,80 @@ def test_citation_audit_covers_every_declared_lane_doc():
     docs = _audited_docs(live_state())
     assert len(docs) == 4, docs
     assert all(d.exists() for d in docs), [str(d) for d in docs if not d.exists()]
+
+
+# ------------------------------------- ownership-map coverage of the lanes' tests
+#
+# Measured at main 4b91c2f4: four lane PRs were open (#671-#674) and the
+# derivation assigned three of them *unassigned*, because LANE_OWNERSHIP listed
+# no test path for lanes 2-4 while lane 1 listed five. The lane docs themselves
+# cite those test files as their lane's work, so the derivation disagreed with
+# the documents it exists to mirror -- a lane thread the currency check cannot
+# see is a lane thread it cannot judge.
+
+LANE_TEST_PATHS = {
+    "1": "tests/test_console_legacy_route_coverage.py",
+    "2": "tests/test_prism_novanet_engagement_readings.py",
+    "3": "tests/test_knowledge_graph_provenance_boundary.py",
+    "4": "tests/test_lab_repository_surface_contract.py",
+}
+
+# Every lane's own tests, as the map declares them. The pinned dict above is the
+# measured inventory; this derivation keeps a *newly added* map entry from being
+# exempt from the same assertion, which is how the lane-4 gap reappeared when
+# PR #680 opened after #676 measured its inventory.
+def _declared_lane_test_paths(ownership: dict[str, dict]) -> dict[str, list[str]]:
+    return {
+        lane: [p for p in spec["paths"] if p.startswith("tests/")]
+        for lane, spec in ownership.items()
+    }
+
+
+def _load_refresh():
+    spec = importlib.util.spec_from_file_location(
+        "lane_state_refresh_ownership", REPO / "scripts" / "lane_state_refresh.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+@pytest.mark.parametrize("lane_no,path", sorted(LANE_TEST_PATHS.items()))
+def test_lane_owned_test_file_is_assigned_to_its_lane(lane_no, path):
+    refresh = _load_refresh()
+    assigned = refresh.lanes_for([path])
+    assert assigned == [lane_no], (
+        f"{path} must be owned by lane {lane_no}; the derivation assigned {assigned}"
+    )
+
+
+def test_unowned_test_file_is_assigned_to_no_lane():
+    """Negative control: the ownership matcher is not trivially true."""
+    refresh = _load_refresh()
+    assert refresh.lanes_for(["tests/test_lane_instruction_doc_currency.py"]) == []
+
+
+def test_every_lane_declares_at_least_one_test_path():
+    """Floor: the derived coverage below cannot be emptied into vacuity."""
+    declared = _declared_lane_test_paths(_load_refresh().LANE_OWNERSHIP)
+    assert sorted(declared) == ["1", "2", "3", "4"], declared
+    assert all(declared.values()), declared
+
+
+def test_the_floor_bites_on_a_lane_with_no_test_path():
+    """Negative control for the floor: a lane carrying only product paths fails it."""
+    declared = _declared_lane_test_paths(
+        {"1": {"paths": ("web/arkadia_console/src/App.tsx",)}}
+    )
+    assert declared == {"1": []}
+    assert not all(declared.values())
+
+
+@pytest.mark.parametrize("lane_no", ["1", "2", "3", "4"])
+def test_every_declared_lane_test_path_is_assigned_to_its_lane(lane_no):
+    refresh = _load_refresh()
+    for path in _declared_lane_test_paths(refresh.LANE_OWNERSHIP)[lane_no]:
+        assert refresh.lanes_for([path]) == [lane_no], (
+            f"{path} is declared by lane {lane_no} but the derivation assigned "
+            f"{refresh.lanes_for([path])}"
+        )
