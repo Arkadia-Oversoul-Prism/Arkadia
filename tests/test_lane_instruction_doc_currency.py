@@ -1161,3 +1161,44 @@ def test_citation_audit_covers_every_declared_lane_doc():
     docs = _audited_docs(live_state())
     assert len(docs) == 4, docs
     assert all(d.exists() for d in docs), [str(d) for d in docs if not d.exists()]
+
+
+# ------------------------------------- ownership-map coverage of the lanes' tests
+#
+# Measured at main 4b91c2f4: four lane PRs were open (#671-#674) and the
+# derivation assigned three of them *unassigned*, because LANE_OWNERSHIP listed
+# no test path for lanes 2-4 while lane 1 listed five. The lane docs themselves
+# cite those test files as their lane's work, so the derivation disagreed with
+# the documents it exists to mirror -- a lane thread the currency check cannot
+# see is a lane thread it cannot judge.
+
+LANE_TEST_PATHS = {
+    "1": "tests/test_console_legacy_route_coverage.py",
+    "2": "tests/test_prism_novanet_engagement_readings.py",
+    "3": "tests/test_knowledge_graph_provenance_boundary.py",
+    "4": "tests/test_arkana_signal_schema_guard.py",
+}
+
+
+def _load_refresh():
+    spec = importlib.util.spec_from_file_location(
+        "lane_state_refresh_ownership", REPO / "scripts" / "lane_state_refresh.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+@pytest.mark.parametrize("lane_no,path", sorted(LANE_TEST_PATHS.items()))
+def test_lane_owned_test_file_is_assigned_to_its_lane(lane_no, path):
+    refresh = _load_refresh()
+    assigned = refresh.lanes_for([path])
+    assert assigned == [lane_no], (
+        f"{path} must be owned by lane {lane_no}; the derivation assigned {assigned}"
+    )
+
+
+def test_unowned_test_file_is_assigned_to_no_lane():
+    """Negative control: the ownership matcher is not trivially true."""
+    refresh = _load_refresh()
+    assert refresh.lanes_for(["tests/test_lane_instruction_doc_currency.py"]) == []

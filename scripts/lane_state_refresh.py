@@ -96,6 +96,7 @@ LANE_OWNERSHIP: dict[str, dict] = {
             "web/arkadia_console/src/components/opportunities/",
             "solspire/buyer_recon.py",
             "solspire/buyer_recon_router.py",
+            "tests/test_prism_novanet_engagement_readings.py",
         ),
     },
     "3": {
@@ -106,6 +107,7 @@ LANE_OWNERSHIP: dict[str, dict] = {
             "web/arkadia_console/src/pages/knowledge/",
             "knowledge/",
             "api/knowledge_routes.py",
+            "tests/test_knowledge_graph_provenance_boundary.py",
         ),
     },
     "4": {
@@ -121,6 +123,7 @@ LANE_OWNERSHIP: dict[str, dict] = {
             "api/commune_threads.py",
             "weaver/engineering_router.py",
             "weaver/github_readonly_evidence_adapter.py",
+            "tests/test_arkana_signal_schema_guard.py",
         ),
     },
 }
