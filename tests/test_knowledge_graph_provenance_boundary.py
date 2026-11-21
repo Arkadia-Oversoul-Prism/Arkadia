@@ -472,3 +472,92 @@ def test_negative_control_a_bare_slice_is_not_the_convention():
     assert _row_cap_defects(PANEL_TSX.read_text(encoding="utf-8")) == [], (
         "the shipped panel must be clean under the same detector the control used"
     )
+
+
+# ── console side: the title chips are the *second* bounded list ───────────────
+#
+# `GraphReading` bounds two lists over the same node set: the provenance rows
+# (`PROVENANCE_ROWS`) and the title chips (`TITLE_LIMIT`, applied inside
+# `summarizeGraph`). The row list discloses its bound; the title list shipped as
+# a bare `<ul>` of up to eight chips with the exact `nodes` count printed above
+# it — a prefix that reads as the complete record. Same defect class, one block
+# below the repaired one, so the same convention binds it.
+#
+# The bound is applied in `knowledgeContracts.ts`, so the detector reads both
+# files: the slice must use the exported constant, and the panel must hand that
+# *same* constant to the notice.
+
+TITLE_CAP_REQUIRED_LITERALS: tuple[tuple[str, str, str], ...] = (
+    (
+        "contracts",
+        "export const TITLE_LIMIT",
+        "the slice bound must be exported so the panel can disclose the same value",
+    ),
+    (
+        "contracts",
+        "graph.nodes.slice(0, TITLE_LIMIT)",
+        "the title slice must use the constant the panel is given",
+    ),
+    (
+        "panel",
+        'boundedRowNotice(TITLE_LIMIT, graph.nodes.length, "titles")',
+        "the notice must receive the slice bound, the true total, and name the list",
+    ),
+    (
+        "panel",
+        'data-testid="knowledge-graph-titles-bounded"',
+        "the title notice needs its own test id",
+    ),
+)
+
+PRE_REPAIR_TITLE_PANEL_BODY = (
+    "{summary.titles.length > 0 && (\n"
+    "  <ul className=\"flex flex-wrap gap-2\">\n"
+    "    {summary.titles.map((title) => (\n"
+    "      <li>{title}</li>\n"
+    "    ))}\n"
+    "  </ul>\n"
+    ")}"
+)
+
+PRE_REPAIR_TITLE_CONTRACTS_BODY = (
+    "const TITLE_LIMIT = 8;\n"
+    "export function summarizeGraph(graph: KnowledgeGraphData): GraphSummary {\n"
+    "  const titles = graph.nodes.slice(0, TITLE_LIMIT).map((node) => node.title);\n"
+    "  return { nodes: graph.nodes.length, edges: graph.edges.length, scope, titles };\n"
+    "}"
+)
+
+
+def _title_cap_defects(contracts_source: str, panel_source: str) -> list[str]:
+    """Every title-cap convention literal the given sources are missing.
+
+    Module level so the live assertion and the negative control call the *same*
+    predicate: an edit that empties `TITLE_CAP_REQUIRED_LITERALS`, or one that
+    makes this function answer `[]` unconditionally, reddens the control.
+    """
+    sources = {"contracts": contracts_source, "panel": panel_source}
+    return [
+        reason
+        for where, literal, reason in TITLE_CAP_REQUIRED_LITERALS
+        if literal not in sources[where]
+    ]
+
+
+def test_panel_discloses_the_title_cap():
+    """The list that is capped must say it is capped, using the bound the slice
+    actually applied."""
+    assert _title_cap_defects(_contracts_source(), PANEL_TSX.read_text(encoding="utf-8")) == []
+
+
+def test_negative_control_bare_title_chips_are_not_the_convention():
+    """Feed the detector the pre-repair shape: an unexported constant and a panel
+    that renders the chips with no notice. It must report both, and the shipped
+    sources must stay clean under the same detector."""
+    reported = _title_cap_defects(PRE_REPAIR_TITLE_CONTRACTS_BODY, PRE_REPAIR_TITLE_PANEL_BODY)
+    assert reported, "the detector must report an undisclosed title cap"
+    assert "the notice must receive the slice bound, the true total, and name the list" in reported
+    assert "the slice bound must be exported so the panel can disclose the same value" in reported
+    assert _title_cap_defects(_contracts_source(), PANEL_TSX.read_text(encoding="utf-8")) == [], (
+        "the shipped sources must be clean under the same detector the control used"
+    )
