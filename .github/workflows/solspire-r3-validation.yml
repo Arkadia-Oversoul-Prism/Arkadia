@@ -4,6 +4,14 @@ on:
   push:
     branches:
       - 'recon/solspire-r0'
+      - main
+    paths:
+      - 'solspire/execution_runtime.py'
+      - 'solspire/planner.py'
+      - 'tests/test_solspire_r3_execution_runtime.py'
+      - 'docs/architecture/SOLSPIRE_RECONCILIATION_R3.md'
+      - '.github/workflows/solspire-r3-validation.yml'
+  pull_request:
     paths:
       - 'solspire/execution_runtime.py'
       - 'solspire/planner.py'
