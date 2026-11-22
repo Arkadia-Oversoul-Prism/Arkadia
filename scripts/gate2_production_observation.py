@@ -37,6 +37,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 import urllib.error
 import urllib.request
 
@@ -403,6 +404,24 @@ def fetch_deployments(token: str | None) -> tuple[list, str | None]:
 # went unnoticed until the runtime moved to Render.)
 BROWSER_ACCEPT = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
 
+# A provider boot page is only identifiable by its *body*, and an error response's
+# body used to be discarded, so every non-200 was an opaque status. Keep a bounded
+# slice instead: enough to read a holding page, never enough to buffer an arbitrary
+# error document.
+ERROR_BODY_LIMIT = 64 * 1024
+
+# Render answers with a holding page -- HTTP 503, titled "Application loading" --
+# while a sleeping instance boots. That is a transient provider state, not evidence
+# about the application: measured 2026-11-22, the canonical alias answered 503 with
+# that page and then 200 with ``source_revision`` equal to main within a minute. A
+# single-shot status check therefore reported ``alias reachable := FAILED`` for a
+# healthy deployment -- the wrong direction for a boundary whose job is to detect a
+# *missing* deployment, because an alarm that rings on every cold start stops
+# discriminating. Wait out a bounded warm-up, then classify what is left.
+COLD_START_MARKER = "Application loading"
+ALIAS_WARMUP_ATTEMPTS = 6
+ALIAS_WARMUP_DELAY = 10.0
+
 
 def head(url: str, accept: str | None = None) -> dict:
     """Observe a URL without following redirects."""
@@ -420,14 +439,73 @@ def head(url: str, accept: str | None = None) -> dict:
         with opener.open(req, timeout=30) as r:
             return {"status": r.status, "headers": {k.lower(): v for k, v in r.headers.items()}, "body": r.read()}
     except urllib.error.HTTPError as e:
+        try:
+            body = e.read(ERROR_BODY_LIMIT)
+        except Exception:
+            body = b""
         return {
             "status": e.code,
             "headers": {k.lower(): v for k, v in (e.headers or {}).items()},
-            "body": b"",
+            "body": body,
             "location": (e.headers or {}).get("Location"),
         }
     except Exception as e:
         return {"status": None, "error": type(e).__name__, "body": b""}
+
+
+def is_cold_start(obs: dict) -> bool:
+    """Whether an observation is a provider boot page rather than the application.
+
+    Restricted to 503, the status actually measured for Render's boot page. A 5xx
+    without the boot marker is not warming -- it is a failure, and widening this
+    predicate would let a real outage be classified as transient.
+    """
+    if obs.get("status") != 503:
+        return False
+    body = obs.get("body") or b""
+    text = body.decode("utf-8", "ignore") if isinstance(body, (bytes, bytearray)) else str(body)
+    return COLD_START_MARKER in text
+
+
+def classify_alias(obs: dict) -> str:
+    """Classify the alias observation.
+
+    ``BLOCKED`` for a boot page is deliberate: the alias *is* answering, but the
+    application is not observable yet, so neither "reachable" nor "failed" is
+    supported by the evidence. A non-200 that is not a boot page is a real failure.
+    """
+    status = obs.get("status")
+    if status == 200:
+        return "VERIFIED"
+    if is_cold_start(obs):
+        return "BLOCKED (provider boot page: deployment warming)"
+    return "FAILED"
+
+
+def observe_alias(
+    url: str = ALIAS,
+    attempts: int = ALIAS_WARMUP_ATTEMPTS,
+    delay: float = ALIAS_WARMUP_DELAY,
+    fetch=None,
+    sleep=time.sleep,
+) -> tuple[dict, list]:
+    """Observe the alias, waiting out a bounded provider cold start.
+
+    Returns the last observation and every status observed, so the record states
+    how many attempts a verdict rests on. Stops at the first answer that is not a
+    boot page: a 200 is the steady state, and any other response is a real answer
+    that further waiting would only delay.
+    """
+    fetch = fetch or (lambda target: head(target, BROWSER_ACCEPT))
+    obs = fetch(url)
+    statuses = [obs.get("status")]
+    for _ in range(max(0, attempts - 1)):
+        if obs.get("status") == 200 or not is_cold_start(obs):
+            break
+        sleep(delay)
+        obs = fetch(url)
+        statuses.append(obs.get("status"))
+    return obs, statuses
 
 
 def markers_in(text: str, app: str = MARKER_APP) -> dict[str, int]:
@@ -546,9 +624,12 @@ def main() -> int:
     # ---- link 4: alias observation ------------------------------------------
     # Fetch as a browser (HTML Accept): the canonical runtime serves the SPA only
     # to browser navigations, so an unspecified Accept reads the liveness JSON.
-    alias = head(ALIAS, BROWSER_ACCEPT)
+    # Bounded warm-up: a sleeping instance answers a provider boot page, which is
+    # not evidence about the application (see ``observe_alias``).
+    alias, alias_attempts = observe_alias()
     report["alias_status"] = alias.get("status")
-    report["boundaries"]["alias reachable"] = "VERIFIED" if alias.get("status") == 200 else "FAILED"
+    report["alias_attempts"] = alias_attempts
+    report["boundaries"]["alias reachable"] = classify_alias(alias)
     html = alias.get("body", b"").decode("utf-8", "ignore")
     assets = sorted(set(re.findall(r"assets/index-[A-Za-z0-9_-]+\.(?:js|css)", html)))
     report["alias_assets"] = assets
@@ -670,6 +751,12 @@ def main() -> int:
     print()
     print("ALIAS OBSERVATION")
     print(f"  {ALIAS} -> HTTP {report['alias_status']}")
+    if len(report.get("alias_attempts") or []) > 1:
+        print(f"    attempts: {report['alias_attempts']} (bounded warm-up: a provider"
+              " boot page is not an application answer)")
+    if report["boundaries"].get("alias reachable", "").startswith("BLOCKED"):
+        print("    deployment is warming, not proven unreachable -- the application"
+              " is not observable yet")
     for k, v in report["alias_headers"].items():
         print(f"    {k}: {v}")
     print(f"  manifest: {', '.join(assets) or 'none'}")

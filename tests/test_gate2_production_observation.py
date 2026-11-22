@@ -27,20 +27,30 @@ unfiltered so the query predicate cannot reintroduce the omission.
 """
 
 import ast
+import http.server
+import threading
 from pathlib import Path
 
 from scripts.gate2_production_observation import (
+    ALIAS_WARMUP_ATTEMPTS,
+    ALIAS_WARMUP_DELAY,
+    COLD_START_MARKER,
     DEPLOYMENT_SCAN_PAGES,
+    ERROR_BODY_LIMIT,
     KNOWN_FRONTENDS,
     MARKER_APP,
     MARKER_APPS,
     MARKERS,
+    classify_alias,
     classify_deployment_identity,
     classify_marker_oracle,
     classify_sg04,
     classify_source_lineage,
     frontend_of,
+    head,
+    is_cold_start,
     lineage_closed,
+    observe_alias,
     production_deployments,
     production_deployments_within,
 )
@@ -484,3 +494,118 @@ def test_ordering_detector_flags_the_defective_order():
         'report["deployed_app"] = frontend_of(prod[0]["environment"]) if prod else None\n'
     )
     assert _sg04_call_line(defective) < _assignment_line(defective, "deployed_app")
+
+
+# ── alias observation: a provider boot page is not an application answer ──────
+
+# The page Render serves while a sleeping instance boots. Measured verbatim in its
+# title on 2026-11-22; the body is what makes it identifiable, which is why the
+# error body must be preserved at all.
+BOOT_PAGE = b"<!doctype html><html><head><title>Render - Application loading</title></head></html>"
+
+
+def test_head_keeps_a_bounded_error_body():
+    """``head`` used to discard every error body, so a boot page was unobservable.
+
+    Exercised against a local server: this is the real ``head`` code path, with no
+    network access and no substitution for the function under test.
+    """
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(503)
+            self.send_header("Content-Type", "text/html")
+            self.end_headers()
+            self.wfile.write(BOOT_PAGE)
+
+        def log_message(self, *args):
+            pass
+
+    server = http.server.HTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        obs = head(f"http://127.0.0.1:{server.server_address[1]}/")
+    finally:
+        server.shutdown()
+        server.server_close()
+
+    assert obs["status"] == 503
+    assert BOOT_PAGE in obs["body"]
+    assert len(obs["body"]) <= ERROR_BODY_LIMIT
+
+
+def test_a_boot_page_is_blocked_not_failed():
+    """The alias is answering; the application is not observable yet. Neither
+    "reachable" nor "failed" is supported, so the verdict is BLOCKED."""
+    assert COLD_START_MARKER in BOOT_PAGE.decode()
+    verdict = classify_alias({"status": 503, "body": BOOT_PAGE})
+    assert verdict.startswith("BLOCKED")
+
+
+def test_negative_control_a_plain_5xx_is_a_failure():
+    """Negative control: the classifier must not read every 5xx as transient.
+
+    Without this, widening ``is_cold_start`` to any 5xx would silently convert a
+    real outage into a provider-warming state -- an alarm that cannot ring.
+    """
+    assert classify_alias({"status": 503, "body": b"<html>Internal Server Error</html>"}) == "FAILED"
+    assert classify_alias({"status": 500, "body": BOOT_PAGE}) == "FAILED"
+    assert classify_alias({"status": None, "error": "URLError", "body": b""}) == "FAILED"
+    assert classify_alias({"status": 200, "body": b"<html>app</html>"}) == "VERIFIED"
+
+
+def test_warmup_stops_at_the_first_application_answer():
+    answers = [
+        {"status": 503, "body": BOOT_PAGE},
+        {"status": 200, "body": b"<html>app</html>"},
+    ]
+    sleeps: list = []
+    obs, statuses = observe_alias(
+        attempts=6, delay=0.0, fetch=lambda url: answers.pop(0), sleep=sleeps.append
+    )
+    assert statuses == [503, 200]
+    assert obs["status"] == 200
+    assert sleeps == [0.0], "the warm-up must wait exactly once before the answer"
+    assert classify_alias(obs) == "VERIFIED"
+
+
+def test_warmup_is_bounded_and_reports_every_attempt():
+    calls: list = []
+
+    def fetch(url):
+        calls.append(url)
+        return {"status": 503, "body": BOOT_PAGE}
+
+    obs, statuses = observe_alias(attempts=4, delay=0.0, fetch=fetch, sleep=lambda _s: None)
+    assert len(calls) == 4 == len(statuses)
+    assert statuses == [503] * 4
+    assert classify_alias(obs).startswith("BLOCKED")
+
+
+def test_warmup_does_not_retry_a_real_answer():
+    """A non-200 that is not a boot page is an answer; waiting would only delay it."""
+    calls: list = []
+
+    def fetch(url):
+        calls.append(url)
+        return {"status": 404, "body": b"not found"}
+
+    obs, statuses = observe_alias(attempts=6, delay=0.0, fetch=fetch, sleep=lambda _s: None)
+    assert len(calls) == 1
+    assert statuses == [404]
+    assert classify_alias(obs) == "FAILED"
+
+
+def test_warmup_budget_is_bounded():
+    """A retry loop without a ceiling turns an observation harness into a hang."""
+    assert 1 <= ALIAS_WARMUP_ATTEMPTS <= 12
+    assert ALIAS_WARMUP_DELAY * (ALIAS_WARMUP_ATTEMPTS - 1) <= 120
+
+
+def test_alias_verdict_is_produced_by_the_tested_classifier():
+    """The boundary must be assigned from ``classify_alias``, not recomputed at
+    the call site: a second copy of the rule is how a printed verdict and a tested
+    verdict come to disagree."""
+    src = _SCRIPT.read_text(encoding="utf-8")
+    assert 'report["boundaries"]["alias reachable"] = classify_alias(alias)' in src
+    assert '"VERIFIED" if alias.get("status") == 200 else "FAILED"' not in src
