@@ -119,6 +119,28 @@ Node-count attribution is by `--collect-only` per file, not inferred from the
 delta. The full-suite failing/error **node set** is compared against `main`
 `034d8879` in the same environment; see §4.
 
+### 3.4 Runtime proof in CI (not a source-level claim)
+
+PR #684, head `40a720c254901c72d101a18bc871d972e5d400b4`, workflow
+`lane-doc-currency.yml`, run **45007168106** — `completed / success`. The
+`--verify-live` step executed (it is not skipped) and printed:
+
+```
+live PR state: 8 PR(s) read from Arkadia-Oversoul-Prism/Arkadia
+  (4 claimed-open + 4 unassigned + declared doc pointers)
+live open-PR derivation: 9 open PR(s) read from Arkadia-Oversoul-Prism/Arkadia
+  (self branch excluded: 'gate-hygiene/lane-state-completeness-oracle-01')
+doc-guard lanes: ['1', '2', '3', '4']; deferred: []
+lane instruction docs consistent with snapshot (4 guarded lanes)
+```
+
+This is the load-bearing proof of §2.1: the derivation saw **9** open PRs
+(including this one) and excluded exactly the carrier, so the completeness rule
+is satisfiable on the tree that writes the snapshot. Every other completed
+check-run on that commit is `success` (`test`, `posture-currency`,
+`console-contract` pending at time of writing, `boot-syntax`, secret scan,
+`native-arkadia-golden-workflow`).
+
 ## 4. Regression measurement
 
 Baseline and branch measured in this environment, same command:
