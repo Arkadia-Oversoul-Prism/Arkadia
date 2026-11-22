@@ -168,3 +168,42 @@ After the repair, on the same tree: `tests/test_lab_repository_surface_contract.
 - No merge, no deployment, no acceptance. GOV-03: merge execution is human-only; this is
   eligibility evidence.
 - The console frontend was not rebuilt locally for #679; its `frontend` CI job passed at that head.
+
+## Addendum 2 — composed-tree verification, and the sandbox gap closed (2026-11-22)
+
+Measured 2026-11-22T01:0x at `main` `1bff8c42e78f153203641db6d8a90818f7ff6ab2` with this branch's
+head `529e4e94` and the other five open PRs (#675, #677, #678, #679, #680) merged into a detached
+worktree in that order. **Zero conflicted files.**
+
+| Command (composed tree) | Result |
+|---|---|
+| `pytest tests/test_lane_instruction_doc_currency.py tests/test_prism_novanet_engagement_readings.py tests/test_console_shell_nav_contract.py tests/test_knowledge_graph_provenance_boundary.py tests/test_lab_repository_surface_contract.py -q` | **184 passed** |
+| `pytest tests/test_m02a_ci_gate_integrity.py tests/test_prism_console_ci_wiring.py tests/test_economic_seam_ci_wiring.py tests/test_lane_currency_ci_wiring.py tests/test_ci_gate_trigger_coverage.py tests/architecture -q` | **253 passed** (architecture **11 passed**) |
+| `python scripts/lane_state.py --check` | exit **0** |
+
+Re-proved the live negative control on this head (`529e4e94`): removing the lane-4
+`tests/test_lab_repository_surface_contract.py` line from the real `scripts/lane_state_refresh.py`
+yields `1 failed, 65 passed`, failing exactly
+`test_lane_owned_test_file_is_assigned_to_its_lane[4-tests/test_lab_repository_surface_contract.py]`;
+restoring the file byte-identically returns `66 passed` with a clean `git status`.
+
+### Supersedes the earlier dependency limitation
+
+The first "Not claimed" bullet in this record reported that the four lane PRs' own test files could
+not be run in the sandbox for want of `httpx`/`fastapi`/`cryptography`. That was a sandbox gap, and
+it is now closed: after `pip install -q -r requirements.txt` each lane PR's targeted file was
+measured **on its own head**, and every count matches the number its own evidence records.
+
+| PR | head | targeted file | measured |
+|---|---|---|---|
+| #677 | `8352c095` | `tests/test_prism_novanet_engagement_readings.py` | **17 passed** |
+| #678 | `b9b910af` | `tests/test_console_shell_nav_contract.py` | **55 passed** |
+| #679 | `a9bef9aa` | `tests/test_knowledge_graph_provenance_boundary.py` | **31 passed** |
+| #680 | `0023c781` | `tests/test_lab_repository_surface_contract.py` | **15 passed** |
+
+### Not claimed
+
+- No merge, no deployment, no acceptance. GOV-03: merge execution is human-only; this is
+  eligibility evidence.
+- This addendum commit touches only this evidence file. The composition above was measured at
+  `529e4e94`; the code under test is unchanged by the addendum.
