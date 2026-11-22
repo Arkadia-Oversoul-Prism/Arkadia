@@ -170,11 +170,18 @@ Spiral Grove registry declaration-order vs topological-order contract; baseline 
   `python scripts/baseline_fingerprint.py <pytest log>` prints both values below and is
   covered by `tests/test_baseline_fingerprint.py`.
   - outcomes (canonical): `sha256("\n".join(sorted("FAILED|ERROR <nodeid>")) + "\n")` =
-    `9a54f5b478d1135f27ab9e54d95706f03eae1ceb5d4c1f3ae075bffc4208ab38`
+    `0ec3c1102fd4e978bd11dd1b2544e80a42568b04974f9ca1ebe039d9492a14b9`
   - node set: `sha256("\n".join(sorted("<nodeid>")) + "\n")` =
-    `124bfdfd078fe878fe7c9de358ba271e977c4f7b73909b9d7d016b9ae9c1e87f`
-  - The recorded node set is `tests/fixtures/baseline_node_set.txt` (10 nodes); the two
+    `e7405d233288b59c3f3456386de02c6607e0c270a4a09da5ae0f7b084a520967`
+  - The recorded node set is `tests/fixtures/baseline_node_set.txt` (8 nodes); the two
     values above are what the script prints for it.
+  > **Superseded 2026-11-22** (`test-hygiene/solspire-r1-governance-pins-01`): the recorded
+  > set was 10 nodes and the pair was `9a54f5b4…` / `124bfdfd…`. The two
+  > `tests/test_solspire_r1_governance_convergence.py` nodes were test-side pins, not product
+  > debt — `execute_patch` was asserted inside `weaver.governance` after `36bdcf01` moved it
+  > to `weaver.execution`, and the delegation comparison passed mismatched builder
+  > parameters — so they were repaired and removed from the recorded set. The prior pair is
+  > retained as superseded in `tests/test_baseline_fingerprint.py`.
   > **Correction 2026-10-02** (`gate-hygiene/baseline-fingerprint-reconciliation-01`).
   > `gate-hygiene/baseline-fingerprint-reproducibility-01` (PR #203) set out to make the
   > fingerprint reproducible and merged `scripts/baseline_fingerprint.py`, but the pair it

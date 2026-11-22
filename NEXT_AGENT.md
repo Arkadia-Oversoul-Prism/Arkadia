@@ -111,14 +111,20 @@ reconciliation, NovaNet sample-data removal.
 Re-measured 2026-10-04 on `main` @ `1b7c089`:
 
 - Full suite: **9 failed / 1414 passed / 20 skipped / 1 error**. The recorded set is the
-  **10 failing/error nodes** a live run reports (`tests/fixtures/baseline_node_set.txt`);
+  **8 failing/error nodes** a live run reports (`tests/fixtures/baseline_node_set.txt`);
   8 entries previously recorded as debt now pass and were removed, their origin kept in
   `tests/fixtures/superseded_baseline_node_set_18.txt`.
+  > **Superseded 2026-11-22** (`test-hygiene/solspire-r1-governance-pins-01`): the counts
+  > above are the 2026-10-04 measurement of a 10-node recorded set. The two
+  > `tests/test_solspire_r1_governance_convergence.py` nodes were test-side pins, not product
+  > debt, and were repaired; the recorded set is now 8 nodes and the canonical pair is
+  > `0ec3c110…` / `e7405d23…`.
 - Fingerprint `sha256("\n".join(sorted(FAILED/ERROR node ids)) + "\n")` =
-  `9a54f5b478d1135f27ab9e54d95706f03eae1ceb5d4c1f3ae075bffc4208ab38`
-  (node set `124bfdfd…`; recorded nodes in `tests/fixtures/baseline_node_set.txt`). Earlier
-  published pairs (`a59453b8…`, `9a35c812…`, `4d84e7eb…`, `da2ec262…`, and
-  `6c7bf821…`/`2bc35996…`) are superseded — do not reuse them. See
+  `0ec3c1102fd4e978bd11dd1b2544e80a42568b04974f9ca1ebe039d9492a14b9`
+  (node set `e7405d23…`; recorded nodes in `tests/fixtures/baseline_node_set.txt`). Earlier
+  published pairs (`a59453b8…`, `9a35c812…`, `4d84e7eb…`, `da2ec262…`,
+  `6c7bf821…`/`2bc35996…`, and `9a54f5b4…`/`124bfdfd…` for the 10-node set) are superseded —
+  do not reuse them. See
   `docs/control-plane/evidence/gate-hygiene-baseline-node-set-live-reconciliation-01/`.
 
 Counts are environment-sensitive and at least one node

@@ -47,20 +47,35 @@ def test_r1_solspire_builders_delegate_to_weaver(repo_root=REPO_ROOT):
 
     patch = _patch(repo_root)
     project = {"id": "r1-project", "name": "R1 Project"}
-    sol_spec = build_pass_spec_for_patch(project, patch, repo_root=repo_root)
+    # Both sides receive the same explicit identity inputs. The adapter derives its own
+    # pass_id when none is given, so comparing that default against an explicitly
+    # parameterised canonical spec compares two different requests, not two builders.
+    sol_spec = build_pass_spec_for_patch(
+        project, patch, pass_id="mvp1-r1-patch", objective="R1 Project", repo_root=repo_root
+    )
     canonical_spec = weaver_build_spec(
         patch,
         pass_id="mvp1-r1-patch",
         objective="R1 Project",
         repo_root=repo_root,
     ).to_dict()
+    assert canonical_spec
     for key in canonical_spec:
         assert sol_spec[key] == canonical_spec[key]
 
     sol_approval = build_patch_approval(patch, sol_spec, approved=True)
     canonical_approval = weaver_build_approval(patch, sol_spec, approved=True).to_dict()
+    assert canonical_approval
     for key in canonical_approval:
         assert sol_approval[key] == canonical_approval[key]
+
+    # Non-vacuity: the adapter must forward its inputs to the canonical builder rather
+    # than returning a constant strip that would satisfy the comparisons above.
+    other_patch = {**patch, "files": [{"path": "api/main.py", "operation": "MODIFY"}]}
+    other_spec = build_pass_spec_for_patch(
+        project, other_patch, pass_id="mvp1-r1-patch", objective="R1 Project", repo_root=repo_root
+    )
+    assert other_spec["allowed_paths"] != sol_spec["allowed_paths"]
 
 
 def test_r1_solspire_has_no_local_governance_constructors():
@@ -75,13 +90,18 @@ def test_r1_solspire_has_no_local_governance_constructors():
 
 
 def test_r1_weaver_governance_is_canonical():
+    import weaver.execution as execution
     import weaver.governance as governance
 
     source = inspect.getsource(governance)
     assert "def evaluate_patch_readiness" in source
     assert "def build_pass_spec_for_patch" in source
     assert "def build_patch_approval" in source
-    assert "execute_patch" in source
+    # `execute_patch` is Weaver's canonical executor, but it lives in `weaver.execution`;
+    # `36bdcf01` ("keep governance module narrowly scoped") deliberately dropped the
+    # re-export from `weaver.governance`. Pinning the symbol to the governance module
+    # asserted a location, not the property that Weaver owns execution.
+    assert callable(execution.execute_patch)
 
 
 def test_r1_project_execution_remains_k15_k3_adapter(repo_root=REPO_ROOT):
