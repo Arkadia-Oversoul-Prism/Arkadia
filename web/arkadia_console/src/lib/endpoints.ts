@@ -52,6 +52,8 @@ export const endpoints = {
   canvasSurfaces: "/api/canvas/surfaces",
 
   solspireProjects: "/solspire/projects",
+  /** The proposal ledger — owner-scoped list read (`solspire/proposal_router.py`). */
+  solspireProposals: "/solspire/proposals",
   solspireWorkspace: "/solspire/workspace",
   aisProfile: "/api/me/ais-profile",
   sources: "/api/sources",
