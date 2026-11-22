@@ -1365,6 +1365,40 @@ def test_the_lens_strip_is_declared_once():
     )
 
 
+def test_detector_flags_a_second_lens_strip_owner():
+    """Control: ``test_the_lens_strip_is_declared_once`` asserts a one-element list,
+    so a detector that returns that element without reading its input satisfies it.
+    Hold ``_lens_testid_owners`` to both polarities instead: a second file declaring
+    a per-lens testid must be reported, the strip *container* must not be (its
+    ``${surface}-lenses`` testid is not per-lens), and an empty tree must yield no
+    owner."""
+    second_strip = {
+        "src/components/SurfaceLenses.tsx": (
+            '<button\n  type="button"\n  onClick={() => onNavigate(surface, l.id)}\n'
+            '  data-testid={`surface-lens-${l.id}`}\n>\n  {l.label}\n</button>'
+        ),
+        "src/pages/X.tsx": (
+            '<button\n  type="button"\n  onClick={() => onNavigate(surface, l.id)}\n'
+            '  data-testid={`novanet-lens-${l.id}`}\n>\n  {l.label}\n</button>'
+        ),
+    }
+    assert _lens_testid_owners(second_strip) == [
+        "src/components/SurfaceLenses.tsx",
+        "src/pages/X.tsx",
+    ], "a second lens strip must be reported as a second owner"
+
+    container_only = {
+        "src/components/SurfaceLenses.tsx": (
+            '<div\n  className="flex gap-2"\n  data-testid={`${surface}-lenses`}\n>\n'
+            "  {lenses}\n</div>"
+        )
+    }
+    assert _lens_testid_owners(container_only) == [], (
+        "the lens strip container is not a per-lens control and must not own the strip"
+    )
+    assert _lens_testid_owners({}) == [], "an empty tree declares no lens strip"
+
+
 def test_every_lens_control_navigates_through_the_shared_router():
     """A lens is real navigation, not local state: it must call ``onNavigate``,
     which the composition root binds to the shared router's ``navigate``."""
