@@ -86,6 +86,7 @@ LANE_OWNERSHIP: dict[str, dict] = {
             "tests/test_console_legacy_route_coverage.py",
             "tests/test_console_document_title_contract.py",
             "tests/test_console_surface_error_boundary.py",
+            "tests/test_prism_solspire_control_plane.py",
         ),
     },
     "2": {

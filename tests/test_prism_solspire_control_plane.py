@@ -74,6 +74,35 @@ def _composes_an_inline_solspire_path(text: str) -> bool:
     return bool(re.search(r"[`\"']/?solspire/", _code_only(text)))
 
 
+#: A `contract` prop carrying a *route* literal. `contract={UNKNOWN_CONTRACT}` is
+#: deliberately excluded: that named constant classifies an unknown lens and is
+#: not an advertised route, so it must not read as a defect.
+_CONTRACT_ROUTE = re.compile(r'contract=(?:"([^"]+)"|\{\s*"([^"]+)"\s*\})')
+
+
+def _advertised_contracts(text: str) -> list[str]:
+    """Every route literal the page advertises through a `contract` prop."""
+    return [
+        literal or expression
+        for literal, expression in _CONTRACT_ROUTE.findall(_code_only(text))
+    ]
+
+
+def _advertised_contract_defects(text: str) -> list[str]:
+    """Why an advertised contract is not a served `/solspire` route.
+
+    Returns reasons rather than a boolean so a caller can assert the *specific*
+    defect, and so "no defects" is distinguishable from "nothing was read".
+    """
+    defects: list[str] = []
+    for value in _advertised_contracts(text):
+        if value.startswith("/api/solspire/"):
+            defects.append(f"{value!r} carries the retired /api prefix")
+        elif not value.startswith("/solspire/"):
+            defects.append(f"{value!r} is not on the /solspire router")
+    return defects
+
+
 # ---------------------------------------------------------------------------
 # Backend half — executed against the real router
 # ---------------------------------------------------------------------------
@@ -179,13 +208,10 @@ def test_page_no_longer_advertises_the_wrong_api_prefix():
 
 def test_page_mounts_the_control_plane_and_advertises_only_served_paths():
     assert "<SolSpireControlPlane" in PAGE
-    advertised = re.findall(r'contract="([^"]+)"', PAGE)
+    advertised = _advertised_contracts(PAGE)
     assert advertised, "the page must still declare its not-yet-wired contracts"
-    for value in advertised:
-        assert not value.startswith("/api/solspire/"), (
-            f"advertised contract {value!r} carries the wrong /api prefix"
-        )
-        assert value.startswith("/solspire/"), f"advertised contract {value!r} is not on the /solspire router"
+    defects = _advertised_contract_defects(PAGE)
+    assert defects == [], defects
 
 
 def test_negative_control_detects_inline_path_composition():
@@ -195,6 +221,32 @@ def test_negative_control_detects_inline_path_composition():
 
 
 def test_negative_control_detects_the_wrong_advertised_prefix():
-    synthetic = '<NotYetWired contract="/api/solspire/pulses" />'
-    assert any(w in synthetic for w in WRONG_ADVERTISED)
-    assert "/api/solspire/pulses" not in PAGE
+    """The advertised-contract oracle must report both defect shapes it exists to
+    catch, and must stay silent on the two shapes that are not routes.
+
+    Without this binding the live assertion above could be disarmed (the loop
+    body replaced by `pass`) and every node here would still pass: measured at
+    `main` `034d8879`, removing the live invariant left **12 passed**.
+    """
+    retired = '<NotYetWired contract="/api/solspire/pulses" />'
+    assert _advertised_contract_defects(retired), (
+        "a contract carrying the retired /api prefix must be reported"
+    )
+
+    off_router = '<NotYetWired contract="/elsewhere/pulses" />'
+    assert _advertised_contract_defects(off_router), (
+        "a contract off the /solspire router must be reported"
+    )
+
+    expression = '<NotYetWired contract={"/api/solspire/voice"} />'
+    assert _advertised_contract_defects(expression), (
+        "a route literal in an expression prop must be read, not skipped"
+    )
+
+    # Not-routes: the classification constant and a commented-out contract.
+    assert _advertised_contract_defects("<NotYetWired contract={UNKNOWN_CONTRACT} />") == []
+    assert _advertised_contract_defects('// contract="/api/solspire/pulses"\n') == []
+
+    served = '<NotYetWired contract="/solspire/pulses" />'
+    assert _advertised_contract_defects(served) == []
+    assert _advertised_contract_defects(PAGE) == []
