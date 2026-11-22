@@ -4,7 +4,7 @@ import subprocess
 
 import pytest
 
-from lab.observatory.git import _redact_remote_url, repository_state
+from lab.observatory.git import redact_remote_url, repository_state
 
 
 @pytest.mark.parametrize(
@@ -39,11 +39,11 @@ from lab.observatory.git import _redact_remote_url, repository_state
     ],
 )
 def test_remote_userinfo_is_removed_without_rewriting_safe_remotes(remote: str, expected: str):
-    assert _redact_remote_url(remote) == expected
+    assert redact_remote_url(remote) == expected
 
 
 def test_malformed_credential_bearing_remote_fails_closed():
-    value = _redact_remote_url("https://alice:synthetic-token@")
+    value = redact_remote_url("https://alice:synthetic-token@")
     assert "alice" not in (value or "")
     assert "synthetic-token" not in (value or "")
 
@@ -131,8 +131,88 @@ def test_negative_control_the_redaction_reading_can_fail():
     detector distinguishes an unredacted value from a redacted one.
     """
     raw = "https://alice:synthetic-token@example.invalid/Arkadia/repo.git"
-    assert _redact_remote_url(raw) != raw, "the control fixture must be redactable"
+    assert redact_remote_url(raw) != raw, "the control fixture must be redactable"
     assert "synthetic-token" in raw
-    clean = _redact_remote_url(raw)
+    clean = redact_remote_url(raw)
     assert clean == "https://example.invalid/Arkadia/repo.git"
     assert "synthetic-token" not in (clean or "")
+
+
+# ── WEAVER reconnaissance ────────────────────────────────────────────────────
+#
+# `weaver.recon.git_identity()` feeds `build_context_packet()`, and
+# `write_context_packet()` persists that packet to a *repository path*
+# (`data/weaver/context/current.json`, which is tracked). An unredacted remote
+# there is not just a read-model leak: it puts URL userinfo into a file that
+# `git add` can publish, so the redaction has to hold at the writer, not only at
+# the lab read model.
+
+SYNTHETIC_REMOTE = "https://alice:synthetic-token@example.invalid/Arkadia/repo.git"
+CLEAN_REMOTE = "https://example.invalid/Arkadia/repo.git"
+
+
+def _init_repo_with_origin(tmp_path, remote: str) -> None:
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    subprocess.run(["git", "-C", str(tmp_path), "remote", "add", "origin", remote], check=True)
+
+
+def test_weaver_git_identity_never_exposes_remote_userinfo(tmp_path):
+    _init_repo_with_origin(tmp_path, SYNTHETIC_REMOTE)
+
+    from weaver.recon import git_identity
+
+    ident = git_identity(str(tmp_path))
+
+    assert ident["remote"] == CLEAN_REMOTE
+    assert ident["remote_redacted"] is True
+    assert "alice" not in repr(ident)
+    assert "synthetic-token" not in repr(ident)
+
+
+def test_weaver_git_identity_reports_redaction_only_when_it_happened(tmp_path):
+    """A credential-free remote must report False, not a constant True."""
+    _init_repo_with_origin(tmp_path, CLEAN_REMOTE)
+
+    from weaver.recon import git_identity
+
+    ident = git_identity(str(tmp_path))
+
+    assert ident["remote"] == CLEAN_REMOTE
+    assert ident["remote_redacted"] is False
+
+
+def test_weaver_context_packet_never_persists_remote_userinfo(tmp_path):
+    """The load-bearing assertion: the written packet is the disclosure surface."""
+    _init_repo_with_origin(tmp_path, SYNTHETIC_REMOTE)
+
+    from weaver.recon import write_context_packet
+
+    rel = write_context_packet(str(tmp_path))
+    written = (tmp_path / rel).read_text(encoding="utf-8")
+
+    assert "synthetic-token" not in written
+    assert "alice@" not in written
+    assert CLEAN_REMOTE in written
+
+
+def test_negative_control_the_packet_leaks_when_the_redaction_is_disabled(tmp_path, monkeypatch):
+    """Prove the packet assertion above can fail.
+
+    Disable the redaction at its definition (the imported name `git_identity`
+    resolves) and the same write must persist the token. Without this control a
+    green assertion could mean the fixture never reached the writer.
+    """
+    _init_repo_with_origin(tmp_path, SYNTHETIC_REMOTE)
+
+    import weaver.recon as recon
+
+    monkeypatch.setattr(recon, "redact_remote_url", lambda value: value)
+
+    rel = recon.write_context_packet(str(tmp_path))
+    written = (tmp_path / rel).read_text(encoding="utf-8")
+
+    assert "synthetic-token" in written, (
+        "the control did not reproduce the defect, so the positive assertion "
+        "above proves nothing"
+    )
+

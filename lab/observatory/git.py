@@ -7,7 +7,7 @@ from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
 
-def _redact_remote_url(remote: str | None) -> str | None:
+def redact_remote_url(remote: str | None) -> str | None:
     """Remove URL userinfo before a remote is exposed in any read model.
 
     Git remotes can embed credentials in URL userinfo, for example
@@ -15,6 +15,9 @@ def _redact_remote_url(remote: str | None) -> str | None:
     only, so preserve the host/path but never the userinfo. The conservative
     fallback also handles malformed URL-like and SCP-style remote forms without
     returning the authority prefix before @.
+
+    This is the single implementation of the redaction; ``weaver.recon`` imports
+    it rather than carrying a second copy that could drift.
     """
     if not remote:
         return remote
@@ -59,7 +62,7 @@ def repository_state(repo_root: str = ".") -> dict[str, Any]:
     head, err2 = _run(root, ["rev-parse", "HEAD"])
     remote, err3 = _run(root, ["remote", "get-url", "origin"])
     status, err4 = _run(root, ["status", "--porcelain"])
-    redacted = _redact_remote_url(remote)
+    redacted = redact_remote_url(remote)
     # Report the redaction as a reading, not an assumption: a consumer can render
     # "the remote the environment is configured with" only if it is told whether
     # the value it receives is the raw one. Derived from the comparison, so a
