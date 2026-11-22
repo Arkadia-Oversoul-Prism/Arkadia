@@ -205,7 +205,10 @@ def test_deletion_propagates_to_durable_corpus():
     seeded = _seed()
     a = store_mod.create_file(seeded["pid"], "temp.md", "temp")
     assert any(c["row"]["id"] == a["id"] for c in _corpus()["children"])
-    store_mod.delete_file(a["id"])
+    # `delete_file` is project-scoped: the wrong project id must not delete it.
+    assert store_mod.delete_file("other-project", a["id"]) is False
+    assert any(c["row"]["id"] == a["id"] for c in _corpus()["children"])
+    assert store_mod.delete_file(seeded["pid"], a["id"]) is True
     assert not any(c["row"]["id"] == a["id"] for c in _corpus()["children"])
 
 
