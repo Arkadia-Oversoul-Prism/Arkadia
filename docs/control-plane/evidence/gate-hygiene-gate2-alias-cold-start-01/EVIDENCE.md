@@ -112,21 +112,68 @@ pass the first line and fail the control.
 
 ## 5. Regression measurement
 
-Full suite, `-rEf --continue-on-collection-errors`, same environment, both trees:
+Full suite, `-rEf --continue-on-collection-errors`, same environment, both trees, each
+run in its own checkout of the same clone:
 
 | Tree | Result |
 |---|---|
-| `main` `034d8879` | see §5.1 |
-| branch head | `78 failed, 4026 passed, 22 skipped, 27 errors` |
+| `main` `034d8879` | `78 failed, 4018 passed, 22 skipped, 27 errors` |
+| branch `9f432080` | `78 failed, 4026 passed, 22 skipped, 27 errors` |
 
 The comparison is by failing/error **node set**, never by count (§5.1 records both
 `sha256` values). `tests/architecture` is unaffected: `scripts/` and `tests/` add no
 layer edge.
 
-## 5.1 Node-set delta
+### 5.1 Node-set delta
 
-Filled from the paired runs recorded with this change; the sets are compared with
-`comm -3` and each side is hashed.
+```
+$ for f in main2 branch; do grep -E "^(FAILED|ERROR)" /tmp/suite_$f.log \
+    | sed -E 's/ - .*//' | sort > /tmp/nodes_$f.txt; done
+main2   nodes=105 sha256=ee415edd6ea7e9dc597562ab59312f681116600fead26613c6f7cac3bb964549
+branch  nodes=105 sha256=ee415edd6ea7e9dc597562ab59312f681116600fead26613c6f7cac3bb964549
+$ comm -3 /tmp/nodes_main2.txt /tmp/nodes_branch.txt
+(empty)
+```
+
+**Zero node-set delta.** The `+8 passed` is exactly the added test nodes:
+`--collect-only tests/test_gate2_production_observation.py` reads **41** on `main` and
+**49** on the branch.
+
+The absolute numbers are this environment's, not CI's: a local run carries dependency
+and clone-depth debt that CI does not. What is environment-independent is the claim
+above — the failing/error node *set* is identical, so nothing regressed.
+
+### 5.2 Composition with PR #681 (measured, not assumed)
+
+PR #681 (`gate2/served-artifact-app-identity-01`, head `04f2969b`) repairs a *different*
+defect in the same file — the marker oracle is scored against the app the served
+artifact actually belongs to. Both branches touch
+`scripts/gate2_production_observation.py` and its test file, so composition was measured
+in a detached worktree rather than assumed:
+
+```
+$ git merge --no-edit gate-hygiene/gate2-alias-cold-start-classification-01   # on 04f2969b
+Auto-merging scripts/gate2_production_observation.py
+Auto-merging tests/test_gate2_production_observation.py
+CONFLICT (content): Merge conflict in tests/test_gate2_production_observation.py
+```
+
+The **script auto-merges cleanly** (the two repairs are in different regions: link 4's
+alias observation here, the marker-oracle identity there). The conflict is purely
+positional: both branches append their tests at end of file. Resolving it by keeping
+both blocks (dropping only the three marker lines) yields:
+
+```
+$ python -m pytest -q tests/test_gate2_production_observation.py
+56 passed
+$ python -m pytest -q tests/test_gate2_production_observation_ci_wiring.py \
+      tests/test_aeas05_canonical_frontend_acceptance.py
+20 passed
+```
+
+56 = `main`'s 41 + #681's 7 + this change's 8, so the composition is additive and
+neither repair shadows the other. Merge order is immaterial; the human resolution is to
+keep both appended blocks.
 
 ## 6. What this does not claim
 
@@ -143,6 +190,14 @@ Filled from the paired runs recorded with this change; the sets are compared wit
   (`gate2/served-artifact-app-identity-01`) binds the marker oracle to the app the
   served artifact belongs to. It is not repaired here, and this change does not
   duplicate it.
+- **These tests are not yet executed by a workflow.** At `034d8879`,
+  `grep -rn test_gate2_production_observation .github/workflows/` is empty, so the file
+  runs only when a human invokes it. The gate is PR #681's
+  `.github/workflows/gate2-production-observation.yml`, whose `paths` filter already
+  names `scripts/gate2_production_observation.py` and the test file — so once #681 lands,
+  a change here runs these tests. Adding a second workflow for the same file would be a
+  duplicate gate and a guaranteed conflict; the wiring is therefore deferred to #681 and
+  recorded rather than duplicated.
 - **No deployment, merge, or production change** is performed or authorized by this
   record.
 
