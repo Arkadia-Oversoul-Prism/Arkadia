@@ -136,10 +136,19 @@ lane instruction docs consistent with snapshot (4 guarded lanes)
 
 This is the load-bearing proof of §2.1: the derivation saw **9** open PRs
 (including this one) and excluded exactly the carrier, so the completeness rule
-is satisfiable on the tree that writes the snapshot. Every other completed
-check-run on that commit is `success` (`test`, `posture-currency`,
-`console-contract` pending at time of writing, `boot-syntax`, secret scan,
-`native-arkadia-golden-workflow`).
+is satisfiable on the tree that writes the snapshot.
+
+Final check-runs on head `6b537af7`: **10 success** (`lane-doc-currency`, `test`,
+`console-contract`, `posture-currency`, `boot-syntax`, `Full-history secret scan`,
+`provider-forensics`, `bundle-beta-evidence`, `beta-beta-01-english`,
+`beta-beta-02-hausa`) and **1 failure**: `native-arkadia-golden-workflow`, which
+failed on the live external provider —
+`ModelUnavailable: N-ATLaS Gradio runtime error: provider emitted error event with
+null/empty data`, node `test_natlas_developer_lab.py::test_native_natlas_route_live_external_gradio`.
+The same workflow **passed** on the previous head (`40a720c2`) minutes earlier, so
+it is intermittent and is evidence about the provider, not about this tree; no
+path in this change touches it.
+
 
 ## 4. Regression measurement
 
