@@ -82,6 +82,10 @@ MARKER_APPS: dict[str, dict] = {
     "arkadia-prism": {
         "source_root": "archive/frontend/arkadia-prism/web/public_prism/src",
         "dist_root": "archive/frontend/arkadia-prism/web/public_prism/dist/assets",
+        # Build-invariant HTML identity: the app's declared <title>, served
+        # verbatim by the SPA shell. Used only when no deployment label names the
+        # observed app (see ``detect_served_app``).
+        "html_root": "archive/frontend/arkadia-prism/web/public_prism/index.html",
         "markers": {
             "separate explicit downstream stages": ("CapabilityChamber.tsx (SG-03 boundary)", True, "SG-03 chamber rewrite"),
             "separate downstream stages": ("control: pre-SG-03 wording", False, "control -- must be absent"),
@@ -99,6 +103,7 @@ MARKER_APPS: dict[str, dict] = {
     "arkadia-console": {
         "source_root": "web/arkadia_console/src",
         "dist_root": "web/arkadia_console/dist/assets",
+        "html_root": "web/arkadia_console/index.html",
         "markers": {
             "Protected surface": ("App.tsx auth threshold heading", True, "auth threshold"),
             "Sign in to continue": ("App.tsx auth threshold copy", True, "auth threshold"),
@@ -149,6 +154,56 @@ def sh(args: list[str]) -> str:
 
 def repo_root() -> str:
     return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def served_identity(app: str) -> str | None:
+    """The app's build-invariant HTML identity -- its declared ``<title>``.
+
+    Read from the app's own ``index.html`` so the identity cannot drift from the
+    shell that is actually built. Returns ``None`` when the shell is absent or
+    declares no title, which leaves that app undetectable rather than guessed.
+    """
+    entry = MARKER_APPS.get(app) or {}
+    html_root = entry.get("html_root")
+    if not html_root:
+        return None
+    path = os.path.join(repo_root(), html_root)
+    try:
+        with open(path, encoding="utf-8") as handle:
+            text = handle.read()
+    except OSError:
+        return None
+    match = re.search(r"<title>(.*?)</title>", text, re.S)
+    return match.group(1).strip() if match else None
+
+
+def detect_served_app(html: str) -> str | None:
+    """Which application does the served HTML shell belong to?
+
+    The deployment API used to be the only source of app identity, and it no
+    longer is: the canonical runtime is Render, which publishes no deployment
+    record, so ``frontend_of`` returns ``None`` and the marker oracle could never
+    score the artifact it had actually fetched.
+
+    Identity is decided by the app's declared ``<title>``, which survives
+    minification and is served verbatim by the SPA shell. Exactly one app must
+    match: zero matches (an error page, a cold-start holding page) or several
+    (two apps sharing a title) is *undetermined*, never a guess. Aliases that
+    share one marker list are deduplicated so a single app cannot look
+    ambiguous.
+    """
+    if not html:
+        return None
+    matches: list[str] = []
+    seen: set[int] = set()
+    for app, entry in MARKER_APPS.items():
+        if id(entry) in seen:
+            continue
+        seen.add(id(entry))
+        title = served_identity(app)
+        if title and f"<title>{title}</title>" in html:
+            matches.append(app)
+    return matches[0] if len(matches) == 1 else None
 
 
 def resolve_main() -> str:
@@ -563,7 +618,12 @@ def main() -> int:
     # and the source-lineage closure are all scoped to the observed app, and a read
     # that precedes this write sees ``None`` for every deployment -- collapsing the
     # evaluable branches so a genuine regression can never be reported.
-    deployed_app = frontend_of(prod[0]["environment"]) if prod else None
+    # The observed app is named by the deployment label when a record exists. The
+    # canonical runtime (Render) publishes no deployment record, so fall back to
+    # the *served artifact's* build-invariant identity rather than leaving the app
+    # undetermined -- an undetermined app cannot be scored, which read as "no
+    # marker set observed" even though the artifact was fetched successfully.
+    deployed_app = (frontend_of(prod[0]["environment"]) if prod else None) or detect_served_app(html)
     report["deployed_app"] = deployed_app
 
     # ---- link 5: marker-set lineage -----------------------------------------
@@ -609,7 +669,8 @@ def main() -> int:
     app_for_closure = deployed_app or MARKER_APP
     if deployed_app is None and prod:
         report["deployed_app_error"] = (
-            f"environment '{prod[0]['environment']}' names no known frontend; "
+            f"environment '{prod[0]['environment']}' names no known frontend and "
+            "the served shell carries no declared identity; "
             "build<->source lineage cannot be scoped"
         )
     last_sha, last_date, last_subject = last_build_input_commit(app_for_closure)

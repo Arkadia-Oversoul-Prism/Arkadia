@@ -1,0 +1,70 @@
+name: Gate-2 Production Observation
+
+# The Gate-2 harness (`scripts/gate2_production_observation.py`) re-derives the
+# chain main -> deployment -> served artifact -> marker set. Its verdicts are only
+# as sound as the identity it binds an observation to.
+#
+# Measured at main `034d8879`: the canonical origin returned HTTP 200 with a real
+# bundle (`assets/index-CYGHeCpJ.js`), yet the harness printed
+# `artifact app: UNDETERMINED` and refused to score the artifact -- app identity was
+# read only from a GitHub deployment label, and the canonical runtime is Render,
+# which publishes no such record. The artifact was fetched and nothing judged it.
+#
+# No workflow executed `tests/test_gate2_production_observation.py`
+# (`grep -rn test_gate2_production_observation .github/` -> 0), so the oracle could
+# regress silently. This gate executes the harness's fitness tests.
+#
+# They are pure-function and source-level by convention -- the sibling harness's
+# suite states the same rule: the live probe is exercised by running the script,
+# never by CI. Nothing here contacts the network.
+#
+# The `paths` filter names every input those tests read: the script, the test file,
+# the wiring guard, and the two `index.html` shells whose `<title>` *is* the app
+# identity the tests exercise. A change to a shell changes what the guard asserts,
+# so a shell-only commit must run it.
+
+on:
+  pull_request:
+    paths:
+      - "scripts/gate2_production_observation.py"
+      - "tests/test_gate2_production_observation.py"
+      - "tests/test_gate2_production_observation_ci_wiring.py"
+      - "web/arkadia_console/index.html"
+      - "archive/frontend/arkadia-prism/web/public_prism/index.html"
+      - ".github/workflows/gate2-production-observation.yml"
+  push:
+    branches: ["main"]
+    paths:
+      - "scripts/gate2_production_observation.py"
+      - "tests/test_gate2_production_observation.py"
+      - "tests/test_gate2_production_observation_ci_wiring.py"
+      - "web/arkadia_console/index.html"
+      - "archive/frontend/arkadia-prism/web/public_prism/index.html"
+      - ".github/workflows/gate2-production-observation.yml"
+  # Path-filtered, so a revision touching none of the above never runs it.
+  # Dispatchable so the oracle can be exercised against an exact revision.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gate2-observation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install pytest pyyaml
+      - name: Execute the Gate-2 observation fitness tests
+        run: python -m pytest -q tests/test_gate2_production_observation.py
+      - name: Execute the wiring guard (judges this workflow)
+        # Run inside the gate so a rewrite of this workflow is judged by the
+        # workflow it rewrites -- otherwise the gate is disarmed by editing the
+        # one file it is meant to constrain.
+        run: python -m pytest -q tests/test_gate2_production_observation_ci_wiring.py

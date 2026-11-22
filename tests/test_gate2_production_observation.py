@@ -484,3 +484,97 @@ def test_ordering_detector_flags_the_defective_order():
         'report["deployed_app"] = frontend_of(prod[0]["environment"]) if prod else None\n'
     )
     assert _sg04_call_line(defective) < _assignment_line(defective, "deployed_app")
+
+
+# ---------------------------------------------------------------------------
+# Served-artifact app identity
+#
+# The deployment API was the only source of app identity, and it no longer
+# publishes the canonical runtime's record: the canonical origin is Render, whose
+# API is not GitHub deployments. Measured at main ``034d8879``: the alias served
+# HTTP 200 with ``assets/index-CYGHeCpJ.js``, yet the harness printed
+# ``artifact app: UNDETERMINED`` and ``marker-set oracle NOT OBSERVED`` -- the
+# artifact had been fetched, and nothing scored it. These tests pin the fallback
+# that decides identity from the served shell, and pin that it *fails closed*.
+# ---------------------------------------------------------------------------
+from scripts.gate2_production_observation import (  # noqa: E402  (appended section)
+    detect_served_app,
+    served_identity,
+)
+
+
+def test_served_identity_is_the_declared_title_of_each_app():
+    """Each app's identity is read from its own shell, not restated here."""
+    prism = served_identity("arkadia-prism")
+    console = served_identity("arkadia-console")
+    assert prism and console
+    assert prism != console
+
+
+def test_detection_identifies_the_console_shell():
+    """The active console's own shell resolves to the console."""
+    title = served_identity("arkadia-console")
+    assert detect_served_app(f"<html><head><title>{title}</title></head></html>") == "arkadia-console"
+
+
+def test_detection_identifies_the_prism_shell():
+    """The archived Prism shell stays distinguishable from the console."""
+    title = served_identity("arkadia-prism")
+    assert detect_served_app(f"<html><head><title>{title}</title></head></html>") == "arkadia-prism"
+
+
+def test_detection_is_undetermined_for_a_non_application_page():
+    """Negative control: Render's cold-start holding page is not an app shell.
+
+    Measured live on this pass: the alias returned HTTP 503 with
+    ``<title>Render - Application loading</title>`` while the instance booted. A
+    detector that guessed an app from any 200/503 body would score that page
+    against a real marker set and report the resulting zeros as a regression.
+    """
+    holding = (
+        "<!doctype html><html><head><title>Render - Application loading</title>"
+        "</head><body>Application loading</body></html>"
+    )
+    assert detect_served_app(holding) is None
+    assert detect_served_app("") is None
+
+
+def test_detection_refuses_an_ambiguous_shell():
+    """Two declared identities in one shell is undetermined, not a coin flip."""
+    both = (
+        f"<title>{served_identity('arkadia-prism')}</title>"
+        f"<title>{served_identity('arkadia-console')}</title>"
+    )
+    assert detect_served_app(both) is None
+
+
+def test_a_shared_marker_list_does_not_make_one_app_ambiguous():
+    """Negative control for the alias dedupe.
+
+    ``MARKER_APPS["console"]`` is the same object as ``MARKER_APPS["arkadia-console"]``
+    (two project labels, one application). Without the ``id()`` dedupe both keys
+    would match the console shell, ``len(matches) == 2``, and detection would
+    return ``None`` -- silently disabling the fallback it exists to provide.
+    """
+    aliases = [k for k, v in MARKER_APPS.items() if v is MARKER_APPS["arkadia-console"]]
+    assert len(aliases) > 1, "the alias this control exercises has been removed"
+    title = served_identity("arkadia-console")
+    assert detect_served_app(f"<title>{title}</title>") == "arkadia-console"
+
+
+def test_a_deployment_label_still_wins_over_the_served_shell():
+    """The fallback is a fallback: a naming deployment record is authoritative.
+
+    Asserted over the real assignment so the order cannot be inverted without
+    reddening this test. A detected shell must never override a record that names
+    a different app -- that would let the artifact redefine what it is measured
+    against.
+    """
+    src = _SCRIPT.read_text(encoding="utf-8")
+    assignments = [
+        line for line in src.splitlines() if line.strip().startswith("deployed_app =")
+    ]
+    assert len(assignments) == 1, assignments
+    line = assignments[0]
+    assert "frontend_of(" in line and "detect_served_app(html)" in line
+    assert line.index("frontend_of(") < line.index("detect_served_app(")
