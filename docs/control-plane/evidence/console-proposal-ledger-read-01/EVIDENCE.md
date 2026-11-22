@@ -107,8 +107,19 @@ branch            : 2 failed, 1288 passed, 4 skipped   (75 guards)
 
 The **failing node set is identical** — `tests/test_prism_w4_lab_pr_state.py::
 test_handler_emits_the_keys_the_projection_reads` and `::test_projection_reads_the_handler_output`
-— which are pre-existing on `main` and owned by open PR #683. The `+9 passed` is exactly the new
-guard's node count, not a behavioural delta.
+— and the `+9 passed` is exactly the new guard's node count, not a behavioural delta.
+
+**The two local failures are credential-dependent, not repository debt.** They assert
+`"state": "AVAILABLE"` from `api.lab_routes.pr_state`, which needs an authenticated GitHub
+client; this sandbox has none, so the handler answers `UNAVAILABLE`. The same guard is red on
+`main` for the same reason, and open PR #683 ("enforce the Lab PR-state guard's no-token
+premise", touching exactly that test file) owns the repair.
+
+**The CI measurement is stronger and is the authoritative one for this branch:** run
+`45043938762`, job `console-contract`, step *Verify the console contract guards* →
+`1294 passed in 46.55s`, **0 failed**. The runner has a token, so the two premise nodes pass
+there. Local and CI counts differ because the premise differs; neither reading contradicts the
+other, and neither is a regression from this change.
 
 ### 3.4 Frontend
 
