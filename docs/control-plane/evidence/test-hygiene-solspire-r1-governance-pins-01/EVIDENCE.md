@@ -143,7 +143,22 @@ consume the remaining headroom with no room for the accompanying guard. Proposed
 bounded change: stop echoing `str(e)`, log server-side, and (optionally) retry unauthenticated when
 a credential is rejected for a public repository.
 
-## 8. Non-claims
+## 8. CI at the branch head
+
+All checks pass at `b03ee0b0` (11 checks; `baseline-fingerprint` among them, which is the runtime
+proof that the reconciled guard is wired and green rather than merely asserted in source).
+
+`beta-beta-01-english` / `bundle-beta-evidence` failed on the **first** run
+(`45050020369`, 2026-11-22T17:32Z) and were re-run: `beta-beta-01-english` then passed.
+
+Classification, from the log rather than the conclusion: the job reported
+`RUN_FAILED ... "external runtime did not return usable inference"`, and **in the same run, on the
+same tree, in the same minute, `beta-beta-02-hausa` passed**. A tree-caused failure cannot pass one
+language and fail the other. `bundle-beta-evidence` then failed only because it asserts that both
+evidence files are `PASS`. Neither job is selected by this diff, and neither ran on `main`
+`034d8879` (path-filtered), so this is an external-provider flake, not a branch signal.
+
+## 9. Non-claims
 
 - No merge executed; no deployment triggered; no production acceptance claimed.
 - The Gate-2 `deployment build output observed` boundary remains **UNKNOWN/BLOCKED**; this pass did
