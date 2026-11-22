@@ -545,3 +545,23 @@ the snapshot cannot disagree. Lane 1 at zero open PRs is a **deficit**, not a re
 state: the next action is to open lane 1's next bounded draft PR from freshly fetched
 `main`, inside the lane's owned paths (`SHARED-CONTRACTS.md` §1). Merge, production
 deployment and acceptance remain human-only under GOV-03.
+
+## Status — 2026-11-22 (LANE 1; supersedes the idle declaration above)
+
+**Active branch:** `feat/lane1-lens-strip-owner-control-binding-01`
+**Active PR:** [#678](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/678) — draft, base `main`.
+
+Lane 1 is not idle: it holds one open bounded draft PR, so the idle declaration above is
+superseded by this pointer, which is the declaration the guard reads (last-wins).
+
+The slice is `tests/test_console_shell_nav_contract.py` — binds the lens-strip owner detector
+to a control that fails when the detector is disarmed. Every path it touches is inside
+lane 1's exclusive ownership (`SHARED-CONTRACTS.md` §1).
+
+This block was appended by the lane-state completeness repair
+(`docs/control-plane/evidence/gate10-lane-state-completeness-oracle-01/`): the committed snapshot recorded every lane idle while
+six lane-owned PRs were live, and `scripts/lane_state.py --check` passed because nothing
+compared the snapshot with a fresh derivation. The snapshot is now re-derived from live PR
+state and the guard judges that comparison, so this pointer and the snapshot cannot disagree.
+It records the live thread and asserts nothing about the slice's readiness: the PR stays
+**draft**. Merge, production deployment and acceptance remain human-only.

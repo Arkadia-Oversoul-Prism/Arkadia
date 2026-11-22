@@ -1,16 +1,25 @@
 {
  "schema": "arkadia.lane-state/1.2",
- "observed_at": "2026-11-20T04:56:38Z",
- "base_main": "b842892b9fc64dede5e655db0d293da77248a430",
+ "observed_at": "2026-11-22T09:12:03Z",
+ "base_main": "034d8879d68ecf8ed4c291eb0ab07432657a06a1",
  "source": "GitHub REST reads API (Arkadia-Oversoul-Prism/Arkadia), read-only, derived by scripts/lane_state_refresh.py",
  "note": "Machine-readable mirror of the four Prism UI lane threads, DERIVED from live PR state rather than hand-transcribed. Lane assignment is by exclusive path ownership (SHARED-CONTRACTS.md section 1); a PR touching more than one lane's owned paths appears in each. scripts/lane_state.py judges the docs against this file; --verify-live additionally requires every claimed-open PR to be authoritatively open. Refresh with scripts/lane_state_refresh.py --write.",
  "lanes": {
   "1": {
    "doc": "AGENT-01-SHELL.md",
    "title": "Shell / navigation / design system / integration seam",
-   "active_pr": null,
-   "active_branch": null,
-   "open_prs": [],
+   "active_pr": 678,
+   "active_branch": "feat/lane1-lens-strip-owner-control-binding-01",
+   "open_prs": [
+    {
+     "number": 678,
+     "branch": "feat/lane1-lens-strip-owner-control-binding-01",
+     "head_sha": "b9b910affe24268a6f61ac8573cdbf02a6739d1f",
+     "draft": true,
+     "updated_at": "2026-11-22T05:17:40Z",
+     "title": "Lane 1: bind the lens-strip owner detector to a control"
+    }
+   ],
    "merged_prs": [
     {
      "number": 423,
@@ -45,14 +54,23 @@
      "merge_commit_sha": "caac3949a390b129bbe97df4ab100a6cd386aa24"
     }
    ],
-   "doc_guard": "idle"
+   "doc_guard": "current"
   },
   "2": {
    "doc": "AGENT-02-NOVANET-OPPORTUNITY.md",
    "title": "NovaNet + project Opportunity Radar",
-   "active_pr": null,
-   "active_branch": null,
-   "open_prs": [],
+   "active_pr": 677,
+   "active_branch": "feat/lane2-refusal-collapse-control-binding-01",
+   "open_prs": [
+    {
+     "number": 677,
+     "branch": "feat/lane2-refusal-collapse-control-binding-01",
+     "head_sha": "8352c095b4e2e8dfd1ac93d1fca3405bd3775051",
+     "draft": true,
+     "updated_at": "2026-11-22T05:17:40Z",
+     "title": "lane2: bind the refusal-collapse detector to a control"
+    }
+   ],
    "merged_prs": [
     {
      "number": 420,
@@ -71,14 +89,23 @@
      "merge_commit_sha": "4dd4c05dac6e8c74b9e7e5cb484d2bbf1f556bd1"
     }
    ],
-   "doc_guard": "idle"
+   "doc_guard": "current"
   },
   "3": {
    "doc": "AGENT-03-SOLARIUN-KNOWLEDGE.md",
    "title": "Solariun + Knowledge OS",
-   "active_pr": null,
-   "active_branch": null,
-   "open_prs": [],
+   "active_pr": 679,
+   "active_branch": "feat/lane3-knowledge-title-cap-disclosure-01",
+   "open_prs": [
+    {
+     "number": 679,
+     "branch": "feat/lane3-knowledge-title-cap-disclosure-01",
+     "head_sha": "a9bef9aa84df3578181bf8e5ba52625596733ec1",
+     "draft": true,
+     "updated_at": "2026-11-22T05:17:41Z",
+     "title": "Lane 3: disclose the knowledge-graph title cap"
+    }
+   ],
    "merged_prs": [
     {
      "number": 421,
@@ -97,14 +124,23 @@
      "merge_commit_sha": "97dbe0125f5fc3c7fa59714fb924b55cd484b683"
     }
    ],
-   "doc_guard": "idle"
+   "doc_guard": "current"
   },
   "4": {
    "doc": "AGENT-04-ARKANA-WEAVER-LAB.md",
    "title": "Arkana + Weaver + Engineering Lab",
-   "active_pr": null,
-   "active_branch": null,
-   "open_prs": [],
+   "active_pr": 680,
+   "active_branch": "lane4/details-scanner-nesting-control-01",
+   "open_prs": [
+    {
+     "number": 680,
+     "branch": "lane4/details-scanner-nesting-control-01",
+     "head_sha": "0023c7813eda7aa90221c176ace9e8f3d7df2a76",
+     "draft": true,
+     "updated_at": "2026-11-22T05:17:42Z",
+     "title": "Lane 4: bind the details scanner to a nesting control"
+    }
+   ],
    "merged_prs": [
     {
      "number": 422,
@@ -131,7 +167,7 @@
      "merge_commit_sha": "210637e8a772bb3e4492292d7b7c5f59ffe5195f"
     }
    ],
-   "doc_guard": "idle"
+   "doc_guard": "current"
   }
  },
  "aggregate_prs": [
@@ -151,12 +187,36 @@
  },
  "unassigned_open_prs": [
   {
-   "number": 669,
-   "branch": "gate-hygiene/lane-snapshot-post-integration-refresh-01",
-   "head_sha": "32c7b5f991f9b3093197fde1d1db6d73e9ce70de",
+   "number": 675,
+   "branch": "ops/openhands-weekly-closure-directive-2026-11-21",
+   "head_sha": "5f203725b700d761c1390669a169aa9522a6de8c",
    "draft": true,
-   "updated_at": "2026-11-20T04:22:44Z",
-   "title": "fix(lane-currency): re-derive the lane snapshot after the #664-#667 merge wave"
+   "updated_at": "2026-11-22T05:17:43Z",
+   "title": "docs(weaver): hourly weekly closure directive"
+  },
+  {
+   "number": 681,
+   "branch": "gate2/served-artifact-app-identity-01",
+   "head_sha": "04f2969b5269d5606f4a42abc7852c5b84d4b5ef",
+   "draft": true,
+   "updated_at": "2026-11-22T06:24:03Z",
+   "title": "fix(gate2): bind the marker oracle to the app the served artifact belongs to"
+  },
+  {
+   "number": 682,
+   "branch": "lane1/solspire-advertised-contract-control-binding-01",
+   "head_sha": "ff2cf9051af1ed581caccab9f8420ba5d82cdced",
+   "draft": true,
+   "updated_at": "2026-11-22T07:22:50Z",
+   "title": "Lane 1: bind the advertised-contract control to its detector"
+  },
+  {
+   "number": 683,
+   "branch": "lane4/pr-state-premise-enforcement-01",
+   "head_sha": "4c9261cf7f28d612ca59f77c551a39cf90d9bbf5",
+   "draft": true,
+   "updated_at": "2026-11-22T08:13:57Z",
+   "title": "Lane 4: enforce the Lab PR-state guard's no-token premise"
   }
  ],
  "closed_unmerged": [

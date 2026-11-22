@@ -1238,3 +1238,170 @@ def test_every_declared_lane_test_path_is_assigned_to_its_lane(lane_no):
             f"{path} is declared by lane {lane_no} but the derivation assigned "
             f"{refresh.lanes_for([path])}"
         )
+
+
+# ---------------------------------------------------------------------------
+# Snapshot completeness: a lane PR the snapshot omits
+#
+# The liveness oracle judges one direction only -- a record the snapshot *claims*
+# is open must be open. Nothing judged the other direction, so the guard passed
+# while every lane declared "no active thread" and six lane-owned PRs were live.
+# Measured 2026-11-22 at main 034d8879: `python scripts/lane_state.py --check`
+# exited 0 against a snapshot recording all four lanes idle, while a fresh
+# derivation returned lane 1 [678], lane 2 [677], lane 3 [679], lane 4 [680].
+# ---------------------------------------------------------------------------
+
+
+def _synthetic_pr(number: int, branch: str, changed: list[str]) -> tuple[dict, dict]:
+    """One open-PR record plus its changed-file list, in the derivation's shape."""
+    record = {
+        "number": number,
+        "title": "synthetic lane control",
+        "draft": True,
+        "updated_at": "2026-11-22T00:00:00Z",
+        "head": {"ref": branch, "sha": "a" * 40},
+    }
+    return record, {number: changed}
+
+
+def _empty_lane_state() -> dict:
+    """A snapshot whose four lanes hold no open PR, in the guard's vocabulary."""
+    return {
+        "schema": "arkadia.lane-state/1.2",
+        "base_main": "0" * 40,
+        "lanes": {
+            lane_no: {
+                "doc": f"AGENT-0{lane_no}-SYNTHETIC.md",
+                "open_prs": [],
+                "merged_prs": [],
+                "doc_guard": "idle",
+            }
+            for lane_no in ("1", "2", "3", "4")
+        },
+        "unassigned_open_prs": [],
+    }
+
+
+_LANE_ONE_PATH = "web/arkadia_console/src/App.tsx"
+
+
+def test_an_open_lane_pr_the_snapshot_omits_is_reported():
+    """Negative control: the measured defect must be reported, not passed."""
+    pr, files = _synthetic_pr(901, "lane1/synthetic", [_LANE_ONE_PATH])
+    findings = guard._derivation_findings(_empty_lane_state(), [pr], files)
+    assert any("lane 1" in f and "#901" in f for f in findings), findings
+
+
+def test_a_snapshot_that_records_the_open_lane_pr_is_silent():
+    """Positive control: the detector is not trivially true."""
+    pr, files = _synthetic_pr(901, "lane1/synthetic", [_LANE_ONE_PATH])
+    state = _empty_lane_state()
+    state["lanes"]["1"]["open_prs"] = [{"number": 901, "branch": "lane1/synthetic"}]
+    assert guard._derivation_findings(state, [pr], files) == []
+
+
+def test_a_recorded_lane_pr_the_derivation_does_not_assign_is_reported():
+    """The opposite direction: a lane record no longer backed by an open PR."""
+    state = _empty_lane_state()
+    state["lanes"]["1"]["open_prs"] = [{"number": 902, "branch": "lane1/gone"}]
+    findings = guard._derivation_findings(state, [], {})
+    assert any("lane 1" in f and "#902" in f for f in findings), findings
+
+
+def test_the_completeness_oracle_excludes_the_pr_that_carries_the_snapshot():
+    """Both polarities of the self-exclusion, in one measurement.
+
+    A PR that edits a lane doc is itself an open PR changing lane-owned paths, so
+    the snapshot cannot record it (its number does not exist when the snapshot is
+    written). Without the exclusion the rule is unsatisfiable for every
+    lane-doc change -- the same trap as comparing a recorded tip with the tip.
+    """
+    pr, files = _synthetic_pr(903, "gate-hygiene/carrier", [_LANE_ONE_PATH])
+    assert guard._derivation_findings(_empty_lane_state(), [pr], files), (
+        "without a self branch the carrier must be reported"
+    )
+    assert (
+        guard._derivation_findings(
+            _empty_lane_state(), [pr], files, self_branch="gate-hygiene/carrier"
+        )
+        == []
+    ), "the PR carrying the snapshot must not be reported"
+
+
+def test_the_completeness_oracle_fails_closed_when_the_config_is_untrusted(
+    tmp_path, monkeypatch
+):
+    """An unreadable aggregate config must stop the check, not assume none."""
+    refresh = guard._lane_refresh_module()
+    broken = tmp_path / "aggregate-prs.json"
+    broken.write_text("{not json", encoding="utf-8")
+    monkeypatch.setattr(refresh, "AGGREGATE_CONFIG", broken)
+    findings = guard._derivation_findings(_empty_lane_state(), [], {}, refresh=refresh)
+    assert any("UNKNOWN" in f for f in findings), findings
+
+
+def test_the_completeness_oracle_is_wired_into_the_live_check():
+    """A detector nothing calls is decoration."""
+    source = (REPO / "scripts" / "lane_state.py").read_text(encoding="utf-8")
+    assert "findings += _derivation_findings(" in source
+    assert "findings += _unassigned_state_findings(" in source
+
+
+# ---------------------------------------------------------------------------
+# `unassigned_open_prs` is a claimed-open field and must be judged
+#
+# Measured 2026-11-22 at main 034d8879: the committed snapshot listed #669 there
+# while #669 was MERGED (bec86f3d), and `--check --verify-live` exited 0. The
+# field was written by the derivation and read by nothing.
+# ---------------------------------------------------------------------------
+
+
+def test_an_unassigned_record_that_merged_is_reported():
+    state = _empty_lane_state()
+    state["unassigned_open_prs"] = [{"number": 669}]
+    records = {669: {"state": "closed", "merged": True, "merge_commit_sha": "b" * 40}}
+    findings = guard._unassigned_state_findings(state, records)
+    assert any("#669" in f and "MERGED" in f for f in findings), findings
+
+
+def test_an_unassigned_record_that_closed_unmerged_is_reported():
+    state = _empty_lane_state()
+    state["unassigned_open_prs"] = [{"number": 670}]
+    records = {670: {"state": "closed", "merged": False}}
+    findings = guard._unassigned_state_findings(state, records)
+    assert any("#670" in f and "CLOSED without merging" in f for f in findings), findings
+
+
+def test_an_unassigned_record_that_is_open_is_silent():
+    """Positive control: an accurate record is not reported."""
+    state = _empty_lane_state()
+    state["unassigned_open_prs"] = [{"number": 671}]
+    records = {671: {"state": "open", "merged": False}}
+    assert guard._unassigned_state_findings(state, records) == []
+
+
+def test_an_unassigned_record_absent_from_the_response_is_unknown():
+    state = _empty_lane_state()
+    state["unassigned_open_prs"] = [{"number": 672}]
+    findings = guard._unassigned_state_findings(state, {})
+    assert any("#672" in f and "UNKNOWN" in f for f in findings), findings
+
+
+def test_the_unassigned_check_fails_closed_when_live_state_is_unavailable():
+    state = _empty_lane_state()
+    state["unassigned_open_prs"] = [{"number": 673}]
+    findings = guard._unassigned_state_findings(state, {}, "HTTP 403")
+    assert findings and "UNKNOWN" in findings[0], findings
+
+
+def test_the_live_snapshot_records_no_merged_unassigned_pr_offline():
+    """Offline consistency floor: the live snapshot's unassigned records are open.
+
+    This cannot reach GitHub, so it asserts only that the live snapshot has not
+    re-acquired the exact shape the repair removed -- a bare number is not a
+    claim, but every record must at least carry the fields the derivation writes.
+    """
+    state = live_state()
+    for entry in state.get("unassigned_open_prs", []):
+        assert isinstance(entry.get("number"), int), entry
+        assert entry.get("head_sha"), entry
