@@ -110,10 +110,10 @@ python -m pytest tests/test_canonical_browser_report.py -q
 |---|---|
 | judge step replaced with `echo` | `1 failed, 27 passed` — `test_the_workflow_executes_the_judge` |
 | inline pass condition (`errors.length`) restored | `1 failed, 27 passed` — `test_the_workflow_does_not_decide_the_verdict_itself` |
+| report relabelled to `GITHUB_SHA` | `1 failed, 28 passed` — `test_the_report_names_the_served_revision_not_the_event_sha` |
 
 The workflow was restored byte-identically after each control
-(`sha256 70cabd5344cc03ef055e3f10225314b1e6da66fca948a2a582d2b835dabccc7e`,
-`28 passed`, `yaml.safe_load` OK).
+(`28 passed` / `29 passed`, `yaml.safe_load` OK).
 
 The invocation detector tokenises every `run:` block (block scalars expanded)
 and requires `python3`/`python` as the command word with the script as an
@@ -167,4 +167,35 @@ Local absolute counts are larger than CI's because this sandbox installs a
 different dependency set; only node identity is compared.
 
 The dispatched workflow result is recorded in the PR body.
+
+## 7. Runtime proof
+
+PR #689's own `pull_request` trigger ran the repaired gate against production
+(`run 45027776504`, `completed/success`). The readiness step observed
+`source_revision 034d8879d68ecf8ed4c291eb0ab07432657a06a1` — the current
+`main` — and the judge printed:
+
+```
+CANONICAL BROWSER SMOKE VERDICT
+routes 7  passed 7  failed 0  origin https://arkadia-qzu4.onrender.com
+  PASS  /                PASS  /solariun            PASS  /oracle
+  PASS  /solariun/engineering-lab
+  PASS  /operator        PASS  /n-atlas-lab        PASS  /n-atlas-tester
+RESULT: PASS
+```
+
+This is the first passing run of this workflow since `c7c6c71a` (2026-11-05).
+
+### Correction made by this run
+
+The first dispatch exposed a labelling defect in the artifact: the report set
+`source_revision` from `process.env.GITHUB_SHA`, which on a `pull_request` event
+is the **merge commit** (`ea3be7c9…`), not the revision the runtime serves. A
+field that names a deployment identity while carrying the event's SHA is the
+class of unearned claim this gate exists to prevent. The readiness step now
+exports `ARKADIA_OBSERVED_REVISION` (read from `/api/version`) and the report
+prefers it, falling back to `GITHUB_SHA` only when `/api/version` supplied no
+value. Pinned by `test_the_report_names_the_served_revision_not_the_event_sha`
+and its live control (row 3 above).
+
 

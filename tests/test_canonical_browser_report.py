@@ -231,3 +231,16 @@ def test_the_workflow_selects_the_judge_inputs():
         block = re.search(rf"^  {trigger}:\n(?:    .*\n|      .*\n)*", text, re.MULTILINE)
         assert block, f"{trigger} trigger is missing"
         assert "scripts/canonical_browser_report.py" in block.group(0)
+
+
+def test_the_report_names_the_served_revision_not_the_event_sha():
+    """The artifact must not label the deployment with the workflow's own SHA.
+
+    On a `pull_request` event `GITHUB_SHA` is the merge commit, so a report that
+    prints it as `source_revision` claims a deployment identity it never
+    observed. The readiness step reads the real value from `/api/version`.
+    """
+    text = WORKFLOW.read_text(encoding="utf-8")
+    assert "ARKADIA_OBSERVED_REVISION=$observed_revision" in text
+    assert "ARKADIA_OBSERVED_REVISION" in text.split("source_revision:", 1)[1]
+

@@ -56,6 +56,12 @@ jobs:
             echo "Canonical Render did not become ready on the expected revision within 300 seconds; refusing to interpret deployment-time responses as route results."
             exit 1
           fi
+          # The report must name the revision the runtime actually serves, not the
+          # workflow's own GITHUB_SHA. On a pull_request event those differ, and a
+          # field that implies the deployment's identity while carrying the
+          # event's SHA is exactly the kind of unearned claim this gate exists to
+          # prevent.
+          echo "ARKADIA_OBSERVED_REVISION=$observed_revision" >> "$GITHUB_ENV"
 
       - name: Install Playwright Chromium
         run: |
@@ -83,7 +89,7 @@ jobs:
             // This step CAPTURES. It does not decide: the verdict is computed by
             // scripts/canonical_browser_report.py so the pass condition is
             // testable and cannot drift inside a heredoc.
-            const report = { captured_at: new Date().toISOString(), origin: base, source_revision: process.env.GITHUB_SHA, routes: [] };
+            const report = { captured_at: new Date().toISOString(), origin: base, source_revision: process.env.ARKADIA_OBSERVED_REVISION || process.env.GITHUB_SHA, routes: [] };
             try {
               for (const route of routes) {
                 const page = await browser.newPage();
