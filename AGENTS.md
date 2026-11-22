@@ -1915,3 +1915,40 @@ Lane ownership, the one-open-PR-per-lane constraint, branch protection, and the 
   command that produced it had emitted the UNKNOWN one. The quoted evidence was not the measured
   evidence. Re-run the control against the live function and paste **its** output; the merge commit
   in the message (`0c615bda`) is also the check that the right record was fed.
+
+## A tracked artifact turns a read-model leak into a published one (secret-hygiene)
+- `weaver/recon.py::git_identity()` returned `git remote get-url origin` verbatim, and
+  `write_context_packet()` persists that value into `data/weaver/context/current.json`,
+  which `git ls-files` reports as **tracked**. So a token-bearing remote -- the documented
+  remediation when a push credential expires -- was written into a file `git add` can
+  publish, and the disclosure would then sit in history where no later edit withdraws it.
+  Before calling a field "just a report", ask what consumes it and whether the consumer
+  writes to a tracked path.
+- The lab read model (`lab/observatory/git.py::repository_state`) already redacted this;
+  the *persisting* writer did not. There were exactly two readers of the raw remote
+  (`grep -rn "get-url" --include=*.py` -> 2 hits). Search for the **reader**, not for the
+  concept: "we already redact remotes" was true and incomplete at the same time.
+- **Promote one implementation, do not copy it.** `_redact_remote_url` became the public
+  `redact_remote_url` in `lab/observatory/git.py` and `weaver/recon.py` imports it. The
+  direction is already established (`weaver/console_adapter.py` imports
+  `lab.engineering_lab.sandbox`) and `lab/observatory/git.py` is stdlib-only, so the recon
+  path gains no application dependency (measured 0.17 s, no cycle).
+- **Report the redaction as a reading, not a constant.** `remote_redacted =
+  bool(raw) and redacted != raw`, so a credential-free remote truthfully reports `False`;
+  a hardcoded `True` is the same defect as the blanket flag it would accompany.
+- **The gate must be selected by every input its guard reads.** `lab-security-contract.yml`
+  runs `tests/test_repository_remote_redaction.py` and named `lab/observatory/git.py` in its
+  `paths` filters but **not** `weaver/recon.py`, so a weaver-only commit changed the guard's
+  subject without executing the guard. Same class as the `AGENTS.md`/`provider-routing.yml`
+  omission; add the input to both filters and keep them symmetric.
+- Prove the writer with a **negative control at the definition**: monkeypatch
+  `weaver.recon.redact_remote_url` to identity and the written packet must contain the
+  token; reverting `git_identity` to the raw shape reddens exactly the two defect-detecting
+  nodes (2 failed / 16 passed) and restoring returns 18 passed. A control that only asserts
+  absence cannot distinguish a working redaction from a fixture that never reached the
+  writer.
+- Measured at `main` `034d8879` / branch `7e56c57e`: contract 14 -> 18 passed (+4 collected
+  nodes), guards 246 passed, architecture 11 passed, CP10 `PASS`, and the full-suite
+  failing/error node set **identical** (113 nodes,
+  `2658c0e1f1a1a4637af112a5250b7f0757f3b5d41c8e3e115c88154ad8f873f1`). Evidence:
+  `docs/control-plane/evidence/security-weaver-recon-remote-userinfo-redaction-01/`.
