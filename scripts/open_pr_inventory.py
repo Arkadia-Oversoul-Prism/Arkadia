@@ -16,17 +16,35 @@ rather than crashing.
 
 Read-only: only `GET` requests. Never prints the token. No mutation.
 
+Composition conflicts
+---------------------
+A PR's `mergeable` field answers only "does this merge into its *base*", never
+"can these two merge together". With a queue of open PRs that question decides
+merge order, and two branches can each be `MERGEABLE` against `main` while
+conflicting with each other. `--conflicts` answers it locally from git, with no
+network call: `git merge-tree --write-tree` performs the merge in the object
+database and reports conflicted paths, so no worktree is touched.
+
+    python scripts/open_pr_inventory.py --conflicts \
+        --ref 681=refs/pr/681 --ref 687=refs/pr/687
+
+A revision git cannot resolve is `UNPROVABLE`, never `CLEAN`: an unanswered
+question must not read as a pass.
+
 Usage:
     python scripts/open_pr_inventory.py                 # table
     python scripts/open_pr_inventory.py --json          # machine output
     python scripts/open_pr_inventory.py --no-detail     # skip N detail calls
+    python scripts/open_pr_inventory.py --conflicts --ref LABEL=REV ...
 """
 
 from __future__ import annotations
 
 import argparse
+import itertools
 import json
 import os
+import subprocess
 import sys
 import urllib.error
 import urllib.request
@@ -142,13 +160,103 @@ def render_table(rows: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def merge_conflict_paths(a: str, b: str, repo: str | None = None) -> list[str] | None:
+    """Paths that conflict if `a` and `b` are merged; `[]` if they compose.
+
+    `None` means the question could not be answered (unresolvable revision, git
+    missing, merge machinery unavailable). That distinction is load-bearing: a
+    failed merge-tree run must never be reported as a clean composition.
+
+    `--write-tree` merges in the object database, so no worktree or index is
+    touched. On conflict, stdout is the tree oid, then one conflicted path per
+    line, then a blank line and human-readable messages.
+    """
+    try:
+        proc = subprocess.run(
+            ["git", "merge-tree", "--write-tree", "--name-only", a, b],
+            cwd=repo,
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if proc.returncode == 0:
+        return []
+    if proc.returncode != 1:
+        return None  # git error, not a conflict
+    paths: list[str] = []
+    for line in proc.stdout.splitlines()[1:]:  # [0] is the tree oid
+        if not line.strip():
+            break
+        paths.append(line.strip())
+    return paths or None  # exit 1 with no parseable path is unprovable
+
+
+def conflict_verdict(paths: list[str] | None) -> str:
+    if paths is None:
+        return "UNPROVABLE"
+    return "CONFLICT" if paths else "CLEAN"
+
+
+def conflict_matrix(refs: dict[str, str], repo: str | None = None) -> list[dict]:
+    """Every unordered pair of `refs` (label -> revision), judged for composition."""
+    rows = []
+    for a, b in itertools.combinations(sorted(refs), 2):
+        paths = merge_conflict_paths(refs[a], refs[b], repo)
+        rows.append(
+            {"a": a, "b": b, "verdict": conflict_verdict(paths), "paths": paths or []}
+        )
+    return rows
+
+
+def render_conflicts(rows: list[dict]) -> str:
+    lines = [f"{len(rows)} pair(s) judged", ""]
+    for r in rows:
+        lines.append(f"{r['a']:>10} x {r['b']:<10}  {r['verdict']:<10}  {', '.join(r['paths'])}")
+    return "\n".join(lines)
+
+
+def _parse_refs(values: list[str]) -> dict[str, str]:
+    refs: dict[str, str] = {}
+    for value in values:
+        label, sep, rev = value.partition("=")
+        if not sep or not label.strip() or not rev.strip():
+            raise SystemExit(f"--ref expects LABEL=REV, got {value!r}")
+        refs[label.strip()] = rev.strip()
+    return refs
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Open-PR inventory (read-only).")
     parser.add_argument("--repo", default=DEFAULT_REPO)
     parser.add_argument("--api", default=API)
     parser.add_argument("--json", action="store_true", help="machine-readable output")
     parser.add_argument("--no-detail", action="store_true", help="skip per-PR detail calls")
+    parser.add_argument(
+        "--conflicts",
+        action="store_true",
+        help="judge pairwise composition of --ref revisions instead of querying GitHub",
+    )
+    parser.add_argument(
+        "--ref",
+        action="append",
+        default=[],
+        metavar="LABEL=REV",
+        help="a revision to compose (repeatable; requires --conflicts)",
+    )
+    parser.add_argument("--git-repo", default=None, help="git working tree to read refs from")
     args = parser.parse_args(argv)
+
+    if args.conflicts:
+        if len(args.ref) < 2:
+            print("ERROR: --conflicts needs at least two --ref LABEL=REV", file=sys.stderr)
+            return 2
+        rows = conflict_matrix(_parse_refs(args.ref), repo=args.git_repo)
+        if args.json:
+            print(json.dumps({"pairs": rows}, indent=2))
+        else:
+            print(render_conflicts(rows))
+        return 0
 
     token = _token()
     if not token:
