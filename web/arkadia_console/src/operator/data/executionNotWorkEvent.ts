@@ -83,7 +83,7 @@ export const EXECUTION_NOT_WORK_EVENT: BoundaryInstance = {
   unresolved: [
     "The execution → WorkEvent bridge is explicit but OBSERVATIONAL: it is invoked from weaver/enterprise_orchestration.py::complete_execution_attempt and grants no authority, review, completion, or acceptance.",
     "The bridge carries execution_attempt_ref, but a kernel job's own execution record (execution.events) is still a third, separate log that is neither the tool envelope nor a WorkEvent.",
-    "weaver/enterprise_orchestration.py implements a proposal → authority → authorization → execution → evidence → verification graph with forward_walk / reverse_walk, but exposes no HTTP route — implemented, unexposed. Verified: no forward_walk/reverse_walk route is served, and there is no /solspire/enterprise route; the graph is readable only as the control-room projection.",
+    "weaver/enterprise_orchestration.py implements a proposal → authority → authorization → execution → evidence → verification graph with forward_walk / reverse_walk, but exposes no HTTP route — implemented, unexposed. Verified: no forward_walk/reverse_walk route is served, and none of the /solspire/enterprise routes exposes the graph itself; the graph is readable only as the control-room projection.",
     "Deployment: the surfaces this boundary names are served by the live runtime. Production verification by an authorized principal is NOT CLAIMED (no operator credential).",
   ],
   verbs: ["SEE", "DISTINGUISH", "INSPECT", "VERIFY"],

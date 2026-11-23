@@ -135,6 +135,68 @@ def missing_surfaces(text: str, served: set[tuple[str, str]]) -> list[str]:
     return sorted(f"{m} {p}" for m, p in declared_surfaces(text) - served)
 
 
+# A *route token* is any path-shaped mention of the API, whether it sits in a
+# quoted `"METHOD /path"` declaration or inside prose. `declared_surfaces` above
+# deliberately reads only whole quoted declarations, so a path a module names in
+# a sentence went unjudged — which is how `workeventNotEvidence` came to cite
+# `/solspire/workspaces/{id}/control-room`, a route the application has never
+# served (the real path carries `/enterprise/`).
+_ROUTE_TOKEN_RE = re.compile(r"/(?:api|solspire)/[A-Za-z0-9_\-./{}:]*")
+
+# A *negated* route mention: a sentence asserting a route or namespace is absent.
+_NEGATED_ROUTE_RE = re.compile(
+    r"\bno\s+(/(?:api|solspire)/[A-Za-z0-9_\-./{}]*)\s+route\b", re.IGNORECASE
+)
+
+
+def route_tokens(text: str) -> set[str]:
+    """Every ``/api/...`` or ``/solspire/...`` path token a file mentions."""
+    return {
+        _normalise(m.group(0).rstrip(".,;:)"))
+        for m in _ROUTE_TOKEN_RE.finditer(text)
+    }
+
+
+def unresolved_route_tokens(
+    text: str, served: set[tuple[str, str]]
+) -> list[str]:
+    """Route tokens that resolve to no served path and no served namespace.
+
+    A *namespace* mention (`/solspire/enterprise`) is allowed: the application
+    serves routes *under* it, so naming the prefix is a truthful statement about
+    a family rather than a claim that one route exists. A token with no served
+    path beneath it is a citation a reader cannot follow.
+    """
+    served_paths = {path for _method, path in served}
+    out: list[str] = []
+    for token in route_tokens(text):
+        if token in served_paths:
+            continue
+        if any(path.startswith(token.rstrip("/") + "/") for path in served_paths):
+            continue
+        out.append(token)
+    return sorted(out)
+
+
+def false_absence_claims(
+    text: str, served: set[tuple[str, str]]
+) -> list[str]:
+    """Negated route claims the route table contradicts.
+
+    ``"there is no /solspire/enterprise route"`` is a claim about the route
+    table, and it was false: fifteen routes are served under that prefix. A
+    genuine absence (`"no /solspire/forward-walk route is served"`) names a
+    prefix with nothing beneath it and is not reported.
+    """
+    served_paths = {path for _method, path in served}
+    out: list[str] = []
+    for match in _NEGATED_ROUTE_RE.finditer(text):
+        token = _normalise(match.group(1).rstrip("/"))
+        if any(path.startswith(token + "/") for path in served_paths):
+            out.append(token)
+    return sorted(set(out))
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # The console's data files, discovered from the corpus
 # ─────────────────────────────────────────────────────────────────────────────
@@ -194,6 +256,39 @@ def test_no_boundary_instance_claims_an_undeployed_posture(path: Path):
     assert "deployed: false" not in text, (
         f"{path.name} declares deployed: false while its surfaces are served. "
         "Measure the posture from the substrate, not from the map."
+    )
+
+
+@pytest.mark.parametrize("path", data_files(), ids=lambda p: p.name)
+def test_every_route_a_file_names_resolves(path: Path):
+    """A path named anywhere in a data file must be one a reader can follow.
+
+    The declaration check above reads only whole quoted ``"METHOD /path"``
+    strings. A route named inside a sentence was therefore unjudged, and
+    ``workeventNotEvidence`` cited ``GET /solspire/workspaces/{id}/control-room``
+    — the application serves ``/solspire/enterprise/workspaces/{enterprise_id}/
+    control-room`` and has no ``/solspire/workspaces`` at all.
+    """
+    unresolved = unresolved_route_tokens(path.read_text(encoding="utf-8"), served_routes())
+    assert not unresolved, (
+        f"{path.name} names routes the canonical app does not serve: {unresolved}. "
+        "Cite the served path, or say the surface is absent."
+    )
+
+
+@pytest.mark.parametrize("path", data_files(), ids=lambda p: p.name)
+def test_no_file_denies_a_route_family_the_app_serves(path: Path):
+    """An absence claim must be true of the route table.
+
+    ``executionNotWorkEvent`` asserted "there is no /solspire/enterprise route"
+    while fifteen routes are served under that prefix — and the same module calls
+    the control-room projection (a ``/solspire/enterprise`` route) the only read
+    path. The claim contradicted both the substrate and itself.
+    """
+    false_claims = false_absence_claims(path.read_text(encoding="utf-8"), served_routes())
+    assert not false_claims, (
+        f"{path.name} denies a route family the app serves: {false_claims}. "
+        "Name the routes that exist, and scope the absence to the graph itself."
     )
 
 
@@ -286,3 +381,40 @@ def test_positive_control_normalisation_joins_template_params():
     assert _normalise("/api/approvals/{id}/approve") == _normalise(
         "/api/approvals/{approval_id}/approve"
     )
+
+
+def test_negative_control_route_token_detector_flags_the_measured_prose_path():
+    """Feed the route-token detector the pre-repair sentence, verbatim.
+
+    The path sits inside prose, not in a quoted declaration, so the declaration
+    detector is silent on it by construction. This control proves the token
+    detector reddens on exactly that shape.
+    """
+    served = {("GET", "/solspire/enterprise/workspaces/{}" + "/control-room")}
+    defect = (
+        '"The enterprise chain is read over HTTP only as a projection '
+        '(GET /solspire/workspaces/{id}/control-room); ..."'
+    )
+    assert unresolved_route_tokens(defect, served) == ["/solspire/workspaces/{}/control-room"]
+
+
+def test_positive_control_route_token_detector_accepts_a_served_namespace():
+    """A namespace with routes beneath it is not an unfollowable citation."""
+    served = {("GET", "/solspire/enterprise/workspaces"), ("POST", "/solspire/workevents")}
+    prose = "no /solspire/enterprise route exposes the graph itself"
+    assert unresolved_route_tokens(prose, served) == []
+
+
+def test_negative_control_false_absence_detector_flags_the_measured_claim():
+    """Feed the absence detector the claim that contradicted the route table."""
+    served = {("GET", "/solspire/enterprise/workspaces/{enterprise_id}/control-room")}
+    defect = "Verified: no forward_walk/reverse_walk route is served, and there is no /solspire/enterprise route; ..."
+    assert false_absence_claims(defect, served) == ["/solspire/enterprise"]
+
+
+def test_positive_control_a_true_absence_claim_is_not_reported():
+    """A genuine absence names a prefix with nothing served beneath it."""
+    served = {("GET", "/solspire/enterprise/workspaces")}
+    truthful = "no /solspire/forward-walk route is served"
+    assert false_absence_claims(truthful, served) == []
+
