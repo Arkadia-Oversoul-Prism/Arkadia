@@ -4,7 +4,8 @@
 **Branch:** `gate10/architecture-budget-ci-wiring-01`
 **Base:** `main` @ `bb19aabda34d59594615b0279a45e9cbd3d8204d`
 **Authority:** implementation, test, evidence, draft PR. **No merge, no deploy, no acceptance.**
-**Status:** repository-source change VERIFIED locally; CI execution NOT CLAIMED until a run exists.
+**Status:** VERIFIED locally and in CI at `f6e7cb5d` (14/14 check-runs `success`, including the new
+`architecture-budget` gate). Merge, deployment and acceptance remain NOT CLAIMED and human-only.
 
 ## 1. Defect (measured, not inferred)
 
@@ -119,18 +120,61 @@ Exactly one node reddens, and it is the load-bearing one.
 | `test_detector_flags_a_gate_that_does_not_select_the_budget_assertion` | the assertion itself must be selected |
 | `test_glob_matching_covers_the_concrete_paths_the_invariant_names` | `api/**` selects `api/main.py`, not `apis/main.py` |
 
-## 5. Baseline comparison
+## 5. Full-suite baseline comparison (measured, same command on both trees)
 
-Attributed by failing/error **node identity**, never by count. Baseline measured on
-`main` `bb19aabd` in this environment with the same dependency set; the branch delta is
-recorded in the PR body. The change adds only: one workflow file (which the generic
-workflow-scanning suites iterate, so they gain passing nodes by construction), one test
-file, and a docstring.
+Both trees run in this environment with the identical dependency set and the identical
+command:
 
-## 6. Limitations (stated, not hidden)
+```
+python -m pytest tests/ -q -rEf --continue-on-collection-errors -m "not live_container"
+```
 
-- **CI execution is NOT CLAIMED.** No workflow run exists at this revision yet. The
-  local runs above are evidence about this tree only.
+| Tree | Result | Failing/error node set |
+|---|---|---|
+| `main` @ `bb19aabd` (detached worktree) | `26 failed, 4230 passed, 33 skipped, 1 error in 290.74s` | **27 nodes**, `sha256 a6da301439f00753431bea519c9a586ed1ae6ba7192b6b80838706eccb712002` |
+| branch @ `f6e7cb5d` | `26 failed, 4248 passed, 33 skipped, 1 error in 285.12s` | **27 nodes**, `sha256 a6da3014…2002` |
+
+`comm -3` on the two sorted node lists is **empty**: zero new, zero fixed. Attributed by
+node identity, not by count — the passed totals differ only because the branch carries
+more nodes.
+
+The `+18 passed` is attributed by `--collect-only` across the two trees (4290 → 4308
+collected ids), not inferred from the delta:
+
+```
+ 11  tests/test_architecture_budget_ci_wiring.py      (the new guard)
+  3  tests/test_ci_gate_trigger_coverage.py           (parametrized over workflows)
+  2  tests/test_ci_suite_collection_continuation.py   (parametrized over workflows)
+  1  tests/test_gate_filter_selection.py              (parametrized over workflows)
+  1  tests/test_workflow_injection_boundary.py        (parametrized over workflows)
+```
+
+The seven non-new nodes are the generic workflow-scanning suites gaining a member by
+construction from one added workflow file — the recorded pattern, not a behaviour change.
+
+## 6. CI execution (this revision, observed)
+
+All **14** check-runs on `f6e7cb5d` are `completed/success`, including:
+
+- `architecture-budget` — **pass, 12s**: the new gate executes and is green in CI, so the
+  wiring is runtime-proven rather than source-asserted.
+- `provider-routing` — pass, 7m59s: the independent full-suite/baseline comparison gate
+  agrees there is no regression.
+- `test` (economic-seam-engine / CP10 integrity), `console-contract` (3m6s),
+  `posture-currency`, `trigger-coverage`, `verdict-step-integrity`, `boot-syntax`,
+  `Full-history secret scan`.
+
+One transient: `beta-beta-01-english` failed on the first run of
+`n-atlas-external-beta.yml` while `beta-beta-02-hausa` **passed in the same run**, and
+`bundle-beta-evidence` then failed because it read the stale FAILED artifact. This is the
+recorded live external-provider flake (`ModelUnavailable: N-ATLaS Gradio runtime error`),
+not evidence about this tree: the workflow was re-run and `beta-01`, `beta-02`, `bundle`
+and `native-arkadia-golden-workflow` are all `pass`. This diff touches no `lab/`,
+`providers/` or N-ATLaS code.
+
+## 7. Limitations (stated, not hidden)
+
+- **CI execution is now claimed for `f6e7cb5d` only.** A later push needs its own run.
 - **The budget is a repository convention, not a platform-enforced rule.** Branch
   protection is absent (`GET /branches/main/protection` → `404 Branch not protected`)
   and the repository has **0** rulesets, so nothing prevents a direct push that bypasses
@@ -143,7 +187,7 @@ file, and a docstring.
   → #689, `gate2-production-observation.yml` → #681/#687, `lab-security-contract.yml`
   → #686, `solspire-r3-validation.yml` → #691).
 
-## 7. Next authorized action
+## 8. Next authorized action
 
 Human review of this draft PR. Merge execution is human-only (GOV-03); no agent may
 merge, deploy, or accept this change.
