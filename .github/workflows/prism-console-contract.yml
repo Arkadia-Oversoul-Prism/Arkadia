@@ -33,6 +33,11 @@ on:
       - "api/frontend_routes.py"
       - "scripts/console_contract_domain.py"
       - "tests/**"
+      # The reconciliation inventory is an *input* the console-contract guards
+      # read: `tests/test_prism_ui_inventory_currency.py` judges its route matrix
+      # against `surfaces.ts` / `router.ts`. A doc-only edit must execute the
+      # guard that judges it, or the roadmap can drift unobserved.
+      - "docs/control-plane/overnight/PRISM-UI-INVENTORY.md"
       - ".github/workflows/prism-console-contract.yml"
   push:
     branches: ["main"]
@@ -41,6 +46,7 @@ on:
       - "api/frontend_routes.py"
       - "scripts/console_contract_domain.py"
       - "tests/**"
+      - "docs/control-plane/overnight/PRISM-UI-INVENTORY.md"
       - ".github/workflows/prism-console-contract.yml"
   # The gate is path-filtered, so a revision touching none of the above never runs
   # it. `workflow_dispatch` lets the console contract be executed against an exact
