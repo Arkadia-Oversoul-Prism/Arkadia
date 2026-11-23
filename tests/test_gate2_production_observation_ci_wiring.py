@@ -42,6 +42,10 @@ _TARGET_DIRS = {"tests", "tests/"}
 # to either changes what the guard asserts -- it is an input, not incidental markup.
 _REQUIRED_SELECTORS = (
     "scripts/gate2_production_observation.py",
+    # The harness reuses the shared revision semantics rather than restating them,
+    # so a change to either changes what the suite asserts: they are inputs.
+    "scripts/version_reconciliation.py",
+    "kernel/revision_identity.py",
     _TARGET,
     "tests/test_gate2_production_observation_ci_wiring.py",
     "web/arkadia_console/index.html",

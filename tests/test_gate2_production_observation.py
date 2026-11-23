@@ -35,8 +35,10 @@ from scripts.gate2_production_observation import (
     MARKER_APP,
     MARKER_APPS,
     MARKERS,
+    RUNTIME_REVISION_BOUNDARY,
     classify_deployment_identity,
     classify_marker_oracle,
+    classify_runtime_revision,
     classify_sg04,
     classify_source_lineage,
     frontend_of,
@@ -578,3 +580,92 @@ def test_a_deployment_label_still_wins_over_the_served_shell():
     line = assignments[0]
     assert "frontend_of(" in line and "detect_served_app(html)" in line
     assert line.index("frontend_of(") < line.index("detect_served_app(")
+
+
+# ── canonical runtime revision: the record is not the runtime ────────────────
+# Under ADR-016 the reconciled deployment is the Render runtime, which publishes
+# no provider deployment record -- so `classify_deployment_identity` can only ever
+# answer UNKNOWN for it. The runtime publishes its own exact revision at
+# `GET /api/version`. Measured on `main` @ bb19aabd: the record path reported
+# `main -> deployment identity: UNKNOWN` while the runtime reported
+# `source_revision == main` and `revision_conflict: false`.
+#
+# These pin the classifier's fail-closed precedence, which is the shared
+# `scripts/version_reconciliation.compare` semantics rather than a second copy.
+
+_MAIN = "bb19aabda34d59594615b0279a45e9cbd3d8204d"
+_OLDER = "7da3affb" + "0" * 32
+
+
+def _evidence(revision=None, *, conflict=False, blocked=False, invalid=None):
+    return {
+        "verdict_hint": "BLOCKED" if blocked else "OK",
+        "revision": revision,
+        "conflict": conflict,
+        "sources": {},
+        "invalid_sources": invalid or [],
+        "url": "https://example.test/api/version",
+    }
+
+
+def test_a_matching_runtime_revision_is_verified():
+    assert classify_runtime_revision(_MAIN, _evidence(_MAIN)) == "VERIFIED (source_revision == main)"
+
+
+def test_a_differing_runtime_revision_is_drift_naming_both_shas():
+    verdict = classify_runtime_revision(_MAIN, _evidence(_OLDER))
+    assert verdict.startswith("DRIFT")
+    assert _MAIN[:12] in verdict and _OLDER[:12] in verdict
+
+
+def test_the_classifier_reads_the_expected_revision_and_is_not_a_constant():
+    """Negative control: matching evidence against a *different* main must not pass.
+
+    A classifier that returned VERIFIED whenever a revision was present would
+    satisfy every positive case above. Feeding the same evidence with another
+    expected SHA is what discriminates it.
+    """
+    assert not classify_runtime_revision(_OLDER, _evidence(_MAIN)).startswith("VERIFIED")
+    assert not classify_runtime_revision(_MAIN, _evidence(None)).startswith("VERIFIED")
+
+
+def test_a_revision_conflict_is_never_a_pass():
+    verdict = classify_runtime_revision(_MAIN, _evidence(_MAIN, conflict=True))
+    assert verdict.startswith("UNKNOWN")
+    assert "VERIFIED" not in verdict
+
+
+def test_an_unreadable_version_endpoint_is_blocked_not_unknown():
+    """BLOCKED and UNKNOWN need different responses, so they must not share a verdict."""
+    assert classify_runtime_revision(_MAIN, _evidence(None, blocked=True)).startswith("BLOCKED")
+
+
+def test_an_invalid_reported_source_fails_closed():
+    verdict = classify_runtime_revision(_MAIN, _evidence(_MAIN, invalid=["ARKADIA_SOURCE_REVISION"]))
+    assert verdict.startswith("UNKNOWN")
+    assert "ARKADIA_SOURCE_REVISION" in verdict
+
+
+def test_absent_revision_is_unknown_never_a_match():
+    for value in (None, "", "unknown", "not-a-sha"):
+        assert classify_runtime_revision(_MAIN, _evidence(value)).startswith("UNKNOWN")
+
+
+def test_no_evidence_at_all_is_unknown():
+    assert classify_runtime_revision(_MAIN, None).startswith("UNKNOWN")
+
+
+def test_the_boundary_is_wired_to_its_classifier():
+    """The classifier must be executed by the harness, not merely defined.
+
+    Source-level, following this suite's convention: a defined-but-unwired
+    classifier is dead code that can never report anything.
+    """
+    src = _SCRIPT.read_text(encoding="utf-8")
+    assert (
+        'report["boundaries"][RUNTIME_REVISION_BOUNDARY] = classify_runtime_revision('
+        in src
+    )
+    # The revision semantics are reused from the shared module, not restated here.
+    assert "from scripts.version_reconciliation import" in src
+    assert "compare_revisions(main_sha, reported)" in src

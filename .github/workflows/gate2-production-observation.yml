@@ -27,6 +27,10 @@ on:
   pull_request:
     paths:
       - "scripts/gate2_production_observation.py"
+      # The harness reuses the shared revision semantics instead of restating
+      # them, so these two files are inputs to what the suite asserts.
+      - "scripts/version_reconciliation.py"
+      - "kernel/revision_identity.py"
       - "tests/test_gate2_production_observation.py"
       - "tests/test_gate2_production_observation_ci_wiring.py"
       - "web/arkadia_console/index.html"
@@ -36,6 +40,10 @@ on:
     branches: ["main"]
     paths:
       - "scripts/gate2_production_observation.py"
+      # The harness reuses the shared revision semantics instead of restating
+      # them, so these two files are inputs to what the suite asserts.
+      - "scripts/version_reconciliation.py"
+      - "kernel/revision_identity.py"
       - "tests/test_gate2_production_observation.py"
       - "tests/test_gate2_production_observation_ci_wiring.py"
       - "web/arkadia_console/index.html"

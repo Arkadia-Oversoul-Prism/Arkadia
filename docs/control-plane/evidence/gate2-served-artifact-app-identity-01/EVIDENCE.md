@@ -173,3 +173,124 @@ and a missing `workflow_dispatch`.
   in this pass.
 - The Render cold-start 503 is recorded as an operational characteristic. Whether the
   service should be kept warm is a human/provider decision, not a repository change.
+
+---
+
+## 8. Addendum — the runtime revision link (§7's first open item, closed)
+
+**Measured:** 2026-11-23 at `main` `bb19aabda34d59594615b0279a45e9cbd3d8204d`.
+**Scope:** `scripts/gate2_production_observation.py`, its fitness tests, its wiring
+guard, and this gate's `paths` filters. No product code, no route, no authority,
+no deployment, no acceptance.
+
+### 8.1 The defect this closes
+
+§7 recorded that `main -> deployment identity` stays `UNKNOWN` because the
+canonical runtime publishes no GitHub deployment record, and that binding
+`/api/version` `source_revision` "is a separate bounded change". That change is
+this addendum.
+
+The evidence was one unauthenticated GET away the whole time:
+
+```
+$ curl -s https://arkadia-qzu4.onrender.com/api/version
+{"schema":"arkadia.version/v1", ..., "source_revision":"bb19aabda34d59594615b0279a45e9cbd3d8204d",
+ "revision_source":"RENDER_GIT_COMMIT","revision_conflict":false, ...}
+```
+
+`grep -n "api/version" scripts/gate2_production_observation.py` returned **0**
+matches before this change, so the first unresolved link of the chain
+`main SHA -> deployment SHA -> production response -> observation` was reported
+unproven while a matching runtime revision was readable.
+
+### 8.2 Why this is a *separate* boundary, not a rewrite of the record one
+
+ADR-016 keeps the six concepts apart. The GitHub `/deployments` record describes
+the retired Vercel project; the running Render process is the canonical
+deployment. They are different systems, and one verdict for both is exactly how a
+stale record and a current runtime come to look identical. So
+`classify_deployment_identity` is **unchanged**, and a new boundary is added:
+
+```
+main -> deployment identity                UNKNOWN      (GitHub record; no Render record exists)
+main -> canonical runtime revision         VERIFIED (source_revision == main)
+```
+
+The record row staying `UNKNOWN` is correct, not a regression.
+
+### 8.3 Reuse, not a second copy of the rules
+
+The revision semantics already exist and are already tested:
+`scripts/version_reconciliation.py` (`fetch_reported_evidence`, `compare`,
+`invalid_reported_sources`) over `kernel/revision_identity.py`. The harness now
+imports them, and `classify_runtime_revision` mirrors that module's precedence
+exactly rather than restating it:
+
+| Observation | Verdict |
+|---|---|
+| `GET /api/version` unreadable / non-JSON / non-object | `BLOCKED` |
+| `revision_conflict: true` (two valid sources disagree) | `UNKNOWN` — fail closed |
+| a reported source carries an unusable value | `UNKNOWN` |
+| `source_revision == main`, both valid | `VERIFIED` |
+| both valid and different | `DRIFT`, naming both SHAs |
+| absent / placeholder / invalid `source_revision` | `UNKNOWN` |
+
+`compare` already returns `UNKNOWN` for `compare("UNKNOWN", "UNKNOWN")`, so two
+identical placeholders can never read as a match.
+
+Because the harness now depends on those two files, both are added to this gate's
+`paths` filters **and** to `_REQUIRED_SELECTORS` in the wiring guard — the
+repository's rule that a filter must name every input its guard reads.
+
+### 8.4 Live observation (same machine, same minute)
+
+```
+CANONICAL RUNTIME REVISION (ADR-016: Render is the reconciled deployment)
+  https://arkadia-qzu4.onrender.com/api/version -> OK
+  reported source_revision: bb19aabda34d59594615b0279a45e9cbd3d8204d
+  main -> canonical runtime revision: VERIFIED (source_revision == main)
+  note: a matching revision is necessary evidence of source<->runtime
+        consistency -- not proof the application works, not acceptance.
+
+BOUNDARY CLASSIFICATION
+  main -> deployment identity                UNKNOWN
+  main -> canonical runtime revision         VERIFIED (source_revision == main)
+  alias reachable                            VERIFIED
+  marker-set oracle                          VERIFIED (marker set observed in served artifact)
+  deployment build output observed           UNKNOWN
+  production acceptance                      NOT CLAIMED (human authority)
+```
+
+This is source<->runtime **consistency**. It is not proof the application works,
+not deployment-identity evidence for the retired provider, and not acceptance.
+
+### 8.5 Tests and negative controls
+
+`tests/test_gate2_production_observation.py`: **48 -> 57** nodes; with the wiring
+guard, **56 -> 65 passed**. Nine new nodes: match, drift-naming-both,
+not-a-constant, conflict, blocked-vs-unknown, invalid-source, absent-value,
+no-evidence, and wiring.
+
+Two **live** controls on the real files, each restored byte-identically
+(`sha256 85829a5cf4ee2e56c8d5adc47c198b1ab431f82a0a5258fbe472222195b0c564`):
+
+1. Boundary assignment replaced with a literal `"UNKNOWN"` -> **1 failed**
+   (`test_the_boundary_is_wired_to_its_classifier`), restored -> 57 passed.
+   This proves the classifier is executed, not merely defined.
+2. `classify_runtime_revision` made to return a constant `VERIFIED` -> **7 failed**,
+   including `test_the_classifier_reads_the_expected_revision_and_is_not_a_constant`
+   (matching evidence scored against a *different* main). Restored -> 57 passed.
+   This is the control that stops the positive cases from being satisfiable by a
+   classifier that ignores its input.
+
+Cross-suite: `tests/test_version_reconciliation.py` + both gate-2 files **101
+passed**; the three generic workflow-scanning suites **256 passed**;
+`python scripts/cp10_mutation_boundary_policy.py --judge` **PASS**.
+
+### 8.6 Non-effects
+
+No merge, no push to `main`, no deployment, no production acceptance, no
+ruleset or branch-protection change, no product or route change. The record-based
+`main -> deployment identity` row is unchanged and still `UNKNOWN`;
+`deployment build output observed`, `build <-> source lineage`, and
+`browser-rendered UI correctness` remain `UNKNOWN`.

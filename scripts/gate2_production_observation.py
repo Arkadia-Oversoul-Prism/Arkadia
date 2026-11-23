@@ -40,6 +40,23 @@ import sys
 import urllib.error
 import urllib.request
 
+# The script is executable directly (`python scripts/gate2_production_observation.py`),
+# so the repository root must be importable before `scripts.*` is resolved.
+if __package__ in (None, ""):
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Revision semantics are shared, not restated. `compare` already fails closed on
+# absent/placeholder/invalid values, so the runtime-revision boundary below cannot
+# disagree with `scripts/version_reconciliation.py` about what a match means.
+from scripts.version_reconciliation import (  # noqa: E402
+    BLOCKED as REVISION_BLOCKED,
+    MATCH as REVISION_MATCH,
+    MISMATCH as REVISION_MISMATCH,
+    compare as compare_revisions,
+    fetch_reported_evidence,
+    invalid_reported_sources,
+)
+
 REPO = "Arkadia-Oversoul-Prism/Arkadia"
 ALIAS = "https://arkadia-qzu4.onrender.com/"
 
@@ -303,6 +320,65 @@ def classify_deployment_identity(main_sha: str, prod: list[dict]) -> str:
     if not prod:
         return "UNKNOWN"
     return "VERIFIED" if prod[0].get("sha") == main_sha else "STALE"
+
+
+# The canonical runtime publishes no provider deployment record (ADR-016: the
+# reconciled deployment is the Render service, not the retired Vercel project),
+# so the record-based boundary above can only ever answer UNKNOWN for it. The
+# runtime does publish its own exact source revision at ``GET /api/version``.
+# That is a *separate* link about a *separate* system, so it is classified as its
+# own boundary rather than folded into the record one -- two systems sharing one
+# verdict is how a stale record and a current runtime came to look identical.
+RUNTIME_REVISION_BOUNDARY = "main -> canonical runtime revision"
+RUNTIME_REVISION_TIMEOUT = 15.0
+
+
+def read_runtime_revision(base_url: str = ALIAS) -> dict:
+    """Read the canonical runtime's revision evidence from ``GET /api/version``.
+
+    Returns the shared reader's evidence plus the two facts this boundary needs:
+    the URL actually read, and the names of any revision source carrying an
+    unusable value. Read-only and credential-free.
+    """
+    evidence = dict(fetch_reported_evidence(base_url, RUNTIME_REVISION_TIMEOUT))
+    evidence["url"] = base_url.rstrip("/") + "/api/version"
+    evidence["invalid_sources"] = invalid_reported_sources(evidence.get("sources") or {})
+    return evidence
+
+
+def classify_runtime_revision(main_sha: str, evidence: dict | None) -> str:
+    """Classify ``main -> canonical runtime revision`` from ``GET /api/version``.
+
+    Precedence mirrors ``scripts/version_reconciliation.py`` exactly, because a
+    second copy of these rules would be free to drift from the one the repository
+    already tests:
+
+    * unreadable endpoint -> ``BLOCKED``;
+    * two valid sources that disagree -> ``UNKNOWN`` (fail closed, never a pass);
+    * an unusable value in a reported source -> ``UNKNOWN``;
+    * equal valid revisions -> ``VERIFIED``; differing valid revisions -> ``DRIFT``,
+      naming both SHAs.
+
+    A matching revision is necessary evidence of source<->runtime consistency. It
+    is not proof the application works, and it is not deployment acceptance.
+    """
+    if evidence is None:
+        return "UNKNOWN (runtime revision not read)"
+    if evidence.get("verdict_hint") == REVISION_BLOCKED:
+        return "BLOCKED (GET /api/version unreadable)"
+    if evidence.get("conflict"):
+        return "UNKNOWN (revision_conflict: the runtime reports contradictory sources)"
+    invalid = evidence.get("invalid_sources") or []
+    if invalid:
+        return f"UNKNOWN (invalid revision source: {', '.join(invalid)})"
+
+    reported = evidence.get("revision")
+    verdict = compare_revisions(main_sha, reported)
+    if verdict == REVISION_MATCH:
+        return "VERIFIED (source_revision == main)"
+    if verdict == REVISION_MISMATCH:
+        return f"DRIFT (main {main_sha[:12]} != reported {str(reported)[:12]})"
+    return "UNKNOWN (no usable source_revision reported)"
 
 
 def lineage_closed(closure: list[dict]) -> bool:
@@ -572,6 +648,24 @@ def main() -> int:
     report["newest_production_sha"] = prod[0]["sha"] if prod else None
     report["newest_production_created_at"] = prod[0]["created_at"] if prod else None
 
+    # ---- link 2b: canonical runtime revision (ADR-016) ----------------------
+    # The record-based link above describes the retired Vercel project, which the
+    # canonical Render runtime does not publish. Ask the runtime itself for the
+    # revision it is running. This is kept as its own boundary: a GitHub record and
+    # a running process are different systems, and only one of them is canonical.
+    runtime_revision = read_runtime_revision(ALIAS)
+    report["runtime_revision"] = {
+        "url": runtime_revision.get("url"),
+        "verdict_hint": runtime_revision.get("verdict_hint"),
+        "reported": runtime_revision.get("revision"),
+        "conflict": bool(runtime_revision.get("conflict")),
+        "invalid_sources": runtime_revision.get("invalid_sources") or [],
+        "sources": runtime_revision.get("sources") or {},
+    }
+    report["boundaries"][RUNTIME_REVISION_BOUNDARY] = classify_runtime_revision(
+        main_sha, runtime_revision
+    )
+
     # ---- link 3: deployment-specific observation ----------------------------
     # The deployment-specific host is published on the deployment *status*, not on
     # the deployment record itself, and its hostname is a provider hash -- it is
@@ -728,6 +822,18 @@ def main() -> int:
               + ("" if prod[0].get("sha") == main_sha else "  (deploy predates main -> STALE)"))
     else:
         print(f"newest Production deploy: UNAVAILABLE {report.get('deployments_error', '')}")
+    print()
+    print("CANONICAL RUNTIME REVISION (ADR-016: Render is the reconciled deployment)")
+    rr = report["runtime_revision"]
+    print(f"  {rr['url']} -> {rr['verdict_hint'] or 'unreadable'}")
+    print(
+        f"  reported source_revision: "
+        f"{rr['reported'] if rr['reported'] is not None else 'absent'}"
+        + (f"   (revision_conflict: {rr['conflict']})" if rr["conflict"] else "")
+    )
+    print(f"  {RUNTIME_REVISION_BOUNDARY}: {report['boundaries'][RUNTIME_REVISION_BOUNDARY]}")
+    print("  note: a matching revision is necessary evidence of source<->runtime")
+    print("        consistency -- not proof the application works, not acceptance.")
     print()
     print("ALIAS OBSERVATION")
     print(f"  {ALIAS} -> HTTP {report['alias_status']}")
