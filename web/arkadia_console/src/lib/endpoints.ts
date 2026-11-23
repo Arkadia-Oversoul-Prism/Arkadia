@@ -66,6 +66,15 @@ export const endpoints = {
   ttsStatus: "/api/tts/status",
   ttsVoices: "/api/tts/voices",
 
+  /**
+   * ReasoMate direct threads — the authenticated pairwise message substrate
+   * (`api/messages.py`). `messages` is the collection the send handler is
+   * mounted on; the inbox and one thread are sub-resources of it, and the thread
+   * path is derived from the collection below so the base cannot drift.
+   */
+  messages: "/api/messages",
+  messagesInbox: "/api/messages/inbox",
+
   /** Arkadia Voice — the governed mission lifecycle chain (solspire/voice_router.py). */
   voiceStatus: "/solspire/voice/status",
   voiceEvents: "/solspire/voice/events",
@@ -138,6 +147,11 @@ export function solspireProjectConversationMessages(projectId: string, convId: s
 /** One voice event (the governed mission conversation), addressed by its canonical id. */
 export function voiceEvent(eventId: string): string {
   return `${endpoints.voiceEvents}/${encodeURIComponent(eventId)}`;
+}
+
+/** One direct thread, addressed by the peer's node uid. */
+export function messagesThread(peerUid: string): string {
+  return `${endpoints.messages}/thread/${encodeURIComponent(peerUid)}`;
 }
 
 /** The inspectable causal evidence chain of one voice event. */

@@ -244,11 +244,22 @@ export function IconClose() {
   );
 }
 
+/** ReasoMate — private node-to-node threads: two speech fields facing each other. */
+export function IconReasoMate() {
+  return (
+    <Svg>
+      <path d="M3 5h10v7H7l-4 3V5Z" />
+      <path d="M21 19H11v-7h6l4-3v10Z" />
+    </Svg>
+  );
+}
+
 /** The surface → icon map. One table, so a new surface cannot ship iconless. */
 export const SURFACE_ICONS: Record<SurfaceId, () => JSX.Element> = {
   workspace: IconWorkspace,
   home: IconHome,
   arkana: IconArkana,
+  reasomate: IconReasoMate,
   projects: IconProjects,
   "engineering-lab": IconLab,
   weaver: IconWeaver,

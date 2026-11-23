@@ -19,6 +19,7 @@ import { WorkspacePage } from "./pages/WorkspacePage";
 import { HomePage } from "./pages/HomePage";
 import { NovaNetPage } from "./pages/NovaNetPage";
 import { ArkanaPage } from "./pages/ArkanaPage";
+import { ReasoMatePage } from "./pages/ReasoMatePage";
 import { SolariunPage } from "./pages/SolariunPage";
 import { EngineeringLabPage } from "./pages/EngineeringLabPage";
 import { SolSpirePage } from "./pages/SolSpirePage";
@@ -86,6 +87,8 @@ function Surfaces() {
         return <NovaNetPage section={route.section} onNavigate={navigate} />;
       case "arkana":
         return <ArkanaPage />;
+      case "reasomate":
+        return <ReasoMatePage />;
       case "solariun":
         return <SolariunPage section={route.section} onNavigate={navigate} />;
       case "engineering-lab":
