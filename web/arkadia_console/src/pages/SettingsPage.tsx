@@ -32,6 +32,7 @@ interface SourceEntry {
   name: string;
   configured?: boolean;
   authenticated?: boolean;
+  credential_state?: "absent" | "unknown" | "accepted" | "rejected";
   live?: boolean;
   repo?: string;
   branch?: string;
@@ -117,7 +118,13 @@ function IntegrationsPanel() {
               <div className="flex items-baseline justify-between gap-3">
                 <p className="text-sm text-white/85">{s.name}</p>
                 <p className="font-mono text-[10px] uppercase tracking-widest text-white/40">
-                  {s.configured ? (s.authenticated ? "authenticated" : "configured") : "not configured"}
+                  {!s.configured
+                    ? "not configured"
+                    : s.credential_state === "rejected"
+                      ? "credential rejected"
+                      : s.authenticated
+                        ? "authenticated"
+                        : "configured"}
                 </p>
               </div>
               {s.repo && (
