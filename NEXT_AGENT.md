@@ -117,14 +117,15 @@ Re-measured 2026-10-04 on `main` @ `1b7c089`:
   > **Superseded 2026-11-22** (`test-hygiene/solspire-r1-governance-pins-01`): the counts
   > above are the 2026-10-04 measurement of a 10-node recorded set. The two
   > `tests/test_solspire_r1_governance_convergence.py` nodes were test-side pins, not product
-  > debt, and were repaired; the recorded set is now 8 nodes and the canonical pair is
-  > `0ec3c110…` / `e7405d23…`.
+  > debt, and were repaired. Three `tests/test_steward_filter.py` entries repaired on
+  > 2026-10-09 by `d8679b49` were removed the same day, so the recorded set is now 5 nodes
+  > and the canonical pair is `9222b226…` / `1063cf1f…`.
 - Fingerprint `sha256("\n".join(sorted(FAILED/ERROR node ids)) + "\n")` =
-  `0ec3c1102fd4e978bd11dd1b2544e80a42568b04974f9ca1ebe039d9492a14b9`
-  (node set `e7405d23…`; recorded nodes in `tests/fixtures/baseline_node_set.txt`). Earlier
+  `9222b226f3b09a285781472bafbb10463a4b79d3bc5a5a4c04d04ffea66bbd72`
+  (node set `1063cf1f…`; recorded nodes in `tests/fixtures/baseline_node_set.txt`). Earlier
   published pairs (`a59453b8…`, `9a35c812…`, `4d84e7eb…`, `da2ec262…`,
-  `6c7bf821…`/`2bc35996…`, and `9a54f5b4…`/`124bfdfd…` for the 10-node set) are superseded —
-  do not reuse them. See
+  `6c7bf821…`/`2bc35996…`, `9a54f5b4…`/`124bfdfd…` for the 10-node set, and
+  `0ec3c110…`/`e7405d23…` for the 8-node set) are superseded — do not reuse them. See
   `docs/control-plane/evidence/gate-hygiene-baseline-node-set-live-reconciliation-01/`.
 
 Counts are environment-sensitive and at least one node

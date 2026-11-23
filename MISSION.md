@@ -185,14 +185,15 @@ If any were introduced by this checkpoint: resolve them or record them explicitl
   > **Superseded 2026-11-22** (`test-hygiene/solspire-r1-governance-pins-01`): the counts
   > above are the 2026-10-04 measurement of a 10-node recorded set. The two
   > `tests/test_solspire_r1_governance_convergence.py` nodes were test-side pins, not product
-  > debt, and were repaired; the recorded set is now 8 nodes.
+  > debt, and were repaired. Three `tests/test_steward_filter.py` entries repaired on
+  > 2026-10-09 by `d8679b49` were removed the same day; the recorded set is now 5 nodes.
 - Baseline fingerprint:
   `sha256("\n".join(sorted(FAILED/ERROR node ids)) + "\n")` =
-  `0ec3c1102fd4e978bd11dd1b2544e80a42568b04974f9ca1ebe039d9492a14b9`
-  (node-set fingerprint `e7405d23…`). Earlier published pairs (`a59453b8…`, `9a35c812…`,
+  `9222b226f3b09a285781472bafbb10463a4b79d3bc5a5a4c04d04ffea66bbd72`
+  (node-set fingerprint `1063cf1f…`). Earlier published pairs (`a59453b8…`, `9a35c812…`,
   `4d84e7eb…`, `da2ec262…`, `a578a766…`/`8036fc06…`, `6c7bf821…`/`2bc35996…` when the
-  two archived-surface gate nodes were retired, and `9a54f5b4…`/`124bfdfd…` for the 10-node
-  set) are superseded — do not reuse them. See
+  two archived-surface gate nodes were retired, `9a54f5b4…`/`124bfdfd…` for the 10-node
+  set, and `0ec3c110…`/`e7405d23…` for the 8-node set) are superseded — do not reuse them. See
   `docs/control-plane/evidence/gate-hygiene-baseline-node-set-live-reconciliation-01/`.
 - Gate-2 production parity: **BLOCKED on provider auth** (Vercel Deployment Protection).
   External boundary, not a repository task. Do not re-run the pass expecting a different

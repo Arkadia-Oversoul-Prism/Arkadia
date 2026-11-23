@@ -167,3 +167,37 @@ evidence files are `PASS`. Neither job is selected by this diff, and neither ran
   attributed to this change and were not repaired.
 - `/api/codex/github-tree` is **FAILED** in production at the observed revision; the finding is
   recorded here and is not fixed by this PR.
+
+## 10. Same-defect-class extension: three repaired `test_steward_filter.py` entries
+
+The recorded set carried three more entries that describe history rather than debt, so they were
+removed in the same change rather than left for a competing PR on the same two files.
+
+- **Origin of the repair:** `d8679b49` ("gate-hygiene: repair substring-matching defects in the
+  steward filter", 2026-10-09) states as its bounded objective *"clear the three unowned
+  tests/test_steward_filter.py failures"*. It is an ancestor of `main`
+  (`git merge-base --is-ancestor d8679b49 main` -> true).
+- **Measured, not assumed, at `main` `bb19aabd`:** `python -m pytest tests/test_steward_filter.py -q`
+  -> **12 passed**; the file contributes **zero** entries to the live failing/error set
+  (`grep -c steward` over a 289-node live `-rEf` extraction -> 0).
+- **Result:** the recorded set is 5 nodes; canonical pair
+  `9222b226f3b09a285781472bafbb10463a4b79d3bc5a5a4c04d04ffea66bbd72` /
+  `1063cf1f09c39509af5b5af2a097e463343a63545f9219e965a67734264b4c07`
+  (derived by `scripts/baseline_fingerprint.py` on the fixture).
+- **The prior pair is retained, not deleted:** `0ec3c110…` / `e7405d23…` moved to
+  `SUPERSEDED_*`, and the three nodes joined `LIVE_RED_SHOULD_NOT_PASS_NODES`, so re-recording
+  any of them fails the guard.
+- **Negative control (live, on the real fixture):** appending
+  `FAILED tests/test_steward_filter.py::test_allows_mythic_with_action` back to
+  `tests/fixtures/baseline_node_set.txt` reddens exactly two nodes --
+  `test_live_node_set_reproduces_the_canonical_fingerprint` and
+  `test_recorded_set_excludes_the_live_reconciled_repairs` (`2 failed, 22 passed`). Restoring the
+  file byte-identically returns `24 passed`. A guard silent in both states would not be a guard.
+- **Guards run:** `tests/test_baseline_fingerprint.py tests/test_baseline_fingerprint_ci_wiring.py`
+  -> **33 passed**. The four published docs (`FINGERPRINT_DOCS`) carry the new canonical pair and
+  no superseded full-length value.
+
+Nodes left in the recorded set that this environment could **not** re-measure were deliberately
+**not** removed: `tests/test_m02_reasomate_truth.py` is a collection error here (missing
+dependency), so its entry is unresolvable rather than proven stale. Removing an unmeasurable entry
+would trade one inaccuracy for another.

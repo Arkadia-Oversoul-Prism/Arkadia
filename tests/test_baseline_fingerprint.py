@@ -252,14 +252,21 @@ CLONE_DEPTH_DEPENDENT_NODE = (
 # pins, not product debt: `execute_patch` was asserted inside `weaver.governance` after
 # `36bdcf01` ("keep governance module narrowly scoped") deliberately moved it to
 # `weaver.execution`, and the delegation comparison fed an explicitly parameterised
-# canonical spec to a builder call that derived its own `pass_id`. Repaired nodes leave the
-# recorded set, so the recorded set is now the 8 nodes a live run reports. The prior
-# 10-node pair is retained in SUPERSEDED_* below.
+# canonical spec to a builder call that derived its own `pass_id`.
+#
+# Superseded again the same day by the three `test_steward_filter.py` nodes, which
+# `d8679b49` ("repair substring-matching defects in the steward filter") repaired on
+# 2026-10-09 -- that commit names exactly these three failures as its objective, and it is
+# an ancestor of `main`. The recorded set kept carrying them for six weeks. Measured on
+# `bb19aabd`: `tests/test_steward_filter.py` is 12 passed in isolation and contributes
+# zero entries to a 289-node live failing/error set, so the entries described history, not
+# debt. Repaired nodes leave the recorded set, so the recorded set is now the 5 nodes a
+# live run reports.
 CANONICAL_OUTCOMES_FINGERPRINT = (
-    "0ec3c1102fd4e978bd11dd1b2544e80a42568b04974f9ca1ebe039d9492a14b9"
+    "9222b226f3b09a285781472bafbb10463a4b79d3bc5a5a4c04d04ffea66bbd72"
 )
 CANONICAL_IDS_FINGERPRINT = (
-    "e7405d233288b59c3f3456386de02c6607e0c270a4a09da5ae0f7b084a520967"
+    "1063cf1f09c39509af5b5af2a097e463343a63545f9219e965a67734264b4c07"
 )
 
 # Values that were published but do not describe the recorded set. They must not
@@ -274,7 +281,9 @@ CANONICAL_IDS_FINGERPRINT = (
 # pair for the 20-node recorded set before the two archived-surface nodes were retired
 # 2026-10-03 by `gate-hygiene/stale-gate-fixture-retirement-01`. `9a54f5b4…`/`124bfdfd…`
 # were canonical for the 10-node recorded set until the two `test_solspire_r1_governance_
-# convergence.py` pins were repaired 2026-11-22. All five pairs are superseded by the
+# convergence.py` pins were repaired 2026-11-22. `0ec3c110…`/`e7405d23…` were canonical
+# for the 8-node recorded set for part of that same day, until the three repaired
+# `test_steward_filter.py` entries left it. All six pairs are superseded by the
 # canonical value above.
 SUPERSEDED_OUTCOMES_FINGERPRINTS = (
     "a59453b8a1e5a02899f469cf6ea7db9b5eaae658050261e1405c394cb0f3cf6f",
@@ -286,6 +295,9 @@ SUPERSEDED_OUTCOMES_FINGERPRINTS = (
     # Canonical for the 10-node recorded set, 2026-10-04 → 2026-11-22. Superseded by the
     # repair of the two `test_solspire_r1_governance_convergence.py` pins.
     "9a54f5b478d1135f27ab9e54d95706f03eae1ceb5d4c1f3ae075bffc4208ab38",
+    # Canonical for the 8-node recorded set, 2026-11-22. Superseded the same day by the
+    # removal of the three repaired `test_steward_filter.py` entries.
+    "0ec3c1102fd4e978bd11dd1b2544e80a42568b04974f9ca1ebe039d9492a14b9",
 )
 SUPERSEDED_IDS_FINGERPRINTS = (
     "9a35c8122188e272ec5769d7a8f5cdba6160b4f2f1fba8a840019a487c1bcc22",
@@ -294,6 +306,8 @@ SUPERSEDED_IDS_FINGERPRINTS = (
     "2bc35996b21de6529ffffab63446c8bd7295c388e841a2807101d189eaf7da01",
     # Canonical for the 10-node recorded set, 2026-10-04 → 2026-11-22.
     "124bfdfd078fe878fe7c9de358ba271e977c4f7b73909b9d7d016b9ae9c1e87f",
+    # Canonical for the 8-node recorded set, 2026-11-22.
+    "e7405d233288b59c3f3456386de02c6607e0c270a4a09da5ae0f7b084a520967",
 )
 
 # Documents that publish a baseline fingerprint and must agree with the canonical
@@ -325,14 +339,20 @@ LIVE_RED_SHOULD_NOT_PASS_NODES = (
     # it, and a comparison across mismatched builder parameters), never product debt.
     "tests/test_solspire_r1_governance_convergence.py::test_r1_solspire_builders_delegate_to_weaver",
     "tests/test_solspire_r1_governance_convergence.py::test_r1_weaver_governance_is_canonical",
+    # Repaired 2026-10-09 by `d8679b49`, whose stated objective was to clear exactly
+    # these three `test_steward_filter.py` failures. The recorded set carried them for
+    # six weeks afterwards.
+    "tests/test_steward_filter.py::test_allows_mythic_with_action",
+    "tests/test_steward_filter.py::test_blocks_identity_claims",
+    "tests/test_steward_filter.py::test_compress_to_choices",
 )
 
 
 def test_live_node_set_reproduces_the_canonical_fingerprint():
     """The recorded baseline set must hash to the published canonical value."""
     outcomes, ids = baseline_fingerprint.extract(str(LIVE_NODE_SET))
-    assert len(ids) == 8
-    assert sum(1 for o in outcomes if o.startswith("FAILED")) == 7
+    assert len(ids) == 5
+    assert sum(1 for o in outcomes if o.startswith("FAILED")) == 4
     assert sum(1 for o in outcomes if o.startswith("ERROR")) == 1
     assert baseline_fingerprint.fingerprint(outcomes) == CANONICAL_OUTCOMES_FINGERPRINT
     assert baseline_fingerprint.fingerprint(ids) == CANONICAL_IDS_FINGERPRINT

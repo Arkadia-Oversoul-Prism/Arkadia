@@ -1769,7 +1769,7 @@ or mutation-path surface was touched.
   > 20-node set.
 - Baseline fingerprint independently reproduced from the measured node list:
   `sha256("\n".join(sorted(FAILED/ERROR node ids)) + "\n")` =
-  `0ec3c1102fd4e978bd11dd1b2544e80a42568b04974f9ca1ebe039d9492a14b9`
+  `9222b226f3b09a285781472bafbb10463a4b79d3bc5a5a4c04d04ffea66bbd72`
   > **Superseded 2026-10-04** (`gate-hygiene/baseline-node-set-live-reconciliation-01`):
   > a live full-suite run on `main` `1b7c089` reported 9 failed / 1414 passed / 20 skipped /
   > 1 error (10 failing/error nodes). Eight of the 18 recorded entries now pass — repaired by
@@ -1782,9 +1782,10 @@ or mutation-path surface was touched.
   > `tests/test_solspire_r1_governance_convergence.py` nodes were test-side pins, not product
   > debt — `execute_patch` was asserted inside `weaver.governance` after `36bdcf01` moved it
   > to `weaver.execution`, and the delegation comparison passed mismatched builder
-  > parameters. Repaired, so the recorded set is now 8 nodes and the canonical pair is
-  > `0ec3c110…` / `e7405d23…`. The 10-node pair is retained as superseded in
-  > `tests/test_baseline_fingerprint.py`.
+  > parameters. Repaired, and three `tests/test_steward_filter.py` entries that `d8679b49`
+  > repaired on 2026-10-09 were removed in the same change, so the recorded set is now 5
+  > nodes and the canonical pair is `9222b226…` / `1063cf1f…`. The 10-node and 8-node pairs
+  > are retained as superseded in `tests/test_baseline_fingerprint.py`.
   > **Correction 2026-10-02**: the `a59453b8…` recorded here was **not reproducible** —
   > neither by the derivation printed beside it nor by `scripts/baseline_fingerprint.py`.
   > The first reconciliation pass published `4d84e7eb…`, which reproduced only in a clone
