@@ -124,7 +124,18 @@ filter is `weaver/**`, `providers/**`, `tests/architecture/**` and four named
 files. Measured consequence: a commit that edits, say,
 `tests/test_weaver_sci_boundary_01.py` executes three gates and **none of them
 runs that file** — no workflow names it (`grep -rl` over `.github/workflows/`
-→ 0).
+→ 0, and it is not in the console-contract domain either).
+
+Scale, measured at `bb19aabd` over `git ls-files -- tests/`: of **341**
+`test_*.py` files, **112** are named by some workflow, **74** are in the
+console-contract domain, and the `tests/architecture/` tree is covered by
+`provider-routing.yml`'s whole-suite step — **178** covered in total, so **163**
+test files are executed by no gate that a change to them would trigger.
+
+Two guards that *look* unwired are not: `tests/test_prism_w4_lab_pr_state.py`
+and `tests/test_prism_solspire_control_plane.py` are members of the
+console-contract domain (74 files), so `prism-console-contract.yml` executes
+them. Check the derived domain before declaring a guard unwired.
 
 That is the same class as §1 at repository scale, and it is **not** repaired
 here: making a `tests/**`-selected gate run the whole suite widens an execution
