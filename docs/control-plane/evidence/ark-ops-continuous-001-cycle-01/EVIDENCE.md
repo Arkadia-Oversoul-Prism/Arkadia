@@ -82,6 +82,21 @@ Every node is accounted for, and **none is an unclaimed, non-reserved defect**:
 The F-01 node was **not** repaired. Re-pinning it would loosen a persistence boundary,
 which is a governance decision reserved to the sovereign, not test hygiene.
 
+### 4.1 No regression from this change
+
+The full suite was also run on this branch, in the same environment:
+
+```
+branch: 19 failed, 4250 passed, 22 skipped, 1 error in 281.59s
+main:   19 failed, 4250 passed, 22 skipped, 1 error in 287.05s
+```
+
+Both sorted `FAILED`/`ERROR` node sets are **20 nodes** hashing to
+`8d70e46e6f076049cacd8bdf16feeb42c6c078377d9d350e6bfbe1a8de4beceb`, and
+`comm -3 main_nodes branch_nodes` is **empty**. The comparison is by node identity, not by
+totals: a passed count moves with the installed dependency set, while only the failing node
+list is stable.
+
 ## 5. Open-PR queue
 
 27 drafts, all `MERGEABLE`/`CLEAN` or `UNSTABLE`, all `reviewDecision: none`. **No PR has a
