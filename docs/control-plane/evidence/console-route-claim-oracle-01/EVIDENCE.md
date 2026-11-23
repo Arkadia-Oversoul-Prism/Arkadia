@@ -131,6 +131,17 @@ $ pytest tests/architecture -q
 11 passed
 ```
 
+### 6.1 CI — runtime-proven, not source-asserted
+
+Head `35a2d8be58bfea21b0328bc142e7be8d3d25bce5`, `commits/<sha>/check-runs`:
+**16 of 16** `completed/success`, including `posture-currency` — the gate that executes this guard
+— and `validate` (`SG-02-FE.2-V`, which carries the CP10 mutation-boundary judge). So the extended
+guard ran in CI and passed there, rather than only in this sandbox.
+
+The trigger is the one that matters: `operator-console-posture.yml` is path-filtered, and this PR
+touches `web/arkadia_console/**` and `tests/**`, both of which it selects. No workflow edit was
+needed to make the guard execute on the change it judges.
+
 ## 7. Limitations
 
 - Source-level and route-table-level only. No browser rendering was observed for the affected
