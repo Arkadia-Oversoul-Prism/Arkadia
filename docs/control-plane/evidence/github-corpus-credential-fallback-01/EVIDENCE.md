@@ -146,19 +146,29 @@ Full suite, same environment, `-rEf --continue-on-collection-errors`:
 | Tree | Result |
 |---|---|
 | `main` `bb19aabd` (before the change) | 19 failed, 4250 passed, 22 skipped, 1 error |
-| this branch | recorded below |
+| this branch (`990925dc`) | 9 failed, 4269 passed, 22 skipped, 1 error |
 
-Of those 19 nodes, **10** (`tests/test_mission_lifecycle_adapter_contract.py`) were
-environment-only: they require the repository TypeScript compiler at
-`web/arkadia_console/node_modules/typescript/lib/typescript.js`. After
-`pnpm install --frozen-lockfile`, that module is **10 passed**. The remaining 9 are
-each owned by an open PR (`#690` ×2, `#691`, `#693` ×2, `#698`, `#700` ×2) or are the
-deliberate, sovereign-reserved proxy invalidation
+The `+19 passed` decomposes exactly: **9** are this change's new tests and **10** are
+the `tests/test_mission_lifecycle_adapter_contract.py` nodes that pass once the
+repository TypeScript compiler exists (`pnpm install --frozen-lockfile`; they were
+environment-only failures, not tree defects).
+
+Node-set comparison (the load-bearing invariant; counts move with the environment):
+
+```
+main failing/error nodes                 20  (19 FAILED + 1 ERROR)
+minus 10 environment-only mission nodes  10
+branch failing/error nodes               10
+comm -3 (both directions)               empty
+sha256 (both sides)  11a348481cf81125894a7094c27e0810c09c7e8f0d96733852e671f57ca597b6
+```
+
+Of the 9 remaining failures, each is owned by an open PR (`#690` ×2, `#691`, `#693` ×2,
+`#698`, `#700` ×2) or is the deliberate, sovereign-reserved proxy invalidation
 `tests/test_ais_w2_living_gate_grove_handoff.py::test_no_firebase_persistence_in_gate`.
 The 1 error is the sovereign-reserved CE-01 `weaver.autonomy` module/package collision.
 
-No failing node is introduced by this change; the branch's failing set is the
-`main` set minus the 10 environment nodes.
+**Zero failing nodes are introduced by this change.**
 
 ## 7. Limitations (explicitly not claimed)
 
