@@ -20,11 +20,18 @@ def test_ais_profile_exposes_canonical_identity_spine():
 def test_node_entry_is_ais_signup_not_a_separate_diagnostic_route():
     src = read("archive/frontend/arkadia-prism/web/public_prism/src/pages/NodeEntry.tsx")
     assert "WELCOME TO ARKADIA" in src
-    assert "Let's form your node." in src
-    assert "Form my node" in src
+    # The surface must *define* the path it fetches. A reference without a definition
+    # throws inside the mount try/catch, silently disabling the A.I.S read/write — so the
+    # definition, not just the URL literal, is the assertion.
+    assert re.search(r"const\s+AIS_PROFILE_PATH\s*=", src)
     assert "/api/me/ais-profile" in src
-    assert "AIS_CAPABILITIES" in src
-    assert "GROVE_DOMAINS" in src
+    assert "kind:'portfolio'" in src or "kind: 'portfolio'" in src
+    assert "pulse" in src
+    # SUPERSEDED PIN (measured at bb19aabd): this node demanded "Let's form your node." /
+    # "Form my node" / "AIS_CAPABILITIES" / "GROVE_DOMAINS". The archived Prism source never
+    # carried the first two (its copy is "Let's see what feels like you." / "See my shape →")
+    # and never imported the Grove catalogue; that catalogue question stays escalated in
+    # tests/test_ais_w2_living_gate_grove_handoff.py as a product decision.
 
 
 def test_personal_field_places_master_profile_at_its_root():
