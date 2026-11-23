@@ -1,6 +1,7 @@
 name: AL-XAI-04 Conformance
 
 on:
+  workflow_dispatch:
   push:
     branches: ["feat/alxai-04-state-sync"]
   pull_request:

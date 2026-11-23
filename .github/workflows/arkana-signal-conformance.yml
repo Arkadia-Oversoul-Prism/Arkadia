@@ -13,6 +13,7 @@ name: ARK-01 Signal Conformance
 #   * `conformance` adds `jsonschema` and runs the fuller validation so both the
 #     real-schema check and the stdlib subset check agree on the same tree.
 on:
+  workflow_dispatch:
   pull_request:
     paths:
       - ".github/workflows/arkana-signal-conformance.yml"
