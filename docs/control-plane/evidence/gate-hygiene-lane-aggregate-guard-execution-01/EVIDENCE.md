@@ -93,3 +93,53 @@ returned `20 passed`.
   domain directly (`pytest $(python scripts/lane_contract_domain.py)`) would
   remove the last hand-maintained list, but that widens an execution surface and
   is a separate bounded change for sovereign review.
+
+## 5. Runtime observation (branch, not acceptance)
+
+Run `45110213175` (`Lane Doc Currency`, `event=pull_request`) at head
+`2f4f727f023e6451085ac3fc27c2867b11233d3d` → **success**, and the *step log*
+(not the job conclusion) shows the guard executing:
+
+```
+Execute lane instruction-doc currency guard      66 passed in 2.24s
+Execute the aggregate-PR classification guard    15 passed in 0.07s   <-- newly executed
+Execute the wiring guard (judges this workflow)  20 passed in 0.16s
+lane_state.py --check                            lane instruction docs consistent with snapshot (4 guarded lanes)
+```
+
+Of the 10 workflow runs at that head, 9 are `success`. The single `failure`
+(`N-ATLAS external beta validation`, run `45110213166`) is
+`ModelUnavailable: N-ATLaS Gradio runtime error` — the live external provider,
+never evidence about the repository tree, and recorded as intermittent.
+
+## 6. Adjacent gap observed, deliberately NOT repaired
+
+No workflow whose `paths` filter includes `tests/**` executes the whole suite.
+`economic-seam-engine.yml`, `prism-console-contract.yml` and
+`operator-console-posture.yml` all select `tests/**`, and each runs a **narrow**
+inventory (`pytest -q <8 files>`, `pytest -q $(console_contract_domain.py)`, two
+named files). `provider-routing.yml` is the only whole-suite surface
+(`python -m pytest tests/ -q -rEf --continue-on-collection-errors`) and its
+filter is `weaver/**`, `providers/**`, `tests/architecture/**` and four named
+files. Measured consequence: a commit that edits, say,
+`tests/test_weaver_sci_boundary_01.py` executes three gates and **none of them
+runs that file** — no workflow names it (`grep -rl` over `.github/workflows/`
+→ 0).
+
+That is the same class as §1 at repository scale, and it is **not** repaired
+here: making a `tests/**`-selected gate run the whole suite widens an execution
+surface (runtime cost, dependency set, and the sovereign's gate budget). It is
+recorded as a separate proposed workstream for sovereign review. Discovery does
+not authorize execution.
+
+## 7. Next authorized action
+
+- **This PR:** human review of a draft. Merge execution is human-only (GOV-03);
+  nothing here is a merge, deployment, or acceptance claim.
+- **After a human merge:** re-run `lane-doc-currency` on the resulting `main` and
+  confirm the step log still shows `15 passed` for the aggregate guard.
+- **Separate, not started:** the §6 whole-suite execution-surface decision is a
+  sovereign question (which gate runs the full suite, on which filter, with
+  which dependency set). Do not open a competing PR on
+  `.github/workflows/lane-doc-currency.yml`; compose any further lane-gate change
+  into this branch.
