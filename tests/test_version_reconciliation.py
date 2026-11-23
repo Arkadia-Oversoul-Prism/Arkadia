@@ -243,3 +243,124 @@ def test_main_reports_blocked_for_html_body(monkeypatch, capsys):
 def test_main_reports_unknown_for_placeholder_expected(monkeypatch, capsys):
     assert _run(monkeypatch, _payload(_HEAD), "UNKNOWN") == 2
     assert "verdict:          UNKNOWN" in capsys.readouterr().out
+
+
+# ── await_revision(): a bounded wait must not relax the verdict ──────────────
+
+def _sequence(*revisions):
+    """Payloads for one read per call (the last repeats) plus a call counter."""
+    payloads = [_payload(r) if isinstance(r, (str, type(None))) else r for r in revisions]
+    return payloads, {"n": 0}
+
+
+def _fake_fetch(payloads, calls):
+    def fetch(base_url, timeout):
+        index = min(calls["n"], len(payloads) - 1)
+        calls["n"] += 1
+        body = payloads[index]
+        evidence = {"verdict_hint": "OK", "revision": None, "conflict": False, "sources": {}}
+        try:
+            parsed = json.loads(body)
+        except ValueError:
+            return {"verdict_hint": BLOCKED, "revision": None, "conflict": False, "sources": {}}
+        evidence["revision"] = parsed.get("source_revision")
+        evidence["conflict"] = parsed.get("revision_conflict") is True
+        evidence["sources"] = parsed.get("revision_sources") or {}
+        return evidence
+
+    return fetch
+
+
+class _FakeClock:
+    """A monotonic clock advanced by ``sleep`` so the wait loop is not wall-timed."""
+
+    def __init__(self):
+        self.now = 0.0
+
+    def __call__(self):
+        return self.now
+
+    def sleep(self, seconds):
+        self.now += max(seconds, 0.0)
+
+
+def test_await_revision_converges_when_the_deploy_lands():
+    """Positive control: the previous revision is not the verdict when the next read matches."""
+    payloads, calls = _sequence(_OTHER, _OTHER, _HEAD)
+    clock = _FakeClock()
+
+    evidence, verdict, _reason, attempts = vc.await_revision(
+        _HEAD,
+        "https://example.invalid",
+        wait_seconds=120,
+        interval=10,
+        fetch=_fake_fetch(payloads, calls),
+        sleep=clock.sleep,
+        clock=clock,
+    )
+
+    assert verdict == MATCH
+    assert evidence["revision"] == _HEAD
+    assert attempts == 3
+
+
+def test_await_revision_negative_control_a_deploy_that_never_lands_stays_mismatch():
+    """Negative control: waiting must not manufacture a match.
+
+    Without this, a wait loop that returned its first reading -- or that treated
+    "no answer yet" as success -- would turn genuine drift into a pass, which is
+    the exact direction the oracle exists to catch.
+    """
+    payloads, calls = _sequence(_OTHER)
+    clock = _FakeClock()
+
+    _evidence, verdict, _reason, attempts = vc.await_revision(
+        _HEAD,
+        "https://example.invalid",
+        wait_seconds=45,
+        interval=10,
+        fetch=_fake_fetch(payloads, calls),
+        sleep=clock.sleep,
+        clock=clock,
+    )
+
+    assert verdict == MISMATCH
+    assert attempts > 1, "the wait must actually re-read before giving up"
+
+
+def test_await_revision_reads_once_without_a_wait():
+    """Single-shot behaviour is unchanged when no wait is requested."""
+    payloads, calls = _sequence(_OTHER)
+    clock = _FakeClock()
+
+    _evidence, verdict, _reason, attempts = vc.await_revision(
+        _HEAD,
+        "https://example.invalid",
+        wait_seconds=0,
+        fetch=_fake_fetch(payloads, calls),
+        sleep=clock.sleep,
+        clock=clock,
+    )
+
+    assert (verdict, attempts) == (MISMATCH, 1)
+
+
+def test_await_revision_never_treats_a_conflict_as_a_match():
+    """A self-contradictory deployment stays CONFLICT however long the wait runs."""
+    payloads, calls = _sequence(_payload(_HEAD, conflict=True))
+    clock = _FakeClock()
+
+    _evidence, verdict, _reason, attempts = vc.await_revision(
+        _HEAD,
+        "https://example.invalid",
+        wait_seconds=600,
+        interval=10,
+        fetch=_fake_fetch(payloads, calls),
+        sleep=clock.sleep,
+        clock=clock,
+    )
+
+    assert verdict == CONFLICT
+    assert attempts > 1, "the wait must keep re-reading rather than stopping early"
+    assert clock.now <= 600, "the wait must respect its bound"
+

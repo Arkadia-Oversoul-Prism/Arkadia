@@ -1,0 +1,104 @@
+name: Runtime Revision Identity
+
+# The canonical runtime (Render, ADR-016) reports the revision it is running at
+# `GET /api/version`. Nothing verified that the deployed revision is the pushed
+# one unless the push touched a *build input*: the only exact-SHA assertion on
+# `main` lives in `canonical-render-runtime-probe.yml`, which is path-filtered to
+# `api/**`, `web/arkadia_console/**`, `web/console/**`, `Dockerfile`,
+# `architecture/runtime_manifest.yaml` and itself; `canonical-render-acceptance.yml`
+# performs the same comparison but only when its own file changes.
+#
+# Measured at `main` `bb19aabd`: `grep -rn "api/version" .github/workflows/` names
+# those two workflows only. A push to `main` touching, say, `solspire/**`,
+# `kernel/**` or `tests/**` still deploys a new revision that no workflow
+# identifies -- the chain `main SHA -> deployment SHA` is then unobserved, and an
+# unobserved link is indistinguishable from a broken one.
+#
+# This gate closes that: `push` carries **no** `paths` filter, so every commit
+# that lands on `main` is checked. It is read-only -- one GET against the
+# canonical origin, no credential, no mutation, no deployment.
+#
+# The wait is bounded (`--wait`) because a provider reports the *previous*
+# revision until its build finishes; the wait re-reads and the final reading
+# decides, so it cannot convert drift into a match
+# (`tests/test_version_reconciliation.py` carries the negative control).
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    paths:
+      - "scripts/version_reconciliation.py"
+      - "kernel/revision_identity.py"
+      - "tests/test_version_reconciliation.py"
+      - "tests/test_runtime_revision_identity_ci_wiring.py"
+      - ".github/workflows/runtime-revision-identity.yml"
+  # A dispatched run executes this workflow file from the dispatched ref, so
+  # `ref=main` yields an execution at the current main SHA.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CANONICAL_ORIGIN: https://arkadia-qzu4.onrender.com
+
+jobs:
+  validate-workflow:
+    # A pull request is not deployed, so probing production from one would measure
+    # someone else's revision. The PR surface validates this gate's shape only.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install pytest pyyaml
+      - name: Execute the guard and this gate's wiring judge
+        # The wiring judge asserts, over this file, that `push` is not
+        # path-filtered, that the pull-request filter names every input, that no
+        # probe job is reachable from a pull request, and that no job can mask the
+        # probe's exit status. Running it here means a rewrite of this gate is
+        # judged by the gate it rewrites.
+        env:
+          PYTHONPATH: .
+        run: python -m pytest -q tests/test_version_reconciliation.py tests/test_runtime_revision_identity_ci_wiring.py
+
+  revision-identity:
+    if: github.event_name != 'pull_request'
+    name: Deployed revision is the pushed revision
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install pytest
+      - name: Execute the guard the gate enforces
+        env:
+          PYTHONPATH: .
+        run: python -m pytest -q tests/test_version_reconciliation.py
+      - name: Reconcile the deployed revision against the pushed SHA
+        # `GITHUB_SHA` is passed through the environment, never interpolated into
+        # the script body.
+        #
+        # `--timeout 60`: the canonical instance idles down, and a request that
+        # wakes it is held open for the whole boot. Measured at `main` `bb19aabd`
+        # on 2026-11-23: `curl /api/version` returned HTTP 200 after **35.35 s**,
+        # so the script's 15 s default read the same healthy deployment as
+        # `BLOCKED` -- a false failure on a sleeping instance, the same class the
+        # alias observation had to repair.
+        env:
+          EXPECTED_REVISION: ${{ github.sha }}
+        run: |
+          python scripts/version_reconciliation.py \
+            --base-url "$CANONICAL_ORIGIN" \
+            --expected "$EXPECTED_REVISION" \
+            --timeout 60 \
+            --wait 600 \
+            --interval 15

@@ -34,6 +34,12 @@ Absence and placeholder semantics live in ``kernel.revision_identity`` and are
 shared with ``api/version_routes.py``, so the two cannot disagree about what
 "absent" means.
 
+``--wait`` adds a *bounded* wait for a just-pushed revision to become live: a
+provider reports the previous revision until its build finishes, so a single
+read would classify a healthy rollout as ``MISMATCH``. The wait never relaxes
+the verdict - it only re-reads, and the final reading decides. ``--wait 0``
+(default) reads once.
+
 Read-only. No mutation, no credential, and it never prints anything other than
 the revision values it is given.
 """
@@ -44,6 +50,7 @@ import argparse
 import json
 import subprocess
 import sys
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -178,30 +185,74 @@ def invalid_reported_sources(sources: dict) -> list[str]:
     return bad
 
 
+def classify_evidence(expected: str | None, evidence: dict) -> tuple[str, str]:
+    """Return the ``(verdict, reason)`` pair for one reading of the endpoint."""
+    reported = evidence["revision"]
+    bad_sources = invalid_reported_sources(evidence["sources"])
+    if evidence["verdict_hint"] == BLOCKED:
+        return BLOCKED, "endpoint could not be read as revision evidence"
+    if evidence["conflict"]:
+        return CONFLICT, explain(expected, reported, conflict=True)
+    if bad_sources:
+        return UNKNOWN, "reported metadata carries an invalid value in: " + ", ".join(bad_sources)
+    return compare(expected, reported), explain(expected, reported)
+
+
+def await_revision(
+    expected: str | None,
+    base_url: str,
+    *,
+    timeout: float = 15.0,
+    wait_seconds: float = 0.0,
+    interval: float = 10.0,
+    fetch=fetch_reported_evidence,
+    sleep=time.sleep,
+    clock=time.monotonic,
+) -> tuple[dict, str, str, int]:
+    """Read revision evidence until it matches, or the bounded wait expires.
+
+    A deployment that has just received a push reports the *previous* revision
+    until the provider finishes building, so a single read classifies a healthy
+    rollout as ``MISMATCH``. Waiting is bounded and does not relax the verdict:
+    the classification is always computed from a real reading, and the last
+    reading is what the caller reports. ``wait_seconds <= 0`` performs exactly
+    one read, so single-shot behaviour is unchanged.
+    """
+    deadline = clock() + max(wait_seconds, 0.0)
+    attempts = 0
+    while True:
+        attempts += 1
+        evidence = fetch(base_url, timeout)
+        verdict, reason = classify_evidence(expected, evidence)
+        remaining = deadline - clock()
+        if verdict == MATCH or remaining <= 0:
+            return evidence, verdict, reason, attempts
+        sleep(min(interval, remaining))
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base-url", required=True, help="Deployment origin, e.g. https://host")
     parser.add_argument("--expected", default=None, help="Intended source revision (default: git HEAD)")
     parser.add_argument("--timeout", type=float, default=15.0, help="HTTP timeout in seconds")
+    parser.add_argument(
+        "--wait",
+        type=float,
+        default=0.0,
+        help="Bounded seconds to wait for a just-deployed revision to become live (default: 0)",
+    )
+    parser.add_argument("--interval", type=float, default=10.0, help="Seconds between reads while waiting")
     args = parser.parse_args(argv)
 
     expected = args.expected or git_head_revision()
-    evidence = fetch_reported_evidence(args.base_url, args.timeout)
+    evidence, verdict, reason, attempts = await_revision(
+        expected,
+        args.base_url,
+        timeout=args.timeout,
+        wait_seconds=args.wait,
+        interval=args.interval,
+    )
     reported = evidence["revision"]
-    bad_sources = invalid_reported_sources(evidence["sources"])
-
-    if evidence["verdict_hint"] == BLOCKED:
-        verdict = BLOCKED
-        reason = "endpoint could not be read as revision evidence"
-    elif evidence["conflict"]:
-        verdict = CONFLICT
-        reason = explain(expected, reported, conflict=True)
-    elif bad_sources:
-        verdict = UNKNOWN
-        reason = "reported metadata carries an invalid value in: " + ", ".join(bad_sources)
-    else:
-        verdict = compare(expected, reported)
-        reason = explain(expected, reported)
 
     print(f"base_url:         {args.base_url}")
     print(f"expected revision: {expected if expected is not None else 'unknown'}")
@@ -211,6 +262,7 @@ def main(argv: list[str] | None = None) -> int:
             status = entry.get("status") if isinstance(entry, dict) else None
             print(f"  source {name}: {status}")
     print(f"revision_conflict: {bool(evidence['conflict'])}")
+    print(f"reads:            {attempts}")
     print(f"reason:           {reason}")
     print(f"verdict:          {verdict}")
     print(_NOTE)
