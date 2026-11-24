@@ -66,6 +66,8 @@ M09 **defines** the contract. It does not activate unbounded autonomous executio
 
 Merge execution is human-only. Weaver may assess PR eligibility against the M1–M13 rubric and prepare evidence, but cannot execute a merge. The machine contract expresses this as `merge: human_only`, `merge_assessment: weaver_eligibility_only`, and `merge_execution: human_only`. `ForbiddenMergeAdapter` remains the runtime refusal boundary. Deployment and acceptance are independently human-only.
 
-## GOV-04 policy declaration (activation gated)
+## GOV-04 policy declaration (ACTIVE for designated operator; worker actuator still disabled)
+
+PR #722 was human-merged on 2026-11-24 (merge commit `fd0a4fdc081064b2074aab9e17b4c7841736dd9f`). The bounded protected-API policy is active for the designated reconciliation operator under the canonical authorization record. This does not commission a worker merge actuator: `ForbiddenMergeAdapter` remains fail-closed until separately implemented and verified. Deployment and acceptance remain human-only.
 
 The bounded GitHub merge policy is recorded in `docs/control-plane/evidence/gov-04-bounded-merge-delegation/AUTHORIZATION.md`. The worker's current `ForbiddenMergeAdapter` remains fail-closed; this document does not commission an automated worker merge actuator. Delegated merges, if activated by human merge of the GOV-04 PR, are performed by the designated reconciliation operator using the normal protected GitHub API and all exact-head gates. Deployment and acceptance remain human-only.
