@@ -163,3 +163,8 @@ canonical_deployment:
   historical_targets:
     - arkadia-kw64.onrender.com
     - arkadia-prism.vercel.app
+    # Superseded by the Phase 0 endpoint migration
+    # (`.bootstrap/01_STATE.md`: "arkadia-n26k → arkadia-kw64 across 12 files") and
+    # named as "the old Render URL referenced in code" by
+    # `docs/deployment/RAILWAY.md`. Probed 2026-11-24: no response.
+    - arkadia-n26k.onrender.com

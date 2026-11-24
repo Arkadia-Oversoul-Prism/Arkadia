@@ -51,7 +51,7 @@ Dev mode: credentials absent → unsigned JWT decode with explicit warning. Cred
 
 ### CORS production lock (api/main.py)
 
-**Rule:** When `ENVIRONMENT=production` and `CORS_ALLOWED_ORIGINS` is unset, the only allowed origin is `https://arkadia-kw64.onrender.com`. Localhost never appears in production defaults.
+**Rule:** When `ENVIRONMENT=production` and `CORS_ALLOWED_ORIGINS` is unset, the only allowed origin is `https://arkadia-qzu4.onrender.com` (the canonical origin under ADR-016, per `api/main.py`). Localhost never appears in production defaults. The rule as written before 2026-11-24 named `https://arkadia-kw64.onrender.com`, which `architecture/runtime_manifest.yaml` records as `legacy_noncanonical` — that was wrong about the code and is superseded here.
 
 Override via `CORS_ALLOWED_ORIGINS` env var (comma-separated). Do not hardcode new origins in the default list.
 
