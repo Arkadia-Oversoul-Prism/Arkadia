@@ -185,6 +185,13 @@ instead of `download-artifact@v4`, and split the single `exit 1` into `INCOMPLET
 `FAILED_EVIDENCE` verdicts so the red says which one it is. No open PR touches
 `.github/workflows/n-atlas-external-beta.yml`; the item is unowned.
 
+**Second observation, same head `24b8e999`.** On the push that carried this record, the *other* leg
+failed — `beta-beta-02-hausa`, again `RUN_FAILED` / `external runtime did not return usable
+inference` with `errors: []` — while `beta-beta-01-english` passed. The legs alternate which one
+fails across attempts, which is provider-side intermittency rather than a tree property. The bundle
+job failing when a leg genuinely fails is correct behaviour; the defect recorded above is the
+separate case where both legs pass and the bundle still cannot be assembled.
+
 ## 7. Next-action block
 
 **Current state.** `main` = `fd0a4fdc…`; production identical, `revision_conflict: false`; `main`
