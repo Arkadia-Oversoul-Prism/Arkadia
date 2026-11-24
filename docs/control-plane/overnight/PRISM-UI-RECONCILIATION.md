@@ -203,3 +203,7 @@ At the end of this workstream window, leave its PR in a truthful state and a det
 GOV-03 supersedes the execution-delegation language in GOV-01/GOV-02 and the corresponding sections of this contract. GOV-01's M1–M13 criteria are retained as the Weaver assessment rubric only. Where older text suggests delegated merge execution, this GOV-03 rule controls.
 
 The four lane ownership boundaries and the existing one-open-PR-per-lane rule are unchanged. This amendment changes merge execution only; it does not authorize implementation scope expansion or deployment.
+
+## GOV-04 — bounded merge delegation (2026-11-24; activation gated)
+
+The user authorized a bounded amendment. GOV-03 remains effective until the dedicated GOV-04 PR is human-reviewed and human-merged. After activation, only the designated reconciliation operator may execute exact-head, protected GitHub merges that satisfy the complete authorization record at `docs/control-plane/evidence/gov-04-bounded-merge-delegation/AUTHORIZATION.md`. Drafts require owner action to become ready; no auto-merge, protection bypass, direct push, deployment, or acceptance. Governance PRs, reserved decisions, and unknowns remain human-only. Runtime worker merge capability remains disabled until separately implemented and verified.
