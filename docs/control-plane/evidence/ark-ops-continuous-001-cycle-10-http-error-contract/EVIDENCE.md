@@ -243,3 +243,39 @@ owned by an open PR nor an authority surface).
 
 **Completion condition.** This cycle is complete when this record and its draft PR are
 reviewable, with `main` unmodified and no merge, deployment or acceptance claimed.
+
+### 4.5 CI runtime proof (not a source assertion)
+
+Head `40d0653c6ab6f53c1668608f46a58094e95123d8`. The wiring judge asserts the gate *would*
+execute the guard; these are the executed logs.
+
+```console
+$ gh pr checks 718
+http-error-contract    pass    run 45385070854
+test                   pass    run 45385071126      # economic-seam-engine
+trigger-coverage       pass    run 45385070950
+boot-syntax            pass    run 45385071031
+security-metadata      pass    run 45385071003
+posture-currency       pass    run 45385070880
+Full-history secret scan pass  run 45385070910
+
+$ gh run view 45385070854 --log | grep passed
+HTTP error contract guards          12 passed in 1.65s
+HTTP error contract CI-wiring guard 11 passed in 0.11s
+
+$ gh run view 45385071126 --log | grep passed
+Verify the economic-seam contract guards  171 passed in 2.35s   # includes both new files
+Economic-seam CI-wiring guard              21 passed in 3.89s
+```
+
+`console-contract` and `native-arkadia-golden-workflow` are the two checks that are not evidence
+about this tree: the former is intermittent on `main` itself, and the latter failed only on
+`tests/test_natlas_developer_lab.py::test_native_natlas_route_live_external_gradio` with
+
+```
+lab.engineering_lab.gateway.ModelUnavailable: N-ATLaS Gradio runtime error:
+provider emitted error event with null/empty data (event_id=81249ff2..., raw_data='null', events=['error'])
+```
+
+which is the live external ZeroGPU provider answering the CI runner's egress, in a module this
+change does not touch.
