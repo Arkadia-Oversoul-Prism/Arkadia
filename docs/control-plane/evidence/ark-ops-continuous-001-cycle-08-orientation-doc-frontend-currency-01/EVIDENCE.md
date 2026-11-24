@@ -107,6 +107,28 @@ was restored:
 All three restored byte-identically (sha256 compared before and after). Each repair is
 individually load-bearing; none of the three nodes is carried by another repair.
 
+**Full-suite node-set comparison.** Two full passes in this environment (`pyyaml` present,
+`PYTHONPATH=archive/legacy_python`, `--continue-on-collection-errors`):
+
+| tree | result |
+|---|---|
+| `main` @ `bb19aabd` | `19 failed, 4250 passed, 22 skipped, 1 error` |
+| this branch | `19 failed, 4303 passed, 22 skipped, 1 error` |
+
+Failing/error node **set** is identical on both sides — 20 nodes, sha256
+`31653a5cc1e70e0cbac26c98b2bde3b7cec6fc27b93fcbadfb7c422da10b5505` on **both**, `comm -3`
+empty, zero nodes only-on-branch. The `+53 passed` is the 46 guard nodes in this file
+(absent from `main`) plus 7 the generic workflow-scanning suites gain by construction from
+the one workflow this branch edits.
+
+Every one of the 20 nodes is owned or sovereign-reserved, matching the decomposition
+cycle 05 recorded: 1 CE-01 (`ERROR tests/test_autonomy.py`, sovereign-reserved), 1 FINDING
+F-01 (`test_no_firebase_persistence_in_gate`, sovereign-reserved), 10 environment-only
+(`test_mission_lifecycle_adapter_contract.py`, which needs
+`web/arkadia_console/node_modules/typescript`; `pnpm install` was not run for this pass),
+2 owned by #700, 2 by #690, 2 by #693, 1 by #691, 1 by #698. **No unowned, non-reserved
+defect is in the set.**
+
 ## 6. Recorded, not repaired
 
 * `architecture/ATLAS.md` MAP 02 labels the interface layer "Prism / Android / Bots". That
