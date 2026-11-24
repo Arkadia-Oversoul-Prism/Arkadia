@@ -200,3 +200,22 @@ sovereign decision; editing `api/lab_routes.py` while PR #712 owns it.
 
 **Completion condition.** This cycle is complete when this record and its PR are reviewable, with
 `main` unmodified and no merge, deployment or acceptance claimed.
+
+## 9. Addendum — CI execution measured at the PR head (PR #713, draft)
+
+Measured after the push, on head `17ddae2e60f700e4c685d40817ba595a483a03d5`.
+
+| check | result |
+|---|---|
+| `boundary` (job in `solspire-project-execution.yml` — the gate that selects `solspire/console_router.py`) | **completed / success**, 44 s |
+| its `Unit and contract gates` step log | names `tests/test_solspire_router_async_blocking_io_contract.py` and reports **`38 passed, 2 skipped`** — the guard is executed, not merely mentioned |
+| `Full-history secret scan`, `boot-syntax`, `console-contract`, `router-composition`, `test` (economic-seam), `trigger-coverage`, `verdict-step-integrity`, `security-metadata`, `posture-currency`, `provider-forensics`, `mvp2-validation`, beta evidence jobs | **success** |
+| `native-arkadia-golden-workflow` | **failure** — external provider, not the tree: `ModelUnavailable: N-ATLaS Gradio runtime …`, HTTP 503. Same intermittent class recorded on #700, #693, #696, #712; the job reads a live external model, so it is never evidence about this repository's tree, and this change touches no provider code. |
+
+Convention note: the CI skip count (2) and the sandbox skip count (3) differ by one
+docker-dependent test in `tests/solspire/test_live_container_execution.py`; passed totals move with
+the environment, so the invariant is still the failing/error **node set**, not the totals.
+
+PR state at this measurement: `draft: true`, `MERGEABLE` / `UNSTABLE` (the external-provider job),
+head `17ddae2e`. `main` remains `bb19aabda34d59594615b0279a45e9cbd3d8204d` — unmodified. No merge, no
+deployment, no acceptance claimed.
