@@ -172,7 +172,12 @@ def _execute_run(body: RunRequest, user: dict[str, Any]) -> dict[str, Any]:
     if not valid:
         raise HTTPException(status_code=422, detail="Planner produced an invalid plan")
 
-    execution = get_runtime().execute(plan, owner_uid=user["uid"])
+    try:
+        execution = get_runtime().execute(plan, owner_uid=user["uid"])
+    except PermissionError as exc:
+        # The runtime refuses an engineering mutation plan before any worker thread
+        # exists. Surface that as a governed refusal, not an opaque 500.
+        raise HTTPException(status_code=403, detail=f"MUTATION_DISABLED: {exc}") from exc
 
     # Wait for completion (max 60s for Milestone 1 sync flow)
     deadline = time.time() + 60
