@@ -219,3 +219,23 @@ the environment, so the invariant is still the failing/error **node set**, not t
 PR state at this measurement: `draft: true`, `MERGEABLE` / `UNSTABLE` (the external-provider job),
 head `17ddae2e`. `main` remains `bb19aabda34d59594615b0279a45e9cbd3d8204d` — unmodified. No merge, no
 deployment, no acceptance claimed.
+
+## 10. Addendum — the external-provider failures are flaky, proved by re-run
+
+At the evidence-only head `faef2e4a` (a docs-only commit), `beta-beta-01-english` failed with
+`"reason": "external runtime did not return usable inference"`, and `bundle-beta-evidence` failed
+only because it asserts both beta statuses are `PASS`. Twenty minutes earlier the same jobs passed
+at `17ddae2e`.
+
+`gh run rerun 45326697284 --failed` re-ran exactly those jobs:
+
+| job | before re-run | after re-run |
+|---|---|---|
+| `beta-beta-01-english` | fail (external runtime) | **pass**, 17 s |
+| `beta-beta-02-hausa` | pass | pass, 15 s |
+| `bundle-beta-evidence` | fail (downstream of the above) | **pass**, 12 s |
+| `native-arkadia-golden-workflow` | fail (`ModelUnavailable`, HTTP 503) | **pass**, 54 s |
+
+A docs-only commit cannot change external inference, and the same jobs pass on re-run: the failures
+are the live N-ATLaS provider, not this tree. Final PR state: **15 checks pass**, `MERGEABLE` /
+`CLEAN`, `draft: true`. No merge, no deployment, no acceptance claimed.
