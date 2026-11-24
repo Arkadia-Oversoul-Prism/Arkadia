@@ -115,6 +115,39 @@ inferred from a total.
 The file is selected by a gate: `economic-seam-engine.yml` triggers on `tests/**`, so a change to
 this file executes a gate rather than waiting for a human to run it.
 
+### 5.1 CI on this branch head (`6056ad40`)
+
+| check | conclusion |
+|---|---|
+| `test`, `boot-syntax`, `Full-history secret scan`, `posture-currency`, `provider-forensics`, `beta-beta-02-hausa` | `success` |
+| `beta-beta-01-english` | `failure` — `external runtime did not return usable inference`, `errors: []` |
+| `bundle-beta-evidence` | `failure` — consequential: it asserts `beta-01-english.json` has `status == "PASS"` |
+| `native-arkadia-golden-workflow` | `skipped` |
+
+Both failures are the external N-ATLAS inference provider, not this tree: the job's own event log
+shows `RUN_FAILED` with an empty `errors` list, i.e. no usable inference returned. This change
+touches one test file and one document and cannot affect an outbound inference call. A rerun of the
+failed job was dispatched to distinguish intermittent provider behaviour from a deterministic
+failure; the outcome is recorded on the PR, not asserted here.
+
+### 5.2 Environment-only nodes — measured, not assumed
+
+`web/arkadia_console/node_modules` was absent when the baseline above was measured, so the ten
+`tests/test_mission_lifecycle_adapter_contract.py` nodes failed on
+`AssertionError: the repository TypeScript compiler is missing at
+…/node_modules/typescript/lib/typescript.js`.
+
+After `corepack pnpm install --frozen-lockfile` in `web/arkadia_console` (exit 0, `typescript`
+present), the same file reports:
+
+```
+10 passed in 3.27s
+```
+
+Those ten nodes are therefore **environment artifacts**, measured rather than classified by
+inspection. Of the 21 failing/error nodes at `main` `fd0a4fdc`, ten are this class, one is the node
+this PR repairs, and ten are owned or sovereign-reserved.
+
 ## 6. Composition
 
 - `#690` also touches `tests/test_m05_files.py` (a different node: the `update_file` scoped
