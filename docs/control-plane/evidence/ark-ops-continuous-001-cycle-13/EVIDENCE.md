@@ -140,11 +140,22 @@ Merging all three in a worktree produced **zero** conflicted files and a compose
 3 lines, so this is worth stating: the queue does not currently threaten the budget, but any single
 new PR adding >=4 lines to `api/main.py` would.
 
-## 6. Ledger defect found and corrected
+## 6. Ledger state — measured, and the gap this cycle closes
 
-`#705`'s title claimed *"cycles 01-08 evidence"*, but its branch carried cycles **01-05** only, and
-cycles 06-12 were recorded in their own PRs. The title therefore overclaimed content in one
-direction while omitting real content in the other. Corrected in this commit.
+The ledger PR `#705` has **two** carriers, and they had drifted apart:
+
+| carrier | cycles it actually carries |
+|---|---|
+| branch evidence files (`docs/control-plane/evidence/ark-ops-continuous-001-cycle-*/`) | **01-05** |
+| PR body ledger entries | **05, 06, 07, 08, 11, 12** |
+| PR title | claimed **"cycles 01-08"** |
+
+So the title was stale in both directions: it named 08 while the body reached 12, and it implied
+evidence files that stop at 05. **Cycles 09 (`#717`) and 10 (`#718`) had no ledger entry at all.**
+
+This cycle appends a pointer for **09, 10 and 13** to the body and corrects the title to describe
+what the branch and body actually carry. The per-cycle detail stays in each PR's own evidence
+record; the ledger is an index, not a duplicate.
 
 **Cycle-number collisions are recorded, not reconciled.** Independent branches chose overlapping
 numbers against the same predecessor: cycle 06 in both `#712` and `#714`; 07 in `#713` and `#715`;
@@ -156,7 +167,8 @@ number in the queue (12, `#720`), so it collides with nothing.
 ## 7. What this cycle changed
 
 1. This ledger entry.
-2. `#705`'s title, corrected to describe what the branch actually carries.
+2. `#705`'s body: ledger pointers for cycles 09, 10 and 13, which were missing.
+3. `#705`'s title, corrected to describe what the branch and body actually carry.
 
 No application code changed. §4 found no unowned defect, §5 found no composition defect that is not
 already recorded, and the contract forbids opening a PR to appear productive. Under §2.1 the
