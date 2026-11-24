@@ -156,6 +156,35 @@ this PR repairs, and ten are owned or sovereign-reserved.
   and four governance documents; this change touches neither, so the two compose without conflict.
 - This change is docs + one test file; `api/main.py` is untouched and stays at 2597 lines.
 
+### 6.1 Finding (measured, unowned, **proposed not executed**) — the beta bundle gate cannot
+### recover from a partial rerun
+
+The rerun in §5.1 recovered `beta-beta-01-english` to `success`, and `bundle-beta-evidence`
+then failed on a head where **both** legs had passed:
+
+```
+evidence files: ['evidence/beta-01-english.json']
+statuses: {'beta-01-english.json': 'PASS'}
+```
+
+Only one of the two files arrived, so `expected - seen` was non-empty and the step exited 1. The
+artifacts are not missing from the run — `GET /actions/runs/45458874109/artifacts` lists **both**
+`beta-01-english-evidence` and `beta-02-hausa-evidence`. The bundle job's
+`actions/download-artifact@v4` therefore resolved only artifacts uploaded in the **current
+attempt**; the leg that succeeded in the earlier attempt was never re-run, so its artifact was not
+re-uploaded and was not seen.
+
+Consequence: after `gh run rerun --failed`, this gate is deterministically red on a head whose beta
+validation passed, and a reviewer reading the red X cannot tell "validation failed" from "the
+bundle was assembled from a partial attempt". Recovery currently requires a full rerun or a new
+push, which is an undocumented operator dependency.
+
+Proposed repair (not executed here — it edits a workflow this PR does not otherwise touch):
+fetch the evidence through the run's artifacts API (which is attempt-agnostic, as measured above)
+instead of `download-artifact@v4`, and split the single `exit 1` into `INCOMPLETE_ATTEMPT` and
+`FAILED_EVIDENCE` verdicts so the red says which one it is. No open PR touches
+`.github/workflows/n-atlas-external-beta.yml`; the item is unowned.
+
 ## 7. Next-action block
 
 **Current state.** `main` = `fd0a4fdc…`; production identical, `revision_conflict: false`; `main`
