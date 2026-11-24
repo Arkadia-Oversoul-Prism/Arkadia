@@ -11,6 +11,7 @@ self-authorize; consequential transitions remain human-only.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import os
 import uuid
@@ -632,6 +633,14 @@ async def voice_resolve(body: VoiceResolveBody, user: dict = Depends(require_aut
 
 # -- EL-10: PR state (read-only, GitHub remains repository authority) --------
 
+def _read_json_url(req: urllib.request.Request, timeout: float) -> dict:
+    """Blocking GET. Callers must offload it — the server runs one event loop."""
+    import json
+
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return json.loads(resp.read().decode())
+
+
 @router.get("/engineering/pr/{number}")
 async def pr_state(number: int) -> dict:
     """Read-only PR state. Truthful about unavailability; never fabricates."""
@@ -645,10 +654,7 @@ async def pr_state(number: int) -> dict:
         headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"},
     )
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            import json
-
-            data = json.loads(resp.read().decode())
+        data = await asyncio.to_thread(_read_json_url, req, 10)
         return {
             "state": "AVAILABLE",
             "pr": {
