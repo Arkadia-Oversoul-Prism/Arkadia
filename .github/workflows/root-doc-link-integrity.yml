@@ -1,0 +1,46 @@
+name: Root Doc Link Integrity
+
+# The root narrative documents are the repository's front door. Measured on
+# `main` @ `bb19aabd`, `README.md` linked `web/public_prism/` as the "current
+# frontend" after that tree was archived by `c081d200` (2026-10-11): the front
+# door carried a dead link and a false statement about which console is active.
+# No gate judged it (`grep -rn "README.md" .github/workflows/` matched none), so
+# the stale link outlived the move.
+#
+# The guard's input is every root `*.md`, so the filter names `*.md` rather than
+# the one file the defect happened to be in. In GitHub's filter syntax `*` does
+# not cross a directory boundary, so `*.md` selects root-level documents only --
+# the exact set `tests/test_root_doc_link_integrity.py` enumerates at test time.
+
+on:
+  pull_request:
+    paths:
+      - '*.md'
+      - 'tests/test_root_doc_link_integrity.py'
+      - '.github/workflows/root-doc-link-integrity.yml'
+  push:
+    branches: [main]
+    paths:
+      - '*.md'
+      - 'tests/test_root_doc_link_integrity.py'
+      - '.github/workflows/root-doc-link-integrity.yml'
+  # A path-filtered gate never runs at a revision that touches none of its
+  # inputs. Dispatch lets the invariant be executed against an exact revision.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install pytest pyyaml
+      - name: Verify root document links resolve
+        run: python -m pytest tests/test_root_doc_link_integrity.py -q

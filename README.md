@@ -142,7 +142,7 @@ Start with:
 3. [AGENTS.md](AGENTS.md) — engineering conventions and hard boundaries
 4. [ENGINEERING_PRINCIPLES.md](ENGINEERING_PRINCIPLES.md) — engineering principles
 5. [opportunity_radar/SAPZ_CAPTURE_STATE.md](opportunity_radar/SAPZ_CAPTURE_STATE.md) — current opportunity-capture state
-6. [web/public_prism/](web/public_prism/) — current frontend
+6. [web/arkadia_console/](web/arkadia_console/) — active console (the retired Prism SPA is archived at [archive/frontend/arkadia-prism/](archive/frontend/arkadia-prism/))
 7. [api/](api/) and [solspire/](solspire/) — backend and operating substrate
 8. [weaver/](weaver/) and [lab/engineering_lab/](lab/engineering_lab/) — governed execution surfaces
 9. [knowledge/](knowledge/) — Knowledge OS implementation
