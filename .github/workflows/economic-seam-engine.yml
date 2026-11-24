@@ -79,6 +79,8 @@ jobs:
           tests/test_market_data.py
           tests/test_nocopo_adapter.py
           tests/test_repo_hygiene_gitignore.py
+          tests/test_http_error_contract.py
+          tests/test_http_error_contract_ci_wiring.py
       - name: Economic-seam CI-wiring guard
         # Judges the gate's own trigger: the domain must be selected by this file's
         # `paths` filter and every executing step must be able to fail. A rewrite of
