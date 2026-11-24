@@ -153,3 +153,26 @@ other; the rest are `CLEAN` in any order. Proposed but **not** performed: re-poi
 the second Render service serving the same revision — both are human decisions.
 
 No agent merge, no push to `main`, no deployment, no acceptance.
+
+## 6. Post-push observation — one red check, classified pre-existing
+
+17 of the 18 check-runs on `a0e2010d` are `completed/success`, including
+**`root-doc-deployment-host`** — the new gate executed and passed on its own pull request.
+That is the runtime proof the wiring guard asserts in source: the guard is no longer a
+claim about a file, it is an execution.
+
+The single failure is `Build MIE / Sonata debug APK` (`mie-android-build.yml`), which this
+change triggers because its `paths:` filter selects `sonata-android/**` and the repair
+edits `sonata-android/README.md`. It is **pre-existing and not attributable**:
+
+* every one of the **12** recorded runs of that workflow failed, the oldest on 2026-10-04;
+* the failure is identical at both ends of the range: run `37261583101` (2026-10-05,
+  `5f6cd75c3`, a merged `main` commit) and run `45365276963` (this head) each report
+  `8 tests completed, 1 failed` —
+  `com.arkadia.sonata.MieMusicalObjectTest > cloneProvenanceAndNameSurviveJson FAILED`;
+* a Markdown file cannot change the outcome of a Gradle unit test.
+
+Not repaired here: it is Kotlin application code, unowned by this workstream, and the
+contract forbids expanding scope into adjacent failures. Recorded as separate proposed
+work. The alternative — reverting the README correction so the job is not selected —
+would hide a real documentation defect to make a check look green.
