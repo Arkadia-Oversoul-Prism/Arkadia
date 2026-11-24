@@ -23,12 +23,7 @@ logger = logging.getLogger("arkadia.arkana_stream")
 
 router = APIRouter(tags=["arkana-stream"])
 
-GEMINI_MODELS = [
-    "gemini-2.5-flash",
-    "gemini-flash-latest",
-    "gemini-2.0-flash-lite",
-    "gemini-2.0-flash",
-]
+from kernel.gemini_models import GEMINI_MODELS
 
 
 def _sse(payload: dict[str, Any]) -> str:

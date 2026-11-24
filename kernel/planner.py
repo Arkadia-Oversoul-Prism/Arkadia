@@ -52,12 +52,7 @@ _CONTEXT_INSTRUCTION = (
 # ── Hard constraints ────────────────────────────────────────────────────────
 MAX_STEPS = 5
 PLANNER_TIMEOUT_S = 20.0
-PLANNER_MODELS = (
-    "gemini-2.5-flash",
-    "gemini-flash-latest",
-    "gemini-2.0-flash-lite",
-    "gemini-2.0-flash",
-)
+from kernel.gemini_models import GEMINI_MODELS
 
 # Reference syntax inside step inputs:  "$step_0.field" or "$tool_name.field"
 _REF_RE = re.compile(r"^\$([a-zA-Z0-9_]+)(?:\.([a-zA-Z0-9_.]+))?$")
@@ -147,7 +142,7 @@ def _gemini_plan(user_input: str, system_prompt: str) -> str | None:
 
     last_err: str | None = None
     with httpx.Client(timeout=PLANNER_TIMEOUT_S) as client:
-        for model in PLANNER_MODELS:
+        for model in GEMINI_MODELS:
             url = (
                 f"https://generativelanguage.googleapis.com/v1beta/models/"
                 f"{model}:generateContent?key={api_key}"
