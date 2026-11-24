@@ -9,15 +9,17 @@ name: Root Doc Module Map
 # so no gate executed a currency check on the map.
 #
 # `tests/test_root_doc_module_map_currency.py` derives the document set from root
-# `*.md` at test time and excludes dated snapshots. The `paths` filter therefore
-# names the whole derived input surface — every root markdown document and the
-# `web/` tree whose existence the guard reads — so a change to any input re-runs
-# the judge that would otherwise never report it.
+# `*.md` and `architecture/*.md` at test time and excludes dated records unless
+# they tell an agent to rely on them instead of the tree. The `paths` filter
+# therefore names the whole derived input surface — every root markdown document,
+# the architecture maps, and the `web/` tree whose existence the guard reads — so
+# a change to any input re-runs the judge that would otherwise never report it.
 
 on:
   pull_request:
     paths:
       - "*.md"
+      - "architecture/**"
       - "web/**"
       - "tests/test_root_doc_module_map_currency.py"
       - ".github/workflows/root-doc-module-map.yml"
@@ -25,6 +27,7 @@ on:
     branches: ["main"]
     paths:
       - "*.md"
+      - "architecture/**"
       - "web/**"
       - "tests/test_root_doc_module_map_currency.py"
       - ".github/workflows/root-doc-module-map.yml"

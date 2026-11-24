@@ -5,6 +5,13 @@
 **Runtime source baseline:** `29b33022049016acb7d3a382ee32586102bc24b0`  
 **Documentation branch:** `architecture/control-plane-contracts-v1`
 
+> **Correction (2026-11-24, measured at `bb19aabd`).** MAP 01's Presentation row named
+> `web/public_prism/` as 🟢 LIVE. That tree was archived into
+> `archive/frontend/arkadia-prism/` by `c081d200` (2026-10-11); the one application shell
+> is `web/arkadia_console/`, and `web/console/` is the retired operator console whose
+> capabilities were migrated into it. The row below is corrected in place; the rest of
+> this map is still the 2026-09-12 reading and has not been re-derived.
+
 > This document is cartography, not an execution plan. It describes boundaries and current evidence. It does not grant authority.
 
 ## Master distinctions
@@ -33,7 +40,7 @@ The repository contains presentation, API composition, Kernel, SolSpire, Knowled
 
 | Plane | Principal locations | Current reading |
 |---|---|---|
-| Presentation | `web/public_prism/`, `sonata-android/` | 🟢 / 🟡 |
+| Presentation | `web/arkadia_console/`, `web/console/`, `sonata-android/` | 🟢 / 🟣 / 🟡 |
 | Composition | `api/main.py` | 🟢 |
 | Execution | `kernel/` | 🟢 |
 | Project runtime | `solspire/` | 🟢 |

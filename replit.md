@@ -23,7 +23,7 @@ Prism (React/Vite)  →  Oracle Temple (FastAPI)  →  Knowledge Vault (Markdown
 | Service | Path | Run command |
 |---------|------|-------------|
 | Oracle Temple (backend) | `api/main.py` | `python3 -m uvicorn api.main:app --host 0.0.0.0 --port 8000` |
-| Arkadia Prism (frontend) | `web/public_prism/` | `cd web/public_prism && npm run dev` |
+| Arkadia Console (frontend) | `web/arkadia_console/` | `cd web/arkadia_console && pnpm dev` (port 5100) |
 | Discord Bot | `bot/discord-bot.mjs` | `node bot/discord-bot.mjs` |
 | Telegram Bot | `bot/telegram-bot.mjs` | `node bot/telegram-bot.mjs` |
 

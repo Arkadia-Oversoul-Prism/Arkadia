@@ -21,14 +21,17 @@ this defect lives in a fenced block.
 
 Scope, stated rather than implied:
 
-* the document set is derived at test time from ``*.md`` at the repository root,
-  so a newly added root document is judged by the same rule;
+* the document set is derived at test time from ``*.md`` at the repository root
+  and ``architecture/*.md``, so a newly added map is judged by the same rule;
 * a document carrying a generation marker (``Last generated:``) is a
   point-in-time record, not a live map, and is excluded — rewriting a dated
-  snapshot to look current would contradict its own header;
-* only *listed* entries inside fenced code blocks are claims. A document may
-  discuss an archived surface in prose, or show one in an example, without
-  failing;
+  snapshot to look current would contradict its own header. A document that
+  nevertheless tells an agent to rely on it *instead of* reading the tree
+  (``reads this instead``) is an instruction, not a record, so the marker does
+  not exempt it;
+* *listed* entries are claims: a line inside a fenced code block, and a row of
+  a markdown table — a run instruction such as ``cd web/…`` is a claim about
+  where a surface lives. Prose is not a claim, and neither is an example;
 * the check is existence, not correctness of the description. A live map that
   names a present tree passes even if its one-line summary is imperfect.
 
@@ -51,8 +54,10 @@ GUARD = "tests/test_root_doc_module_map_currency.py"
 MAP = "PROJECT_INDEX.md"
 
 _FENCE = re.compile(r"^\s*(```|~~~)")
+_TABLE_ROW = re.compile(r"^\s*\|")
 _WEB_PATH = re.compile(r"(?:^|[\s`(])(web/[A-Za-z0-9_./-]+)")
 _POINT_IN_TIME = "Last generated:"
+_AGENT_RELIANCE = "reads this instead"
 _TRAILING = ".,;:)]}"
 
 # Verbatim from `main` @ `bb19aabd`, the state this guard was written against.
@@ -87,15 +92,23 @@ def fenced_blocks(text: str) -> list[str]:
     return blocks
 
 
+def _collect(lines: list[str], found: list[str]) -> None:
+    for line in lines:
+        for token in _WEB_PATH.findall(line):
+            token = token.rstrip(_TRAILING)
+            if token and token not in found:
+                found.append(token)
+
+
 def declared_web_surfaces(text: str) -> list[str]:
-    """``web/...`` paths listed inside fenced code blocks, in document order."""
+    """``web/...`` paths the document claims, in document order.
+
+    A claim is a line inside a fenced code block, or a row of a markdown table.
+    """
     found: list[str] = []
     for block in fenced_blocks(text):
-        for line in block.splitlines():
-            for token in _WEB_PATH.findall(line):
-                token = token.rstrip(_TRAILING)
-                if token and token not in found:
-                    found.append(token)
+        _collect(block.splitlines(), found)
+    _collect([line for line in text.splitlines() if _TABLE_ROW.match(line)], found)
     return found
 
 
@@ -109,14 +122,25 @@ def is_point_in_time(text: str) -> bool:
     return _POINT_IN_TIME in text
 
 
+def instructs_agent_reliance(text: str) -> bool:
+    return _AGENT_RELIANCE in text
+
+
 def live_map_documents(root: Path | None = None) -> list[Path]:
-    """Root ``*.md`` documents that present themselves as current, not as snapshots."""
+    """Documents that present themselves as current, not as point-in-time records.
+
+    Derived from root ``*.md`` and ``architecture/*.md``. A dated record is
+    excluded, unless it tells an agent to rely on it instead of reading the tree.
+    """
     base = root or ROOT
-    return [
-        path
-        for path in sorted(base.glob("*.md"))
-        if not is_point_in_time(path.read_text(encoding="utf-8", errors="replace"))
-    ]
+    candidates = sorted(base.glob("*.md")) + sorted((base / "architecture").glob("*.md"))
+    documents: list[Path] = []
+    for path in candidates:
+        text = path.read_text(encoding="utf-8", errors="replace")
+        if is_point_in_time(text) and not instructs_agent_reliance(text):
+            continue
+        documents.append(path)
+    return documents
 
 
 def triggers(workflow: dict) -> dict:
@@ -212,6 +236,70 @@ def test_a_dated_snapshot_is_not_a_live_map(tmp_path: Path) -> None:
     assert [p.name for p in live_map_documents(tmp_path)] == ["SNAPSHOT.md"]
 
 
+def test_negative_control_agent_reliance_overrides_the_snapshot_exclusion(
+    tmp_path: Path,
+) -> None:
+    """A dated document that tells an agent to rely on it is an instruction."""
+    snapshot = tmp_path / "SNAPSHOT.md"
+    snapshot.write_text(
+        "> Last generated: 2026-07-25.\n"
+        "> The agent reads this instead of crawling the repository tree.\n"
+        "\n```\nweb/public_prism/\n```\n",
+        encoding="utf-8",
+    )
+    assert [p.name for p in live_map_documents(tmp_path)] == ["SNAPSHOT.md"]
+    assert missing_surfaces(snapshot.read_text(encoding="utf-8"), tmp_path) == [
+        "web/public_prism/"
+    ]
+
+    # Control: the same marker without the reliance sentence stays a record.
+    snapshot.write_text(
+        "> Last generated: 2026-07-25.\n\n```\nweb/public_prism/\n```\n", encoding="utf-8"
+    )
+    assert live_map_documents(tmp_path) == []
+
+
+def test_negative_control_a_table_row_run_instruction_is_a_claim() -> None:
+    """Measured shape: `replit.md`'s service table named an archived tree."""
+    row = (
+        "| Arkadia Prism (frontend) | `web/public_prism/` "
+        "| `cd web/public_prism && npm run dev` |\n"
+    )
+    assert set(missing_surfaces(row)) == {"web/public_prism/", "web/public_prism"}
+
+
+def test_positive_control_a_table_row_of_present_surfaces_is_clean() -> None:
+    row = (
+        "| Arkadia Console (frontend) | `web/arkadia_console/` "
+        "| `cd web/arkadia_console && pnpm dev` |\n"
+    )
+    assert missing_surfaces(row) == []
+
+
+def test_the_architecture_maps_are_in_the_domain(tmp_path: Path) -> None:
+    """Measured shape: `architecture/ATLAS.md`'s MAP 01 table row."""
+    (tmp_path / "architecture").mkdir()
+    atlas = tmp_path / "architecture" / "ATLAS.md"
+    atlas.write_text(
+        "| Plane | Principal locations |\n|---|---|\n"
+        "| Presentation | `web/public_prism/` |\n",
+        encoding="utf-8",
+    )
+    assert [p.relative_to(tmp_path).as_posix() for p in live_map_documents(tmp_path)] == [
+        "architecture/ATLAS.md"
+    ]
+    assert set(missing_surfaces(atlas.read_text(encoding="utf-8"), tmp_path)) == {
+        "web/public_prism/"
+    }
+
+
+def test_the_repaired_surfaces_are_judged() -> None:
+    """The three measured offenders are inside the derived domain, not outside it."""
+    names = {p.name for p in live_map_documents()}
+    for required in ("REPOSITORY_SNAPSHOT.md", "replit.md", "ATLAS.md"):
+        assert required in names, f"{required} is not judged"
+
+
 # --------------------------------------------------------------------------
 # Wiring — a guard no workflow executes is decoration
 # --------------------------------------------------------------------------
@@ -225,8 +313,15 @@ def test_the_gate_exists_and_is_dispatchable() -> None:
 @pytest.mark.parametrize("event", ["pull_request", "push"])
 def test_the_gate_selects_every_input_its_guard_reads(event: str) -> None:
     paths = workflow_paths(load_workflow(), event)
-    # The guard reads root `*.md`, the `web/` tree, its own file, and this gate.
-    for required in ("*.md", "web/**", GUARD, WORKFLOW.relative_to(ROOT).as_posix()):
+    # The guard reads root `*.md`, `architecture/*.md`, the `web/` tree, its own
+    # file, and this gate.
+    for required in (
+        "*.md",
+        "architecture/**",
+        "web/**",
+        GUARD,
+        WORKFLOW.relative_to(ROOT).as_posix(),
+    ):
         assert required in paths, f"{event} filter omits {required}"
 
 
