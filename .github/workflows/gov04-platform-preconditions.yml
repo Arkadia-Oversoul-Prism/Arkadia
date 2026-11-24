@@ -1,0 +1,74 @@
+name: GOV-04 Platform Preconditions
+
+# GOV-04 authorises a bounded merge delegation whose condition 2 requires that
+# "required checks pass", "required reviews are present" and "branch protections
+# and merge queue are satisfied". Every clause names a platform-enforced control,
+# and until `scripts/gov04_platform_preconditions.py` existed nothing in this
+# repository measured whether such controls exist: the only other GOV-04 surface,
+# `tests/test_gov04_bounded_merge_delegation.py`, reads the authorization
+# document's wording.
+#
+# Measured at `main` fd0a4fdc (2026-11-24) via
+# `python scripts/gov04_platform_preconditions.py --measure`:
+#   protection_state = absent (404 "Branch not protected"), ruleset_count = 0
+#   verdict = VACUOUS
+# so condition 2 is vacuously satisfiable -- nothing is required, nothing can fail.
+#
+# This gate executes the classifier that turns those two REST payloads into a
+# verdict. It deliberately does NOT redden on a VACUOUS verdict: enabling branch
+# protection is a sovereign/provider configuration decision, and a gate that failed
+# for the operator's choice would report a decision as repository debt. The teeth
+# are on the classifier -- a verdict may never be ENFORCED without positive
+# evidence, and unreadable evidence may never be promoted to ENFORCED.
+#
+# The live measurement is recorded in
+# `docs/control-plane/evidence/gov04-platform-preconditions-01/EVIDENCE.md`, which
+# names the revision it was taken at. Re-measure with the `--measure` command above;
+# this workflow executes the guards, not a credentialed read.
+#
+# The filter names every input the guards read -- both guard files and the
+# classifier they import -- so a change to either re-runs the gate, and the
+# workflow selects its own file so its logic cannot be rewritten unjudged.
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/gov04-platform-preconditions.yml"
+      - "scripts/gov04_platform_preconditions.py"
+      - "tests/test_gov04_platform_preconditions.py"
+      - "tests/test_gov04_platform_preconditions_ci_wiring.py"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/gov04-platform-preconditions.yml"
+      - "scripts/gov04_platform_preconditions.py"
+      - "tests/test_gov04_platform_preconditions.py"
+      - "tests/test_gov04_platform_preconditions_ci_wiring.py"
+  # Path-filtered, so a revision touching none of the above never runs it.
+  # `workflow_dispatch` lets the guards be executed against an exact revision on
+  # demand (`ref=main` yields an execution at the current main SHA).
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  platform-preconditions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pytest
+        run: python -m pip install pytest pyyaml
+      # The guards import the classifier by path and read this workflow as YAML, so
+      # no application dependency is needed and a dependency gap cannot be
+      # misreported as a classifier regression.
+      - name: Classifier and wiring guards
+        run: >-
+          python -m pytest -q
+          tests/test_gov04_platform_preconditions.py
+          tests/test_gov04_platform_preconditions_ci_wiring.py
