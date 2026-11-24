@@ -159,6 +159,8 @@ GOV-03 supersedes the execution-delegation language in GOV-01/GOV-02 and the cor
 
 This amendment changes merge execution only. Lane ownership, the one-open-PR-per-lane constraint, the review and branch-protection rules, and the existing interface-request process are unchanged, and no implementation scope expansion or deployment is authorized here. A successful merge is not deployment verification or acceptance.
 
-## GOV-04 — bounded merge delegation (authorized; not yet active)
+## GOV-04 — bounded merge delegation (ACTIVE 2026-11-24; PR #722)
+
+PR #722 was human-merged at `fd0a4fdc081064b2074aab9e17b4c7841736dd9f`. The bounded policy is active for the designated reconciliation operator using normal protected GitHub merges and every exact-head gate in `docs/control-plane/evidence/gov-04-bounded-merge-delegation/AUTHORIZATION.md`. Drafts require owner action; no silent readiness changes. Reserved decisions and unknowns remain human-only. No auto-merge, bypass, deployment, or acceptance; worker runtime remains fail-closed.
 
 GOV-03's human-only rule remains operative until this dedicated GOV-04 amendment is independently reviewed and human-merged. After activation, only the designated reconciliation operator may execute a normal protected GitHub merge for an existing PR satisfying every condition in `docs/control-plane/evidence/gov-04-bounded-merge-delegation/AUTHORIZATION.md`: non-draft/open/main, exact unchanged head SHA, complete M1–M13 evidence, passing required checks and approvals, branch protections/merge queue satisfied, dependency/composition review, no reserved decision or conflict, expected-head merge, and post-merge audit. Unknown or contradictory evidence is `HUMAN_AUTHORITY_REQUIRED`. No auto-merge, direct/force push, protection bypass, deployment, or acceptance. This governance PR and all reserved decisions remain human-only. The runtime adapter remains fail-closed until separately verified.
