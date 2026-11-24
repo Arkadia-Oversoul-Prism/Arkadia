@@ -142,6 +142,8 @@ same workflow (`n-atlas-external-beta.yml`), and the second is a downstream verd
 | run `45393383348` evidence file | `"errors": []` — the request completed; the verdict is a model-output judgement |
 | `gate-hygiene/knowledge-5xx-error-contract-01` (#718), same day | `failure` 11:26, `failure` 11:32, `success` 11:35 — three conclusions on one unchanged tree |
 | `gate-hygiene/root-doc-module-map-currency-01` (#715), same day | `success` 07:16, `success` 07:23, `failure` 08:15, `failure` 08:20 |
+| final head `d638720e`: `beta-*` and `bundle-beta-evidence` | all **success** (the 12:25Z failure did not persist) |
+| final head `d638720e`: `native-arkadia-golden-workflow` | `failure`, run `45394410722`: `ModelUnavailable: N-ATLaS Gradio runtime error: provider emitted error event with null/empty data (event_id=98a5d157…, raw_data='null', events=['error'])` — the same job was `success` at `921a941d` on this PR at 12:13Z |
 
 The head that failed (`70a1e175`) changes exactly one file: this evidence document. It cannot
 alter an external N-ATLAS inference. Recorded as external-provider flakiness, **not** as a defect
