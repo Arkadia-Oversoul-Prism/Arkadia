@@ -210,3 +210,99 @@ files and itself, so an ordinary code merge does not run it.
    `python scripts/lane_state_refresh.py --write`, re-point the affected lane docs,
    and re-run `--check --verify-live` before merge.
 3. Merge execution remains human-only (GOV-03).
+
+## 8. Second pass (2026-11-24) — the documented repair command could not repair
+
+§7's step 2 told the operator to run `python scripts/lane_state_refresh.py --write`.
+Measured on this branch's own head, that command produced a snapshot its own guard
+rejects. The exclusion that makes the completeness rule satisfiable existed on the
+**judging** side only (`lane_state._self_branch`); the **writing** side had none.
+
+### 8.1 The measurement, before any change to the tool
+
+At `main` `bb19aabd`, on branch `gate-hygiene/lane-state-completeness-oracle-01`
+(head `7ca6e99a`), with the snapshot as it stood at `034d8879`:
+
+```
+$ GITHUB_HEAD_REF=gate-hygiene/lane-state-completeness-oracle-01 \
+  python scripts/lane_state.py --check --verify-live
+  DRIFT PR #677 (lane 2 open_prs) is recorded as open but is MERGED (7da3affb)
+  DRIFT PR #678 (lane 1 open_prs) is recorded as open but is MERGED (bb19aabd)
+  DRIFT lane 1 (AGENT-01-SHELL.md) declares PR #678, which is MERGED ...
+  DRIFT lane 2 (AGENT-02-NOVANET-OPPORTUNITY.md) declares PR #677, which is MERGED ...
+  DRIFT lane 1: open PR #685 / #692 / #704 changes this lane's owned paths but
+                the snapshot does not record it
+  DRIFT lane 2: open PR #708 changes this lane's owned paths but the snapshot
+                does not record it
+  DRIFT lane 1/2: PR #678 / #677 is recorded as an open lane PR but a fresh
+                  derivation does not assign it to this lane
+exit 1        # 10 findings
+```
+
+Running the documented repair (`--write --base-main bb19aabd`) then produced:
+
+```
+carrier branch ... (no exclusion existed, so nothing was reported)
+unassigned open PRs: [675, 681, 682, 683, 684, 686, ...]      # 684 = this PR
+```
+
+The snapshot recorded **its own PR** as an open unassigned PR. `#684` merges, and
+that record immediately reads "recorded as open but is MERGED" — the guard reddens
+the revision the repair produced. This is the self-reference trap §4 closed for
+lane assignment, still open for `unassigned_open_prs`, and open for the whole
+derivation because the tool, unlike the guard, had no notion of a carrier.
+
+### 8.2 The repair
+
+| Change | Why |
+|---|---|
+| `lane_state_refresh._self_branch()` | mirrors `lane_state._self_branch` (`GITHUB_HEAD_REF`, then `GITHUB_REF_NAME`) |
+| `lane_state_refresh.exclude_carrier()` | filters the carrier out of the open-PR list **and** its file map, returning the excluded numbers so a dry run reports what it withheld |
+| `main()` applies it before `build()` and `merge_history()` | so lane assignment, `active_pr`, `merged_prs` and `unassigned_open_prs` all see the same filtered set the guard compares against |
+| snapshot re-derived at `bb19aabd`, lane docs 1 and 2 re-pointed | §7 step 2 executed |
+
+### 8.3 Verification
+
+```
+$ GITHUB_HEAD_REF=gate-hygiene/lane-state-completeness-oracle-01 \
+  python scripts/lane_state_refresh.py --write --base-main bb19aabd
+carrier branch 'gate-hygiene/lane-state-completeness-oracle-01' excluded (PRs [684])
+lane 1: doc_guard=current active=#704 open=[685, 692, 704]
+lane 2: doc_guard=current active=#708 open=[708]
+lane 3: doc_guard=current active=#679 open=[679]
+lane 4: doc_guard=current active=#680 open=[680]
+
+$ python scripts/lane_state.py --check                        -> exit 0
+$ python scripts/lane_state.py --check --verify-live          -> exit 0, zero DRIFT
+$ python -m pytest tests/test_lane_instruction_doc_currency.py \
+    tests/test_lane_currency_ci_wiring.py \
+    tests/test_lane_aggregate_pr_classification.py -q
+  111 passed
+```
+
+Six nodes were added (`grep -c '^def test_'` 69 -> 75; 105 -> 111 passed).
+
+**Live negative control.** Removing the `exclude_carrier` call from `main()` and
+re-running the wiring test reddens exactly one node:
+
+```
+$ python -m pytest tests/test_lane_instruction_doc_currency.py -k write_path
+1 failed, 83 deselected   # test_the_write_path_actually_applies_the_exclusion
+```
+
+The file was restored byte-identically afterwards. Testing `exclude_carrier` alone
+would not have caught this: the defect is a `--write` that does not call it, so the
+control drives the real command and reads the snapshot it wrote, in both polarities
+(carrier named -> absent; no branch named -> present).
+
+`test_both_self_branch_readers_agree_across_the_environment_matrix` asserts the two
+copies of the exclusion agree over five environment shapes, because the same value is
+now read in two places and a silent drift between them would restore the defect.
+
+### 8.4 Non-claims
+
+- Repository-source and live-PR-state claims only. No merge, deployment or acceptance.
+- The snapshot is measured at `main` `bb19aabd`; the lane PRs it records can merge
+  while this is in review, which makes it stale again. The repair for that is the
+  command that now works.
+- `--verify-live` needs GitHub read access and fails closed (UNKNOWN) without it.

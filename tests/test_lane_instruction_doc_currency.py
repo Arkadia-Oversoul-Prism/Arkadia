@@ -1405,3 +1405,137 @@ def test_the_live_snapshot_records_no_merged_unassigned_pr_offline():
     for entry in state.get("unassigned_open_prs", []):
         assert isinstance(entry.get("number"), int), entry
         assert entry.get("head_sha"), entry
+
+
+# ---------------------------------------------------------------------------
+# The refresh tool must exclude the carrier, as the guard already does
+#
+# The guard's own drift message tells the operator to "re-measure with
+# `scripts/lane_state_refresh.py --write`". Run from the branch that carries the
+# snapshot, that command derived a snapshot that *lists its own PR* under
+# `unassigned_open_prs`: measured 2026-11-24 on #684's head, where `--write`
+# wrote `unassigned_open_prs: [..., 684, ...]` while the guard excluded the
+# carrier from the derivation it compares against. Once the carrier merges, the
+# record reads "recorded as open but is MERGED" and the repair reddens the
+# revision that carries it -- the self-reference trap the guard had already
+# closed on its side only.
+# ---------------------------------------------------------------------------
+
+_SELF_BRANCH_ENV = ("GITHUB_HEAD_REF", "GITHUB_REF_NAME")
+
+
+def test_the_refresh_tool_excludes_the_branch_it_is_run_from():
+    refresh = _load_refresh()
+    pr, files = _synthetic_pr(904, "gate-hygiene/carrier", [_LANE_ONE_PATH])
+    kept, kept_files, excluded = refresh.exclude_carrier(
+        [pr], files, "gate-hygiene/carrier"
+    )
+    assert excluded == [904]
+    assert kept == []
+    assert kept_files == {}
+
+
+def test_the_refresh_tool_keeps_a_pr_from_another_branch():
+    """Negative control: the exclusion is by branch, not a blanket drop."""
+    refresh = _load_refresh()
+    carrier, carrier_files = _synthetic_pr(
+        904, "gate-hygiene/carrier", [_LANE_ONE_PATH]
+    )
+    other, other_files = _synthetic_pr(905, "lane1/other", [_LANE_ONE_PATH])
+    kept, kept_files, excluded = refresh.exclude_carrier(
+        [carrier, other], {**carrier_files, **other_files}, "gate-hygiene/carrier"
+    )
+    assert excluded == [904]
+    assert [p["number"] for p in kept] == [905]
+    assert set(kept_files) == {905}
+
+
+def test_no_named_branch_excludes_nothing():
+    refresh = _load_refresh()
+    pr, files = _synthetic_pr(906, "lane1/other", [_LANE_ONE_PATH])
+    kept, kept_files, excluded = refresh.exclude_carrier([pr], files, None)
+    assert excluded == []
+    assert kept == [pr]
+    assert kept_files == files
+
+
+def test_both_self_branch_readers_agree_across_the_environment_matrix(monkeypatch):
+    """The exclusion is defined twice; a silent drift between the copies is the risk."""
+    refresh = _load_refresh()
+    matrix = [
+        {},
+        {"GITHUB_HEAD_REF": "a/b"},
+        {"GITHUB_REF_NAME": "c/d"},
+        {"GITHUB_HEAD_REF": "a/b", "GITHUB_REF_NAME": "c/d"},
+        {"GITHUB_HEAD_REF": "", "GITHUB_REF_NAME": "c/d"},
+    ]
+    for env in matrix:
+        for name in _SELF_BRANCH_ENV:
+            monkeypatch.delenv(name, raising=False)
+        for name, value in env.items():
+            monkeypatch.setenv(name, value)
+        assert refresh._self_branch() == guard._self_branch(), env
+
+
+def test_the_carrier_lands_in_unassigned_without_the_exclusion_and_not_with_it():
+    """Both polarities of the defect, on the real derivation."""
+    refresh = _load_refresh()
+    carrier, files = _synthetic_pr(
+        907,
+        "gate-hygiene/carrier",
+        ["docs/control-plane/parallel-ui/AGENT-01-SHELL.md"],
+    )
+    aggregate = refresh.load_aggregate_config()
+    before = refresh.build([carrier], files, "0" * 40, "o/r", aggregate=aggregate)
+    assert 907 in [p["number"] for p in before["unassigned_open_prs"]]
+
+    kept, kept_files, _ = refresh.exclude_carrier(
+        [carrier], files, "gate-hygiene/carrier"
+    )
+    after = refresh.build(kept, kept_files, "0" * 40, "o/r", aggregate=aggregate)
+    assert 907 not in [p["number"] for p in after["unassigned_open_prs"]]
+
+
+def test_the_write_path_actually_applies_the_exclusion(tmp_path, monkeypatch):
+    """The exclusion is wired into ``main()``, not merely available to it.
+
+    Testing :func:`exclude_carrier` alone would only prove the helper works; the
+    defect is a ``--write`` that does not call it. This drives the real command
+    with a synthetic carrier and reads the snapshot it wrote.
+    """
+    refresh = _load_refresh()
+    lane_dir = tmp_path / "docs/control-plane/parallel-ui"
+    lane_dir.mkdir(parents=True)
+    snapshot = lane_dir / "lane-state.json"
+    snapshot.write_text(json.dumps(_empty_lane_state()), encoding="utf-8")
+
+    carrier, files = _synthetic_pr(
+        908,
+        "gate-hygiene/carrier",
+        ["docs/control-plane/parallel-ui/AGENT-01-SHELL.md"],
+    )
+    monkeypatch.setattr(refresh, "REPO", tmp_path)
+    monkeypatch.setattr(refresh, "LANE_STATE", snapshot)
+    monkeypatch.setattr(refresh, "AGGREGATE_CONFIG", lane_dir / "aggregate-prs.json")
+    monkeypatch.setattr(refresh, "_token", lambda: "token")
+    monkeypatch.setattr(refresh, "fetch_all", lambda token, repo: ([carrier], files))
+    monkeypatch.setattr(
+        refresh,
+        "load_aggregate_config",
+        lambda: {"status": "absent", "numbers": set(), "entries": []},
+    )
+    monkeypatch.setattr(
+        refresh, "merge_history", lambda existing, prs, token, repo: ({}, [])
+    )
+    monkeypatch.setenv("GITHUB_HEAD_REF", "gate-hygiene/carrier")
+
+    assert refresh.main(["--write", "--base-main", "0" * 40]) == 0
+    written = json.loads(snapshot.read_text(encoding="utf-8"))
+    assert 908 not in [p["number"] for p in written["unassigned_open_prs"]]
+
+    # Negative control: without the named branch the same PR is recorded, so the
+    # assertion above is not vacuous.
+    monkeypatch.delenv("GITHUB_HEAD_REF")
+    assert refresh.main(["--write", "--base-main", "0" * 40]) == 0
+    written = json.loads(snapshot.read_text(encoding="utf-8"))
+    assert 908 in [p["number"] for p in written["unassigned_open_prs"]]

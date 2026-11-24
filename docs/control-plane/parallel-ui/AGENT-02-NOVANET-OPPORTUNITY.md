@@ -414,3 +414,18 @@ compared the snapshot with a fresh derivation. The snapshot is now re-derived fr
 state and the guard judges that comparison, so this pointer and the snapshot cannot disagree.
 It records the live thread and asserts nothing about the slice's readiness: the PR stays
 **draft**. Merge, production deployment and acceptance remain human-only.
+
+## Status — 2026-11-24 (LANE 2; supersedes the #677 pointer above)
+
+**Active branch:** `lane2/opportunity-radar-repaired-claim-01`
+**Active PR:** [#708](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/708) — draft, base `main`.
+
+The #677 pointer above is retained as provenance and is superseded: #677 merged as
+`7da3affb`, so the guard would report it as a dead thread. Lane 2 holds one open bounded
+draft PR, which this pointer names.
+
+This block was appended by the second pass of the lane-state completeness repair
+(`docs/control-plane/evidence/gate10-lane-state-completeness-oracle-01/`), which also made
+`scripts/lane_state_refresh.py` exclude the PR carrying the snapshot. It records the live
+thread and asserts nothing about the slice's readiness: the PR stays **draft**. Merge,
+production deployment and acceptance remain human-only.

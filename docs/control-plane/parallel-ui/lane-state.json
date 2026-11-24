@@ -1,23 +1,39 @@
 {
  "schema": "arkadia.lane-state/1.2",
- "observed_at": "2026-11-22T09:12:03Z",
- "base_main": "034d8879d68ecf8ed4c291eb0ab07432657a06a1",
+ "observed_at": "2026-11-24T05:16:10Z",
+ "base_main": "bb19aabda34d59594615b0279a45e9cbd3d8204d",
  "source": "GitHub REST reads API (Arkadia-Oversoul-Prism/Arkadia), read-only, derived by scripts/lane_state_refresh.py",
  "note": "Machine-readable mirror of the four Prism UI lane threads, DERIVED from live PR state rather than hand-transcribed. Lane assignment is by exclusive path ownership (SHARED-CONTRACTS.md section 1); a PR touching more than one lane's owned paths appears in each. scripts/lane_state.py judges the docs against this file; --verify-live additionally requires every claimed-open PR to be authoritatively open. Refresh with scripts/lane_state_refresh.py --write.",
  "lanes": {
   "1": {
    "doc": "AGENT-01-SHELL.md",
    "title": "Shell / navigation / design system / integration seam",
-   "active_pr": 678,
-   "active_branch": "feat/lane1-lens-strip-owner-control-binding-01",
+   "active_pr": 704,
+   "active_branch": "feat/console-reasomate-direct-threads-01",
    "open_prs": [
     {
-     "number": 678,
-     "branch": "feat/lane1-lens-strip-owner-control-binding-01",
-     "head_sha": "b9b910affe24268a6f61ac8573cdbf02a6739d1f",
+     "number": 685,
+     "branch": "fix/console-notyetwired-honest-contract-claim-01",
+     "head_sha": "164f1042efdf539344e708060f39304c0b81c7fd",
      "draft": true,
-     "updated_at": "2026-11-22T05:17:40Z",
-     "title": "Lane 1: bind the lens-strip owner detector to a control"
+     "updated_at": "2026-11-22T10:25:11Z",
+     "title": "fix(console): stop the shared placeholder calling a served contract unwired"
+    },
+    {
+     "number": 692,
+     "branch": "feat/console-proposal-ledger-read-01",
+     "head_sha": "6964abb6de205989aacb285802cc66d2c6685ce6",
+     "draft": true,
+     "updated_at": "2026-11-22T16:32:41Z",
+     "title": "feat(console): read the served proposal ledger instead of advertising it unwired"
+    },
+    {
+     "number": 704,
+     "branch": "feat/console-reasomate-direct-threads-01",
+     "head_sha": "d3eaaa291daa2531b91f1c7aac928a122879ce45",
+     "draft": true,
+     "updated_at": "2026-11-23T10:33:30Z",
+     "title": "feat(console): surface ReasoMate direct threads over the message substrate"
     }
    ],
    "merged_prs": [
@@ -52,6 +68,10 @@
     {
      "number": 665,
      "merge_commit_sha": "caac3949a390b129bbe97df4ab100a6cd386aa24"
+    },
+    {
+     "number": 678,
+     "merge_commit_sha": "bb19aabda34d59594615b0279a45e9cbd3d8204d"
     }
    ],
    "doc_guard": "current"
@@ -59,16 +79,16 @@
   "2": {
    "doc": "AGENT-02-NOVANET-OPPORTUNITY.md",
    "title": "NovaNet + project Opportunity Radar",
-   "active_pr": 677,
-   "active_branch": "feat/lane2-refusal-collapse-control-binding-01",
+   "active_pr": 708,
+   "active_branch": "lane2/opportunity-radar-repaired-claim-01",
    "open_prs": [
     {
-     "number": 677,
-     "branch": "feat/lane2-refusal-collapse-control-binding-01",
-     "head_sha": "8352c095b4e2e8dfd1ac93d1fca3405bd3775051",
+     "number": 708,
+     "branch": "lane2/opportunity-radar-repaired-claim-01",
+     "head_sha": "2f956df1e56130adfdea15a962e29071fd454e23",
      "draft": true,
-     "updated_at": "2026-11-22T05:17:40Z",
-     "title": "lane2: bind the refusal-collapse detector to a control"
+     "updated_at": "2026-11-23T19:22:26Z",
+     "title": "fix(console): stop the Opportunity Radar claiming a repaired backend defect"
     }
    ],
    "merged_prs": [
@@ -87,6 +107,10 @@
     {
      "number": 666,
      "merge_commit_sha": "4dd4c05dac6e8c74b9e7e5cb484d2bbf1f556bd1"
+    },
+    {
+     "number": 677,
+     "merge_commit_sha": "7da3affbe635750be3971d6d818f280a123f45a6"
     }
    ],
    "doc_guard": "current"
@@ -197,9 +221,9 @@
   {
    "number": 681,
    "branch": "gate2/served-artifact-app-identity-01",
-   "head_sha": "04f2969b5269d5606f4a42abc7852c5b84d4b5ef",
+   "head_sha": "842555285b69688f2f063115b30fb1d622f21e30",
    "draft": true,
-   "updated_at": "2026-11-22T06:24:03Z",
+   "updated_at": "2026-11-23T14:22:26Z",
    "title": "fix(gate2): bind the marker oracle to the app the served artifact belongs to"
   },
   {
@@ -217,6 +241,206 @@
    "draft": true,
    "updated_at": "2026-11-22T08:13:57Z",
    "title": "Lane 4: enforce the Lab PR-state guard's no-token premise"
+  },
+  {
+   "number": 686,
+   "branch": "security/weaver-recon-remote-userinfo-redaction-01",
+   "head_sha": "d67aec5a88324e0cffdfed932957c7b3ef92b939",
+   "draft": true,
+   "updated_at": "2026-11-22T11:26:26Z",
+   "title": "fix(weaver): redact remote userinfo before the context packet is written"
+  },
+  {
+   "number": 687,
+   "branch": "gate-hygiene/gate2-alias-cold-start-classification-01",
+   "head_sha": "be751f9db372b635033a35cbee7c9e691e64c5f8",
+   "draft": true,
+   "updated_at": "2026-11-23T08:18:48Z",
+   "title": "fix(gate2): stop calling a warming deployment an unreachable alias"
+  },
+  {
+   "number": 688,
+   "branch": "gate-hygiene/engineering-lab-event-log-sandbox-01",
+   "head_sha": "766f1b2d119d8c2d3503c426c193706f759fce32",
+   "draft": true,
+   "updated_at": "2026-11-22T12:35:33Z",
+   "title": "fix(hygiene): sandbox the Engineering Lab event log instead of writing into the repo"
+  },
+  {
+   "number": 689,
+   "branch": "gate-hygiene/canonical-browser-smoke-error-policy-01",
+   "head_sha": "70f62b5c87fd85c41db309d07c299ef73602df40",
+   "draft": true,
+   "updated_at": "2026-11-22T13:35:51Z",
+   "title": "fix(gate): stop the canonical browser smoke failing on the auth boundary"
+  },
+  {
+   "number": 690,
+   "branch": "test-hygiene/project-store-scoped-signature-01",
+   "head_sha": "0e5ef6a0b4bc9372bf8a76fa43806aea984d9200",
+   "draft": true,
+   "updated_at": "2026-11-22T14:36:44Z",
+   "title": "test(hygiene): call the project-file store with its scoped signature"
+  },
+  {
+   "number": 691,
+   "branch": "gate-hygiene/solspire-r3-mutation-refusal-contract-01",
+   "head_sha": "538e0864a1a5f9c06e57820f4a85bbfbb9b39bc2",
+   "draft": true,
+   "updated_at": "2026-11-22T15:36:17Z",
+   "title": "fix(test): bind the R3 mutation refusal to its canonical raise"
+  },
+  {
+   "number": 693,
+   "branch": "test-hygiene/solspire-r1-governance-pins-01",
+   "head_sha": "aeca682b7777f9abb911de39b4ee63fd383295b4",
+   "draft": true,
+   "updated_at": "2026-11-23T09:18:27Z",
+   "title": "test(hygiene): drop five repaired nodes from the recorded baseline set"
+  },
+  {
+   "number": 694,
+   "branch": "gate10/open-pr-composition-conflict-oracle-01",
+   "head_sha": "ddc4ddac4f54e35cb6dc7b267b5a0aa652e459a6",
+   "draft": true,
+   "updated_at": "2026-11-23T13:18:33Z",
+   "title": "test(hygiene): judge open-PR composition, not only each PR's mergeable field"
+  },
+  {
+   "number": 695,
+   "branch": "gate-hygiene/cp10-masked-verdict-report-01",
+   "head_sha": "d4e530aa76331e082b9ed42e72846263f2c2de23",
+   "draft": true,
+   "updated_at": "2026-11-23T00:35:28Z",
+   "title": "fix(ci): stop CP10 reporting a masked step as a verdict"
+  },
+  {
+   "number": 696,
+   "branch": "gate10/architecture-budget-ci-wiring-01",
+   "head_sha": "0de1cf3aea7928f261adac794964e771cd4300a7",
+   "draft": true,
+   "updated_at": "2026-11-23T01:26:04Z",
+   "title": "ci(gate): execute the api/main.py line budget on the surface it constrains"
+  },
+  {
+   "number": 697,
+   "branch": "gate-hygiene/runtime-revision-identity-gate-01",
+   "head_sha": "b546fb38a2fe6417e23b5310db941d9b49c511f4",
+   "draft": true,
+   "updated_at": "2026-11-23T02:28:25Z",
+   "title": "gate(ops): identify the deployed revision on every push to main"
+  },
+  {
+   "number": 698,
+   "branch": "test-hygiene/static-ingestion-oracle-store-sandbox-01",
+   "head_sha": "91e73dfd8deabf9becd243e733c52b236e8ad325",
+   "draft": true,
+   "updated_at": "2026-11-23T03:34:09Z",
+   "title": "test(hygiene): give the K5 round-trip test its own oracle store"
+  },
+  {
+   "number": 699,
+   "branch": "gate-hygiene/lane-aggregate-guard-execution-01",
+   "head_sha": "a2617f37993e0b3e225a74ee2c4a8da4ed59b086",
+   "draft": true,
+   "updated_at": "2026-11-23T04:15:15Z",
+   "title": "gate(hygiene): execute the lane aggregate-PR guard in the gate that selects it"
+  },
+  {
+   "number": 700,
+   "branch": "test-hygiene/archive-ais-node-formation-recovery-01",
+   "head_sha": "f0897120acda315c8943afac732bbac591136863",
+   "draft": true,
+   "updated_at": "2026-11-23T05:22:06Z",
+   "title": "test(hygiene): recover the archived A.I.S node-formation path and re-pin two stale assertions"
+  },
+  {
+   "number": 701,
+   "branch": "fix/github-corpus-credential-fallback-01",
+   "head_sha": "f255573634c992cc5600262feb64d7c1668d1a53",
+   "draft": true,
+   "updated_at": "2026-11-23T06:26:00Z",
+   "title": "fix(corpus): read the public GitHub corpus anonymously when the credential is refused"
+  },
+  {
+   "number": 702,
+   "branch": "gate-hygiene/dispatchable-pr-gates-01",
+   "head_sha": "049bfde64302b75060e31daf6eeffcf6fd71e9ba",
+   "draft": true,
+   "updated_at": "2026-11-23T07:36:13Z",
+   "title": "gate(hygiene): make every pull-request pytest gate dispatchable"
+  },
+  {
+   "number": 703,
+   "branch": "gate-hygiene/gate2-open-pr-composition-01",
+   "head_sha": "3b2e5b73d3d96257da13f8e068f7ce117c003ac6",
+   "draft": true,
+   "updated_at": "2026-11-23T08:18:33Z",
+   "title": "docs(gate2): measure the #681/#687 composition instead of assuming it"
+  },
+  {
+   "number": 705,
+   "branch": "docs/ark-ops-continuous-001-contract-record-01",
+   "head_sha": "b97328274071ce500040c9d5f8b8cd35f8a14d6d",
+   "draft": true,
+   "updated_at": "2026-11-24T02:21:13Z",
+   "title": "docs(control-plane): record ARK-OPS-CONTINUOUS-001 and cycles 01-05 evidence"
+  },
+  {
+   "number": 706,
+   "branch": "test-hygiene/console-boundary-route-claim-oracle-01",
+   "head_sha": "1003e719f4008e882b7a899bf2dc1f214b76e7e3",
+   "draft": true,
+   "updated_at": "2026-11-23T17:33:48Z",
+   "title": "test(hygiene): judge prose route claims in the console boundary modules"
+  },
+  {
+   "number": 707,
+   "branch": "docs/prism-ui-inventory-currency-01",
+   "head_sha": "7894cd2ec7ea9fa61fb65e2a48c4b138172397e1",
+   "draft": true,
+   "updated_at": "2026-11-23T18:26:19Z",
+   "title": "test(hygiene): judge the Prism UI inventory against the console it describes"
+  },
+  {
+   "number": 709,
+   "branch": "docs/deployment-guide-truth-01",
+   "head_sha": "f5f311fcd933c3e3e84debe054754cbf5ff06e6d",
+   "draft": true,
+   "updated_at": "2026-11-24T00:24:24Z",
+   "title": "docs(deploy): stop the deployment guide describing an application that does not exist"
+  },
+  {
+   "number": 710,
+   "branch": "fix/solspire-run-mutation-refusal-403-01",
+   "head_sha": "d5203b34f58ff4c47b7d2e8dfef9e3f2b9404e2c",
+   "draft": true,
+   "updated_at": "2026-11-24T01:24:08Z",
+   "title": "fix(solspire): refuse a mutation plan as a governed 403, not an opaque 500"
+  },
+  {
+   "number": 711,
+   "branch": "gate-hygiene/github-webhook-surface-inventory-01",
+   "head_sha": "609e6ba2bf3e241014bcdb446d54616e143311c6",
+   "draft": true,
+   "updated_at": "2026-11-24T02:19:40Z",
+   "title": "test(hygiene): bind the GitHub push-webhook surface to a recorded inventory"
+  },
+  {
+   "number": 712,
+   "branch": "fix/lab-pr-state-nonblocking-read-01",
+   "head_sha": "71b2535030f4becba3d4d247f9f25ba2b76d29ee",
+   "draft": true,
+   "updated_at": "2026-11-24T03:28:10Z",
+   "title": "fix(lab): run the PR-state read off the event loop, and guard the class"
+  },
+  {
+   "number": 713,
+   "branch": "fix/solspire-console-router-event-loop-blocking-01",
+   "head_sha": "2765dbeeeef8da4d72ae7a03a58b741f65bff2f3",
+   "draft": true,
+   "updated_at": "2026-11-24T04:36:19Z",
+   "title": "fix(solspire): run blocking console routes in the threadpool, and guard the class"
   }
  ],
  "closed_unmerged": [
