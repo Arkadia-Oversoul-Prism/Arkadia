@@ -123,6 +123,19 @@ restated.
 Both workflow files were restored byte-identically and verified by `sha256sum -c`
 (`oversoul-prism-conformance.yml: OK`, `boot-syntax.yml: OK`).
 
+### CI on this PR — the gates executed, read from the step logs
+
+Head `0d5e98c22e8163538eaa033f328db75f6715bf58`:
+
+| check | conclusion |
+|---|---|
+| `boot-syntax` | **pass** — step log: `python -m pytest tests/test_boot_syntax_boundary.py tests/test_boot_syntax_ci_wiring.py tests/test_python_global_reference_integrity.py -q` → **`20 passed in 3.87s`** |
+| `conformance` (new gate) | **pass** — `OK: 12 functions × 12 layers = 144 historical registry cells`; then **`14 passed in 0.62s`** (9 harness + 5 wiring guard) |
+| `console-contract`, `test`, `trigger-coverage`, `verdict-step-integrity`, `posture-currency`, `provider-forensics`, `Full-history secret scan` | **pass** |
+| `beta-beta-02-hausa`, `bundle-beta-evidence` | **failure** — external N-ATLAS family. `beta-beta-01-english` **passed in the same run** (`45415081609`), and the failing job's own evidence records `errors = []`, i.e. the request completed and the verdict is a model-output judgement. Recorded as external flakiness, not attributable to this change and **not** a pass |
+
+The two new guards are therefore proven to *execute in CI*, not merely to exist in the tree.
+
 ### Full suite, same environment, both trees
 
 `python -m pytest tests/ -q -rEf --continue-on-collection-errors`
