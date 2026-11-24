@@ -118,6 +118,8 @@ and is selected by every input the guard reads.
 | `python scripts/console_contract_domain.py` | **74 → 75** guards; the new guard joins the derived domain, so the console-contract gate executes it without an edit |
 | `python scripts/cp10_mutation_boundary_policy.py --judge` on the changed paths | `Mutation boundary PASS`, exit `0` |
 | full suite on `main` @ `bb19aabd`, `-q -rEf --continue-on-collection-errors` | **19 failed, 4250 passed, 22 skipped, 1 error** in 284.64 s; **20** failing/error nodes, outcomes `8d70e46e…` / ids `d6101722…` — the recorded baseline, reproduced exactly |
+| full suite on this branch, same environment | **19 failed, 4296 passed, 22 skipped, 1 error** in 278.20 s; **20** nodes, ids `d6101722…` — **identical set**, `comm -3` empty |
+| the `+46 passed` | 39 = this guard's nodes; 7 = nodes the generic workflow-scanning suites gain from one new workflow file, measured per file on both trees: trigger coverage 99→102, suite collection 101→103, workflow injection 50→51, filter selection 51→52, verdict-step 29→29, m02a 76→76 |
 
 ## Queue composition (re-derived, not inherited)
 
