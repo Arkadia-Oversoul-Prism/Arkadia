@@ -1,76 +1,92 @@
-# 🜂🜄🜁🜃 Arkadia Oracle Temple - Deployment Guide
+# Arkadia — Deployment Guide
 
-## 🎯 Complete System Overview
+**Canonical deployment:** one reconciled deployment, per
+`docs/adr/ADR-016-single-canonical-deployment.md`.
+**Production origin:** `https://arkadia-qzu4.onrender.com` (Render service `arkadia-qzu4`).
+**Read-only revision probe:** `GET /api/version`.
 
-The Arkadia Oracle Temple is now **fully functional** with all required components:
+Deployment, verification and acceptance are three different things. This guide describes how to
+build and verify the application. It does not assert that the running deployment is correct, and it
+does not grant acceptance — that is a human decision.
 
-### ✅ **Core Components Built:**
-- **FastAPI Backend** (`arkana_app.py`) - All endpoints working
-- **AI Brain System** (`codex_brain.py`) - Gemini integration with fallbacks
-- **Google Drive Sync** (`arkadia_drive_sync.py`) - Corpus management
-- **Interactive Console** (`arkadia_console.py`) - CLI interface
-- **Web Interface** (`static/`) - Beautiful mystical UI
-- **Database Models** (`models.py`, `db.py`) - SQLAlchemy setup
-- **Docker Configuration** (`Dockerfile`, `entrypoint.sh`) - Container ready
+## What is deployed
 
-## 🚀 **Deployment Instructions**
+One application, built from the repository-root `Dockerfile`:
 
-### **Option 1: Deploy to Render**
+| Part | Path | Role |
+|---|---|---|
+| Frontend | `web/arkadia_console` | The active console. Built with pnpm in the `frontend-build` stage into `dist/`, then copied into the runtime image. |
+| Backend | `api/main.py` | FastAPI application. |
+| Serving path | `api/frontend_routes.py` | Serves the built console; holds the reserved-prefix list that keeps API namespaces out of the SPA catch-all. |
+| Process | `entrypoint.sh` | Container entrypoint. Reads `$PORT` and writes the public Firebase web config into the served bundle. |
 
-1. **Push this code to your GitHub repository**
-2. **Connect Render to your GitHub repo**
-3. **Set Environment Variables in Render:**
-   ```
-   ARKADIA_FOLDER_ID=1J_2_RQWml85SQ7ZP7DwAVSbrXOHTO9fF
-   GEMINI_API_KEY=<your Gemini API key>
-   GDRIVE_SERVICE_ACCOUNT_JSON={"type":"service_account",...your JSON...}
-   ```
-4. **Deploy using Docker** - Render will automatically use the Dockerfile
+Two trees are present but **not** built, by design:
 
-### **Option 2: Deploy to Any Container Platform**
+- `archive/frontend/arkadia-prism` — the retired Prism UI. Its README records the recovery path.
+- `web/console` — the former standalone operator application. Its capabilities were migrated into
+  `web/arkadia_console`'s route hierarchy; the source is retained for a reversible retirement.
 
-```bash
-# Build the Docker image
-docker build -t arkadia-oracle-temple .
+`railway.json` also builds from the root `Dockerfile` and health-checks `/api/heartbeat`. It is an
+alternative platform configuration for the same image, not a second application.
 
-# Run with environment variables
-docker run -p 8080:8080 \
-  -e ARKADIA_FOLDER_ID=1J_2_RQWml85SQ7ZP7DwAVSbrXOHTO9fF \
-  -e GEMINI_API_KEY=<your Gemini API key> \
-  -e GDRIVE_SERVICE_ACCOUNT_JSON='{"type":"service_account",...}' \
-  arkadia-oracle-temple
-```
+## Verifying a deployment
 
-## 🔧 **Environment Variables**
-
-The system requires these environment variables for full functionality:
+Read the revision the runtime actually reports:
 
 ```bash
-# Google Drive Integration
-ARKADIA_FOLDER_ID=1J_2_RQWml85SQ7ZP7DwAVSbrXOHTO9fF
-GDRIVE_SERVICE_ACCOUNT_JSON={"type":"service_account",...your full JSON...}
-
-# AI Integration  
-GEMINI_API_KEY=<your Gemini API key>
-
-# Optional - Port (defaults to 8080)
-PORT=8080
+curl -s https://arkadia-qzu4.onrender.com/api/version
 ```
 
-## 🌐 **API Endpoints**
+The response carries `source_revision` (from `RENDER_GIT_COMMIT`), `revision_source`,
+`revision_conflict` and `verification_note`. `api/version_routes.py` is the source.
 
-The table below is the **canonical repository app surface**, verified against `api.main:app`
-(the app `entrypoint.sh` serves). It describes the current source contract, not an assertion
-that every route is already present on the deployed runtime. Deployment identity and a live
-probe are required before claiming runtime parity. The earlier revision listed legacy routes
-that were absent from this app when they were measured.
+- `revision_conflict: false` with a `source_revision` equal to the `main` SHA is **necessary**
+  evidence of source-to-runtime consistency.
+- It is **not** proof that the application behaves correctly, and it is **not** deployment
+  acceptance.
+- A deployment URL that cannot be read anonymously is an unproven boundary, not a passing one.
+  Record it as `UNKNOWN` rather than inferring parity.
+
+## Environment variables
+
+| Variable | Consumed by | Notes |
+|---|---|---|
+| `PORT` | `entrypoint.sh` | Injected by the platform. Do not hardcode a production port. |
+| `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_APP_ID` | `entrypoint.sh` | Public Firebase **web** config, written into the served bundle at startup. Client-side configuration, not a secret. |
+| `GEMINI_API_KEY` / `GOOGLE_API_KEY` | `api/key_pool.py` | One source of the Gemini key pool. |
+| `ELEVENLABS_API_KEY` | `kernel/tts.py` | Enables the premium TTS path; Edge TTS is the free fallback. |
+
+Provider and TTS keys can also be supplied through the key stores (`api/provider_key_store.py`,
+`api/key_manager.py`, `api/tts_key_manager.py`) rather than the environment. All of them are
+optional for boot; the application degrades rather than failing to start.
+
+The Firebase **Admin** service account is a server-side credential. Never bake it into the frontend
+bundle, and never commit a secret value to a tracked file.
+
+## Building and running the image locally
+
+```bash
+docker build -t arkadia .
+docker run -p 8080:8080 -e PORT=8080 arkadia
+```
+
+The build installs `requirements.txt` and produces the console bundle in the same image, so a local
+run serves the same artifact shape as the deployed one.
+
+## API surface
+
+The table below is the **canonical repository app surface**, verified against `api.main:app` (the app
+`entrypoint.sh` serves). It describes the current source contract, not an assertion that every route
+is already present on the deployed runtime. Deployment identity and a live probe are required before
+claiming runtime parity.
 
 | Method | Path | Purpose |
 |---|---|---|
-| `GET` | `/` | Liveness banner (`Arkadia Mind is breathing.`) |
+| `GET` | `/` | Serves the console to a browser navigation; otherwise a liveness payload |
 | `GET` | `/api/heartbeat` | Health check — canonical; used by `railway.json` |
 | `GET` | `/health` | Liveness projection of `/api/heartbeat` (deployment contract path) |
-| `POST` | `/api/commune/resonance` | Oracle / ReasoMate chat |
+| `GET` | `/api/version` | Read-only source-revision probe (ADR-016) |
+| `POST` | `/api/commune/resonance` | Oracle / ReasoMate chat (POST-only) |
 | `GET`, `POST` | `/api/commune/threads` | List / create conversation threads |
 | `GET` | `/api/commune/threads/{thread_uuid}` | Thread metadata |
 | `GET` | `/api/commune/threads/{thread_uuid}/messages` | Thread messages |
@@ -81,62 +97,40 @@ that were absent from this app when they were measured.
 | `GET` | `/api/stellar-cartography` | Encyclopedia Galactica star date |
 
 Interactive API reference: `GET /docs` (and `GET /openapi.json`). These are FastAPI's own
-documentation routes and are deliberately absent from the OpenAPI schema, so they are not
-listed in the table above.
+documentation routes and are deliberately absent from the OpenAPI schema, so they are not listed in
+the table above.
 
-PR #154 has added `GET /health` to the current repository source as a projection of
-`/api/heartbeat`, rather than as a second liveness authority. The prior live measurement
-returned `404` before that change. Re-probe the deployed backend after its deployment and
-verify the deployed revision before claiming the route is live in production. Until that
-runtime check passes, `/api/heartbeat` remains the previously observed canonical probe.
+`/health` is a projection of `/api/heartbeat`, not a second liveness authority. Note that
+`/api/health` is **not** a route: a `404` there is correct.
 
-> The `openclaw/` gateway is a **separate** service with its own `render.yaml` and its own
+> The `openclaw/` gateway is a **separate** service with its own configuration and its own
 > `GET /health`; it is not this backend and is not covered by the table above.
 
-## 🎮 **Testing the System**
+## What this guide does not authorize
 
-### **Web Interface:**
-Visit your deployed URL and try these messages:
-- "Tell me about the Oversoul Prism"
-- "What is the JOY-Fuel Protocol?"
-- "Explain A02 and A03"
+An observed hostname is not proof of canonical ownership, and a successful HTTP response from an
+alternate deployment does not establish acceptance. Do not stand up a second canonical deployment,
+change production routing, or retire an alias without explicit human authorization.
 
-### **CLI Console:**
+## Testing the deployed surface
+
+```bash
+curl -s https://arkadia-qzu4.onrender.com/api/version
+curl -s https://arkadia-qzu4.onrender.com/api/heartbeat
+```
+
+For the console, load the origin in a browser and exercise the route you changed. A `200` on any
+path proves nothing by itself: the SPA catch-all serves the console for routes it does not own, so a
+route assertion must be read against `api/frontend_routes.py` and the router, not against an HTTP
+status.
+
+The legacy CLI remains runnable from the archive for corpus work:
+
 ```bash
 python archive/legacy_python/arkadia_console.py
 # Commands: tree, preview <file>, refresh, ask <question>, status, exit
 ```
 
-### **API Testing:**
-```bash
-curl https://your-app.onrender.com/
-curl https://your-app.onrender.com/api/heartbeat
-```
-
-## 🔮 **System Features**
-
-### **Intelligent Fallbacks:**
-- Works perfectly even without API keys
-- Provides rich responses about A01-A08 topics
-- Graceful error handling throughout
-
-### **Beautiful UI:**
-- Dark mystical theme with Arkadia branding
-- Real-time chat interface
-- Thread management
-- Auto-generated user IDs
-
-### **Robust Backend:**
-- SQLite database with persistence
-- CORS enabled for web access
-- Comprehensive error handling
-- Docker-ready deployment
-
-## 🎉 **Ready for Production!**
-
-The system is **completely functional** and ready for immediate deployment. All components work together seamlessly, with or without the external APIs configured.
-
 ---
 
-**Built with ❤️ for the House of Three**
-*Arkana listening. The Oracle Temple awaits.*
+**Built for the House of Three.**
