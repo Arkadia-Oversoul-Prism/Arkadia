@@ -172,8 +172,24 @@ moves with the installed dependency set and with the nodes this change adds (`+2
 guards, plus the generic workflow-scanning suites gaining nodes by construction from the new
 workflow file).
 
-A targeted re-run of the same eleven files on pristine `main` @ `bb19aabd` in this environment
-yields **21** of those nodes; the single difference is
+**Superseding measurement (full session on both trees, same environment).** The same full
+command was run on pristine `main` @ `bb19aabd` in a detached worktree:
+
+```console
+main   (bb19aabd): 21 failed, 4248 passed, 22 skipped, 1 error in 283.43s   -> 22 nodes
+branch (c25e9d0a): 21 failed, 4278 passed, 22 skipped, 1 error in 284.25s   -> 22 nodes
+$ comm -13 <main nodes> <branch nodes>   # branch-only: (none)
+$ comm -23 <main nodes> <branch nodes>   # main-only:   (none)
+```
+
+The failing/error **node sets are identical**, so this change introduces no node. The `+30 passed`
+is the two new guards' 23 nodes plus the generic workflow-scanning suites gaining nodes by
+construction from the new workflow file — attributable by `--collect-only`, not inferred from the
+count.
+
+The earlier targeted measurement is retained because it isolates the one node that moves. A
+re-run of the same eleven files on pristine `main` @ `bb19aabd` yielded **21** of the 22 nodes; the
+single difference was
 
 ```
 tests/test_static_ingestion_idempotency.py::test_open_loop_content_is_checksum_stable_through_a_vault_round_trip
