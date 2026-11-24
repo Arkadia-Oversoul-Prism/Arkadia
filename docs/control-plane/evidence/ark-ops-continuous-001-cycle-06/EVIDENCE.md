@@ -188,3 +188,35 @@ posture without a sovereign decision.
 
 **Completion condition.** This cycle is complete when this record and its PR are reviewable, with
 `main` unmodified and no merge, deployment or acceptance claimed.
+
+## 8. Addendum — CI execution measured at the PR head (supersedes §4's prediction)
+
+§4 stated the guard *would* be executed by `sg-02-fe-2-v.yml` because this change touches a named
+trigger path. That was a prediction. Measured afterwards at head
+`f8ea8f1bb36594589489f588167a55a3528b176f` (PR #712, draft):
+
+| check | result |
+|---|---|
+| `SG-02-FE.2-V` / job `validate` (incl. `CP10-B broader backend regression`) | **completed / success** |
+| `CP10-B broader backend regression` step log | `9 failed, 4268 passed, 21 skipped, 1 error` in 326.21 s — the step **reached** the suite (no `Interrupted:`) |
+| `CP10 mutation boundary` step | lists `tests/test_async_route_blocking_io_contract.py` — i.e. the new guard is part of the judged change |
+| all other gates | `boot-syntax`, `console-contract`, `boundary`, `frontend`, `lab-security-contract`, `posture-currency`, `security-metadata`, `test` (economic-seam), `provider-forensics`, `build-backend`, `Build canonical Render image`, `Full-history secret scan` — all **success** |
+
+One gate is **failure**: `native-arkadia-golden-workflow` (job in `n-atlas-external-beta.yml`).
+Its log is the external provider, not the tree:
+`ModelUnavailable: N-ATLaS Gradio runtime error: provider emitted error event with null/empty data
+(event_id=77f568430f2c40e294837566cb9270be, raw_data='null', events=['error'])` → HTTP 503.
+That class is already recorded as intermittent on other branches (`#700`, `#693`, `#696`, …). It
+reads a live external provider, so it is never evidence about this repository's tree, and this
+change touches no provider code.
+
+**Convention note — the two failure counts are not comparable.** Sandbox: `19 failed / 4250
+passed` (20-node set). CI: `9 failed / 4268 passed`. The delta is the ten
+`test_mission_lifecycle_adapter_contract` nodes, which pass in CI because `pnpm install` provisions
+`web/arkadia_console/node_modules/typescript` and this sandbox does not. The invariant is the
+failing/error **node set**, which in the sandbox is identical to the recorded `main` baseline
+(`8d70e46e…`).
+
+PR state at this measurement: `draft: true`, `MERGEABLE` / `CLEAN`, `base: main`, head
+`f8ea8f1b`. `main` remains `bb19aabda34d59594615b0279a45e9cbd3d8204d` — unmodified. No merge, no
+deployment, no acceptance claimed.
