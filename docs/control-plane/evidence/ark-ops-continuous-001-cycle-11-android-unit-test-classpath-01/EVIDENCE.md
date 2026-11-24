@@ -125,7 +125,28 @@ All **13** check-runs on `921a941d` are `completed/success`, including `Full-his
 `console-contract`, `test`, `trigger-coverage` and `verdict-step-integrity`.
 
 This is a behavioural result, not a source assertion: the workflow that failed on `main` and on
-#716 now passes, and produces the artifact it had been suppressing for seven weeks.
+#716 now passes, and produces the artifact it had been suppressing for seven weeks. It reproduced
+on the docs-only head `70a1e175` as well (`Build MIE / Sonata debug APK` = `success`).
+
+### The two non-passing checks on the docs head are external, and proven not attributable
+
+On head `70a1e175`, `beta-beta-01-english` and `bundle-beta-evidence` are `failure`. They are the
+same workflow (`n-atlas-external-beta.yml`), and the second is a downstream verdict on the first
+(`statuses: {'beta-01-english.json': 'FAILED', 'beta-02-hausa.json': 'PASS'}`).
+
+| evidence | reading |
+|---|---|
+| run `45391499277` @ `921a941d` (this branch, 12:13Z) | `success` |
+| run `45393383348` @ `70a1e175` (this branch, 12:25Z) | `failure`; the re-run at the same head also failed |
+| same run, sibling prompt `beta-02-hausa` | `PASS` — one prompt passed while the other failed, in one job |
+| run `45393383348` evidence file | `"errors": []` — the request completed; the verdict is a model-output judgement |
+| `gate-hygiene/knowledge-5xx-error-contract-01` (#718), same day | `failure` 11:26, `failure` 11:32, `success` 11:35 — three conclusions on one unchanged tree |
+| `gate-hygiene/root-doc-module-map-currency-01` (#715), same day | `success` 07:16, `success` 07:23, `failure` 08:15, `failure` 08:20 |
+
+The head that failed (`70a1e175`) changes exactly one file: this evidence document. It cannot
+alter an external N-ATLAS inference. Recorded as external-provider flakiness, **not** as a defect
+in this change and **not** as a pass.
+
 
 ## 5. Limitations
 
