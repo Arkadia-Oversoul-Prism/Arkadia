@@ -135,3 +135,43 @@ runs, and (2) changes a gate's verdict semantics. Discovery does not authorize e
 4. **Weaver:** the standing blocker is **human merge authority**, not repository work. The queue is
    composable in 53 of 56 cases (cycle 20) and its red signal is dominated by one external
    provider. Further engineering will not advance the queue; only merges will.
+
+## 5. Negative control — the same commit, the same workflow, opposite outcomes
+
+Recorded after the cycle-21 evidence commit (`109bae7b`) had itself been pushed and its checks
+had reported. On that **docs-only** tree, in a **single run of a single workflow**:
+
+```
+beta-beta-01-english    success
+beta-beta-02-hausa      failure
+native-arkadia-golden-workflow  skipped   (needs: beta == success)
+bundle-beta-evidence    in_progress
+Full-history secret scan        success
+provider-forensics              success
+```
+
+This is the control the earlier sampled run could not supply. A documentation-only diff cannot make
+one matrix leg of a live-provider job pass and its sibling fail: both legs read the same tree, the
+same prompt harness, and the same workflow, and differ only in `language` and `prompt`. The
+divergence therefore lies in the provider's response, not in the commit.
+
+It also rules out the two remaining innocent explanations for the 21 red PRs:
+
+- **not branch content** — the tree here changes only `docs/control-plane/evidence/**`;
+- **not a broken workflow definition** — the same definition produced `success` on one leg.
+
+The `Full-history secret scan` and `provider-forensics` checks passing on the same commit show the
+repository-facing jobs are unaffected.
+
+## 6. Local verification of this change
+
+```
+printf 'docs/control-plane/evidence/ark-ops-continuous-001-cycle-21/EVIDENCE.md\n' \
+  | python scripts/cp10_mutation_boundary_policy.py --judge
+-> Mutation boundary PASS   (exit 0)
+
+python -m pytest tests/test_m02a_ci_gate_integrity.py -q
+-> 76 passed
+```
+
+The new evidence path is admitted by the existing `docs/…` rule; no allowlist edit was required.
