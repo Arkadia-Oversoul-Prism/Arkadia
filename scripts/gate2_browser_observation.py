@@ -16,15 +16,34 @@ Read-only. Performs no mutation, holds no credential, never prints a token.
 
 Anchor policy
 -------------
-Every anchor is a lowercase ASCII substring of a literal that exists in
-`archive/frontend/arkadia-prism/web/public_prism/src`, and the script re-verifies each one against the working
-tree before trusting it (a stale anchor list is detected, not silently believed).
+Every anchor is a lowercase ASCII substring of a literal that exists in the
+application the canonical origin actually serves -- `ANCHOR_APP`, which is
+`web/arkadia_console`. The script re-reads that app's source and re-verifies
+each anchor before trusting it, and a list that no longer matches the app is
+reported as `STALE` (exit 2) rather than scored: an anchor table describing a
+different frontend would otherwise report a healthy application as failing.
+
+That is not hypothetical. This harness was written when the canonical origin
+served the archived Prism frontend, and its anchors came from
+`archive/frontend/arkadia-prism/web/public_prism/src`. Prism was archived
+(`c081d200`, 2026-10-11) and the origin now serves the console, so every anchor
+and four of the six probed routes described a retired application.
+
 Lowercase ASCII substrings are used deliberately:
 
   * deployed text is uppercased by CSS, so case-sensitive matching would produce
     false failures;
   * CSS `text-transform` and unicode dashes (em/en) do not survive a naive
     substring match, so anchors avoid non-ASCII punctuation.
+
+Two render states are expected, and they are declared per route rather than
+inferred:
+
+  * `public` -- the surface renders its own copy to an anonymous visitor;
+  * `auth_threshold` -- the surface is protected (`requiresAuth` in
+    `src/lib/surfaces.ts`), so `App.tsx` renders the shared sign-in threshold
+    instead of the surface's own copy. Scoring a protected route against its
+    own subtitle would fail on a correct application.
 
 Known benign console noise
 --------------------------
@@ -47,39 +66,53 @@ import tempfile
 
 ALIAS = "https://arkadia-qzu4.onrender.com"
 
-# route -> (anchors, provenance). Anchors are lowercase ASCII substrings.
-ROUTES: dict[str, tuple[list[str], str]] = {
+# The application the canonical origin serves. The anchor table is scoped to it:
+# a table describing any other frontend is stale by construction, not a finding
+# about production.
+ANCHOR_APP = os.path.join("web", "arkadia_console")
+
+# route -> (anchors, provenance, expected render state). Anchors are lowercase
+# ASCII substrings. `public` routes render their own copy to an anonymous
+# visitor; `auth_threshold` routes are protected, so the shared sign-in
+# threshold renders instead (see `App.tsx::AuthThreshold`).
+ROUTES: dict[str, tuple[list[str], str, str]] = {
     "/": (
-        ["become one continuous field"],
-        "ArkadiaLandingPage.tsx",
+        ["one coherent application over the canonical backend"],
+        "pages/HomePage.tsx:148",
+        "public",
     ),
-    "/oracle": (
-        ["pattern intelligence", "guest session"],
-        "ArkanaCommune.tsx:757",
+    "/about": (
+        ["one human-governed intelligence architecture"],
+        "pages/AboutPage.tsx:6",
+        "public",
     ),
-    "/nexus": (
-        ["private reasomate remains separate"],
-        "SocialFieldVerified.tsx:325",
+    "/novanet": (
+        ["the public field"],
+        "pages/NovaNetPage.tsx:110",
+        "public",
     ),
-    "/solariun": (
-        ["enter solariun"],
-        "SolariunConsole.tsx",
+    "/operator": (
+        ["boundary posture, evidence, and authority"],
+        "pages/OperatorPage.tsx:109",
+        "public",
     ),
-    "/solspire": (
-        ["enter the enterprise layer"],
-        "EnterpriseConsole.tsx:70",
+    "/login": (
+        ["authenticate against the canonical arkadia backend"],
+        "pages/SignInPage.tsx:42",
+        "public",
     ),
-    "/spiral-codex": (
-        ["living archive of arkadia"],
-        "SpiralCodexFeed.tsx:248",
+    "/knowledge": (
+        ["this surface requires an authenticated arkadia identity"],
+        "App.tsx::AuthThreshold (protected surface)",
+        "auth_threshold",
     ),
 }
 
 # Console errors that are understood and benign. Matched as substrings.
 EXPECTED_BENIGN: dict[str, str] = {
     "/api/codex/categories": (
-        "route not implemented in this repository (no handler under api/); "
-        "SpiralCodexFeed.tsx degrades to { categories: [] }"
+        "route not implemented in this repository (absent from app.openapi()); "
+        "components/novaNet/spiralCodexContract.ts records that it is not served"
     ),
 }
 
@@ -118,10 +151,19 @@ def repo_root() -> str:
     return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
+def anchor_app_root() -> str:
+    return os.path.join(repo_root(), ANCHOR_APP)
+
+
 def source_anchors_present() -> dict[str, bool]:
-    """Confirm each anchor still exists in the frontend source tree, so a stale
-    anchor list is detected rather than silently trusted."""
-    src = os.path.join(repo_root(), "archive", "frontend", "arkadia-prism", "web", "public_prism", "src")
+    """Confirm each anchor still exists in the *served* application's source
+    tree, so a stale anchor list is detected rather than silently trusted.
+
+    Scoped to ``ANCHOR_APP`` on purpose. The previous revision read the archived
+    Prism tree, which certified a list that could not match what the canonical
+    origin serves.
+    """
+    src = os.path.join(anchor_app_root(), "src")
     corpus: list[str] = []
     for dirpath, _dirnames, filenames in os.walk(src):
         for fn in filenames:
@@ -132,7 +174,7 @@ def source_anchors_present() -> dict[str, bool]:
                 except OSError:
                     continue
     joined = "\n".join(corpus)
-    return {a: (a in joined) for anchors, _ in ROUTES.values() for a in anchors}
+    return {a: (a in joined) for anchors, _prov, _state in ROUTES.values() for a in anchors}
 
 
 def playwright_available(node_path: str | None) -> tuple[bool, str]:
@@ -149,7 +191,14 @@ def playwright_available(node_path: str | None) -> tuple[bool, str]:
         timeout=60,
     )
     if r.returncode != 0:
-        return False, (r.stderr.strip().splitlines() or ["require('playwright') failed"])[-1]
+        # Node's banner ("Node.js v24.22.2") is the last stderr line and says
+        # nothing about the cause; report the line that names it.
+        lines = [ln.strip() for ln in r.stderr.strip().splitlines() if ln.strip()]
+        cause = next(
+            (ln for ln in lines if "Cannot find module" in ln or "MODULE_NOT_FOUND" in ln),
+            lines[-1] if lines else "require('playwright') failed",
+        )
+        return False, cause
     return True, "ok"
 
 
@@ -180,7 +229,7 @@ def classify(obs: dict) -> tuple[str, list[str], list[str]]:
     """Return (verdict, failures, informational)."""
     failures: list[str] = []
     info: list[str] = []
-    anchors, _prov = ROUTES[obs["route"]]
+    anchors, _prov, _state = ROUTES[obs["route"]]
     if obs["status"] != 200:
         return "FAILED", [f"HTTP {obs['status']} err={obs['err']}"], info
     missing = [a for a in anchors if a not in obs["bodyLower"]]
@@ -206,7 +255,7 @@ def classify(obs: dict) -> tuple[str, list[str], list[str]]:
     return ("OBSERVED" if not failures else "FAILED"), failures, info
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--json", action="store_true", help="emit machine-readable output")
     ap.add_argument(
@@ -214,10 +263,11 @@ def main() -> int:
         default=os.environ.get("PLAYWRIGHT_NODE_PATH"),
         help="NODE_PATH containing the playwright module",
     )
-    args = ap.parse_args()
+    args = ap.parse_args(argv)
 
     result: dict = {
         "alias": ALIAS,
+        "anchor_app": ANCHOR_APP,
         "routes": {},
         "stale_anchors": [],
         "expected_benign": EXPECTED_BENIGN,
@@ -226,6 +276,21 @@ def main() -> int:
 
     stale = [a for a, ok in source_anchors_present().items() if not ok]
     result["stale_anchors"] = stale
+
+    # Fail closed. A stale anchor table is a harness defect, and scoring live
+    # routes against it would report a healthy application as failing. It is
+    # reported as STALE (undecided) rather than FAILED, and the probe is not run.
+    if stale or not os.path.isdir(anchor_app_root()):
+        result["browser_rendered_ui"] = "STALE"
+        result["blocked_reason"] = (
+            f"anchor list does not match {ANCHOR_APP}: "
+            + (f"literals gone from source: {stale}" if stale else "app source tree missing")
+        )
+        if args.json:
+            print(json.dumps(result, indent=2))
+        else:
+            print(f"browser-rendered UI: STALE -- {result['blocked_reason']}")
+        return 2
 
     ok, why = playwright_available(args.node_path)
     if not ok:
@@ -256,6 +321,7 @@ def main() -> int:
             "verdict": verdict,
             "status": obs["status"],
             "bodyLen": obs["bodyLen"],
+            "expected_state": ROUTES[obs["route"]][2],
             "anchors_required": ROUTES[obs["route"]][0],
             "failures": failures,
             "informational": info,
@@ -271,15 +337,16 @@ def main() -> int:
     if args.json:
         print(json.dumps(result, indent=2))
     else:
-        print(f"alias: {ALIAS}")
+        print(f"alias: {ALIAS}  (anchor app: {ANCHOR_APP})")
         for route, info in result["routes"].items():
-            print(f"  {route:<16} {info['verdict']:<9} status={info['status']} bodyLen={info['bodyLen']}")
+            print(
+                f"  {route:<16} {info['verdict']:<9} status={info['status']} "
+                f"bodyLen={info['bodyLen']} state={info['expected_state']}"
+            )
             for n in info["failures"]:
                 print(f"      ! {n}")
             for n in info["informational"]:
                 print(f"      - {n}")
-        if stale:
-            print(f"  STALE ANCHORS: {stale}")
         print(f"browser-rendered UI: {result['browser_rendered_ui']}")
 
     return 0 if result["browser_rendered_ui"] == "OBSERVED" else 1
