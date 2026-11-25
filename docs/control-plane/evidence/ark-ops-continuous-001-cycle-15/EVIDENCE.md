@@ -144,8 +144,16 @@ gov04 + m02a + agents-md adjudication + boot-syntax + lane currency   171 passed
 cp10_mutation_boundary_policy.py --judge (both changed paths)         PASS (exit 0)
 ```
 
-Pushed to `#724` as `dd77cd85` (repair) and `d67a3c63` (evidence + PR body). `#724` is
-**OpenHands-owned**, so maintaining it is authorized; nothing was opened, merged or deployed.
+Pushed to `#724` as `dd77cd85` (repair), `d67a3c63` (evidence + PR body) and `7e32149a` (the CI
+verdict below). `#724` is **OpenHands-owned**, so maintaining it is authorized; nothing was opened,
+merged or deployed.
+
+**Runtime confirmation — the gate that reported the defect confirms its repair.** `provider-routing`
+on head `d67a3c63` (run `45532222870`, 9m30s) completed **success** with gate verdict `PASS`,
+`baseline_nodes 21 == candidate_nodes 21`, `newly_failing: []` — against `FAIL`, `21 -> 22`, one
+newly failing node on `1ab40328`. The two checks still red on that head
+(`beta-beta-01-english`, `bundle-beta-evidence`) fail with
+`"reason": "external runtime did not return usable inference"` (§6), so they are not this tree.
 
 ## 6. CI attribution — the external-provider class, measured again
 
