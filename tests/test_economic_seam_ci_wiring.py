@@ -537,3 +537,59 @@ def test_detector_ignores_workflows_that_do_not_mention_the_domain():
         "python -m pytest tests/test_other.py -q", workflow_dispatch=None
     )
     assert not _mentions_domain(unrelated)
+
+
+# --- a guard this gate hosts must stay executed and stay selected ------------------
+#
+# `tests/test_prism_coherence_domain.py` pins `scripts/prism_coherence_check.py`'s
+# README domain to the tracked corpus. Measured on `main` @ `fd0a4fdc`, it was
+# executed by **no** workflow, which is the class this repository records as
+# "a guard no gate executes is decoration". It is hosted by this gate alongside the
+# other repository-level guards, and the assertions below are what stop the step —
+# or the trigger that selects the script it reads — from being deleted silently.
+# They live in this file, not in the control itself, because a wiring judge inside
+# the file the step executes cannot report its own step's removal.
+
+_COHERENCE_GUARD = "tests/test_prism_coherence_domain.py"
+_COHERENCE_INPUT = "scripts/prism_coherence_check.py"
+
+
+def _executes_literal(workflow: dict, literal: str) -> bool:
+    """Whether a step passes `literal` to a real pytest invocation."""
+    for _job_name, _job, step in _steps(workflow):
+        for command in _run_lines(step):
+            idx = _pytest_command_index(command)
+            if idx is None:
+                continue
+            arguments = _command_tokens(command)[idx + 1:]
+            if any(a == literal or a.startswith(literal + "::") for a in arguments):
+                return True
+    return False
+
+
+def test_the_prism_coherence_domain_control_is_executed_by_this_gate():
+    workflow = _load(_WORKFLOW_FILE)
+    assert _executes_literal(workflow, _COHERENCE_GUARD), (
+        f"{_WORKFLOW_FILE} no longer executes {_COHERENCE_GUARD}; the control that "
+        "keeps the coherence guard's domain on the tracked corpus would hold only "
+        "when a human runs the suite by hand"
+    )
+
+
+def test_the_prism_coherence_control_is_selected_by_every_trigger():
+    workflow = _load(_WORKFLOW_FILE)
+    for event in ("pull_request", "push"):
+        paths = _path_filter(_trigger_block(workflow), event) or set()
+        assert _selects_path(paths, _COHERENCE_INPUT), (
+            f"{event} paths filter omits {_COHERENCE_INPUT}, an input the control reads"
+        )
+
+
+def test_a_mention_of_the_control_is_not_an_execution():
+    """Negative control: the detector must not accept a printed path."""
+    mentioned = {
+        True: {"pull_request": {"paths": [_COHERENCE_GUARD, _COHERENCE_INPUT]}},
+        "jobs": {"j": {"steps": [{"run": f"echo pytest {_COHERENCE_GUARD}"}]}},
+    }
+    assert not _executes_literal(mentioned, _COHERENCE_GUARD)
+

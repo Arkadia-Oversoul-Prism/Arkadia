@@ -28,12 +28,22 @@ name: economic-seam-engine
 # Deriving this step's inventory (`pytest -q $(python scripts/..._domain.py)`) is a
 # wider execution surface and stays with the sovereign; the console-contract gate on
 # `main` carries the same enumerated shape and the same judge, deliberately.
+#
+# Measured on `main` @ `fd0a4fdc`: `tests/test_prism_coherence_domain.py` was
+# executed by **no** gate. `scripts/prism_coherence_check.py` derived its README
+# domain from the working tree (`rglob`), so it also judged `.pytest_cache/README.md`
+# — untracked — and its verdict moved with whether pytest had been run. The guard
+# script itself stays unwired by design (its 31 findings are a reserved identity
+# decision, and wiring it today would redden `main`); what is wired here is the
+# *domain* control, in the same step group as the other repository-level guards
+# (`test_m02a_ci_gate_integrity.py`, `test_repo_hygiene_gitignore.py`).
 
 on:
   pull_request:
     paths:
       - 'economic_seams/**'
       - 'api/economic_seam_routes.py'
+      - 'scripts/prism_coherence_check.py'
       - 'tests/**'
       - '.github/workflows/economic-seam-engine.yml'
   push:
@@ -41,6 +51,7 @@ on:
     paths:
       - 'economic_seams/**'
       - 'api/economic_seam_routes.py'
+      - 'scripts/prism_coherence_check.py'
       - 'tests/**'
       - '.github/workflows/economic-seam-engine.yml'
   # The gate is path-filtered, so a revision touching none of the above never runs
@@ -84,3 +95,9 @@ jobs:
         # `paths` filter and every executing step must be able to fail. A rewrite of
         # this file is judged by itself, or the gate is self-exempt.
         run: python -m pytest tests/test_economic_seam_ci_wiring.py -q
+      - name: Prism coherence domain guard
+        # A repository-level guard must judge the tracked corpus, not the working
+        # tree. This executes the control for `scripts/prism_coherence_check.py`'s
+        # README domain; the script's own findings stay reserved, so the script is
+        # deliberately not run here.
+        run: python -m pytest tests/test_prism_coherence_domain.py -q

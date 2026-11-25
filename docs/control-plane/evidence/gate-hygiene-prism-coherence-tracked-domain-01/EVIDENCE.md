@@ -169,12 +169,50 @@ python -m py_compile scripts/prism_coherence_check.py                 OK
 **Composition hazard checked, not assumed.** A new `tests/` file can enter a *derived* gate domain
 and redden a gate on a tree that never touched it. Measured: `scripts/console_contract_domain.py`
 does not list the new file (0 matches) and it matches none of
-`tests/test_economic_seam_ci_wiring.py`'s `_DOMAIN_NEEDLES` (`[]`). No workflow edit is needed.
+`tests/test_economic_seam_ci_wiring.py`'s `_DOMAIN_NEEDLES` (`[]`). The control therefore does not
+join either derived domain.
+
+**The control was unwired, and is now wired.** Measured after the first push: no workflow executed
+`tests/test_prism_coherence_domain.py`. `tests/**` is selected by three gates
+(`economic-seam-engine`, `operator-console-posture`, `prism-console-contract`), but each runs an
+enumerated or derived list that does not contain it, so the control would have held only when a
+human ran the suite by hand — the repository's recorded "a guard no gate executes is decoration"
+class. `economic-seam-engine.yml` already hosts the repository-level guards
+(`test_m02a_ci_gate_integrity.py`, `test_repo_hygiene_gitignore.py`), so the control is hosted
+there:
+
+```diff
+   pull_request:
+     paths:
+       - 'economic_seams/**'
+       - 'api/economic_seam_routes.py'
++      - 'scripts/prism_coherence_check.py'
+       - 'tests/**'
+   push:
+     paths:
+       ... same addition ...
++      - name: Prism coherence domain guard
++        run: python -m pytest tests/test_prism_coherence_domain.py -q
+```
+
+The guard **script** is deliberately still not executed: its 31 findings are the reserved identity
+decision, and running it would redden `main`.
+
+**The wiring is judged, not asserted.** `tests/test_economic_seam_ci_wiring.py` gains three nodes —
+the control is executed by this gate, the script it reads is selected by *both* triggers, and a
+**negative control** that `echo pytest <path>` is not an execution. They live in that file, not in
+the control itself, because a wiring judge inside the file the step executes cannot report its own
+step's removal.
+
+| live control on the real workflow file | result |
+|---|---|
+| delete the new step | `1 failed, 23 passed` — the execution node reddens |
+| restore byte-identically (sha256 match) | `24 passed` |
 
 **Not measured:** a second full-suite run for a node-set delta. The contract allows one full-suite
-pass per pulse and §3 used it. The change adds a test module and touches no test that was in the
-failing set; the targeted suites above are the evidence offered, and the node-set delta is
-**NOT CLAIMED**.
+pass per pulse and §3 used it. The change adds two test modules' worth of passing nodes and touches
+no test that was in the failing set; the targeted suites above are the evidence offered, and the
+node-set delta is **NOT CLAIMED**.
 
 ## 7. Queue inspection — why no other PR was opened
 
