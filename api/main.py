@@ -10,6 +10,9 @@ import hmac
 import httpx
 import threading
 import uuid as _uuid_mod
+
+# 5xx copy helper — its own module because this file is at its line budget.
+from api.http_failure import internal_failure_detail as _internal_failure_detail
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from fastapi import FastAPI, Request, HTTPException, Depends
@@ -17,8 +20,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 import os as _os
-
-from api.http_failure import internal_failure_detail as _internal_failure_detail
 
 # ── Arkadia auth + node registry ─────────────────────────────────────────────
 # In production (ENVIRONMENT=production) an auth import failure is a fatal
