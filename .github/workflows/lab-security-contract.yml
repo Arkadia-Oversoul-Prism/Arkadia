@@ -6,6 +6,7 @@ on:
       - "lab/observatory/git.py"
       - "lab/service.py"
       - "api/lab_routes.py"
+      - "weaver/recon.py"
       - "tests/test_repository_remote_redaction.py"
       - ".github/workflows/lab-security-contract.yml"
   push:
@@ -14,6 +15,7 @@ on:
       - "lab/observatory/git.py"
       - "lab/service.py"
       - "api/lab_routes.py"
+      - "weaver/recon.py"
       - "tests/test_repository_remote_redaction.py"
       - ".github/workflows/lab-security-contract.yml"
   workflow_dispatch:

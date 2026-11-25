@@ -8,6 +8,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from lab.observatory.git import redact_remote_url
+
 SCHEMA_VERSION = "1.0.0"
 
 # Product/architecture boundaries (summary only; enforcement remains PassSpec/K0.1)
@@ -47,8 +49,13 @@ def git_identity(repo_root: str = ".") -> dict[str, Any]:
             if len(parts) >= 2:
                 ahead, behind = int(parts[0]), int(parts[1])
     _, remote_url, _ = _run(["git", "remote", "get-url", "origin"], repo_root)
+    # The packet this feeds is written to a repository path, so the remote must
+    # never carry URL userinfo: a token-bearing remote would otherwise be
+    # persisted into a file that `git add` can publish.
+    remote = redact_remote_url(remote_url) or None
     return {
-        "remote": remote_url or None,
+        "remote": remote,
+        "remote_redacted": bool(remote_url) and remote != remote_url,
         "branch": branch or None,
         "head_sha": head or None,
         "origin_sha": origin_sha,
