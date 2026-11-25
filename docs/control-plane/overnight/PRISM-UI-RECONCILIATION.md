@@ -204,6 +204,8 @@ GOV-03 supersedes the execution-delegation language in GOV-01/GOV-02 and the cor
 
 The four lane ownership boundaries and the existing one-open-PR-per-lane rule are unchanged. This amendment changes merge execution only; it does not authorize implementation scope expansion or deployment.
 
-## GOV-04 — bounded merge delegation (2026-11-24; activation gated)
+## GOV-04 — bounded merge delegation (ACTIVE 2026-11-24; PR #722)
 
-The user authorized a bounded amendment. GOV-03 remains effective until the dedicated GOV-04 PR is human-reviewed and human-merged. After activation, only the designated reconciliation operator may execute exact-head, protected GitHub merges that satisfy the complete authorization record at `docs/control-plane/evidence/gov-04-bounded-merge-delegation/AUTHORIZATION.md`. Drafts require owner action to become ready; no auto-merge, protection bypass, direct push, deployment, or acceptance. Governance PRs, reserved decisions, and unknowns remain human-only. Runtime worker merge capability remains disabled until separately implemented and verified.
+PR #722 was human-merged at `fd0a4fdc081064b2074aab9e17b4c7841736dd9f`; GOV-04 is active within the exact scope of its canonical authorization record. The first post-activation inventory returned 44 open PRs, all drafts, and no merge was executed. Owners must explicitly ready drafts. No auto-merge, protection bypass, direct push, deployment, or acceptance. Reserved decisions and runtime worker capability remain human-only/fail-closed.
+
+The user-authorized GOV-04 amendment is active following human merge of PR #722. The designated reconciliation operator may execute only exact-head, protected GitHub merges satisfying the canonical authorization record. Drafts require owner action; reserved decisions, deployment, acceptance, and runtime worker merge remain human-only/fail-closed.

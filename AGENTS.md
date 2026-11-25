@@ -1916,6 +1916,8 @@ Lane ownership, the one-open-PR-per-lane constraint, branch protection, and the 
   evidence. Re-run the control against the live function and paste **its** output; the merge commit
   in the message (`0c615bda`) is also the check that the right record was fed.
 
-## GOV-04 — bounded merge delegation (authorized; activation pending)
+## GOV-04 — bounded merge delegation (ACTIVE 2026-11-24; PR #722)
 
-GOV-03 human-only execution remains the active rule until this GOV-04 amendment is independently reviewed and human-merged. After activation, the designated reconciliation operator may merge only exact-head PRs through GitHub's normal protected merge API after every documented eligibility, review, check, dependency, composition, and reserved-decision gate passes. See `docs/control-plane/evidence/gov-04-bounded-merge-delegation/AUTHORIZATION.md`. Fail closed on stale, missing, or contradictory evidence. No auto-merge, direct/force push, protection/check bypass, deployment, or acceptance. This governance PR itself must be human-reviewed and human-merged; runtime worker merge remains disabled pending separate verified implementation.
+PR #722 was human-merged at `fd0a4fdc081064b2074aab9e17b4c7841736dd9f`; GOV-04 is active. The designated reconciliation operator may merge only exact-head, eligible PRs through GitHub's normal protected merge API after every gate in `docs/control-plane/evidence/gov-04-bounded-merge-delegation/AUTHORIZATION.md` passes. Drafts require owner action to become ready; no silent conversion. Fail closed on stale, missing, or contradictory evidence. No auto-merge, direct/force push, protection/check bypass, deployment, or acceptance. The runtime worker actuator remains separately disabled and fail-closed.
+
+GOV-03's historical human-only execution rule is superseded prospectively by active GOV-04 for the designated reconciliation operator, strictly within the canonical authorization record. Runtime worker merge remains disabled pending separate verified implementation.

@@ -1,7 +1,8 @@
 # GOV-04 — Bounded merge delegation
 
 **Authorization:** Explicit user authorization in ChatGPT, 2026-11-24.
-**State:** PROPOSED; effective only after this dedicated PR is independently reviewed and human-merged. This PR cannot self-authorize.
+**State:** PROPOSED at authorization; effective only after this dedicated PR is independently reviewed and human-merged. This PR cannot self-authorize.
+**Activation:** ACTIVE since 2026-11-24 — PR #722 was human-merged at `fd0a4fdc081064b2074aab9e17b4c7841736dd9f`. This record documents the verified repository state; it does not grant itself authority.
 **Scope:** Existing PRs targeting canonical main; protected GitHub merge API only, with exact-head checks.
 **No authorization:** auto-merge, direct push, force-push, protection/check bypass, deployment, provider configuration, or acceptance.
 
@@ -18,5 +19,7 @@ After activation, the designated reconciliation operator may merge only when eve
 **Human-reserved:** this governance PR and all governance/constitutional changes, K15/K3, approval enforcement, scope/lane changes, security/privacy, destructive/data-loss decisions, deployment/configuration, review waivers, conflicts, and acceptance. Any unknown, stale, or contradictory fact means HUMAN_AUTHORITY_REQUIRED.
 
 Batch reconciliation is authorized, not blind bulk merging. Review every PR; merge only eligible PRs in dependency order. Drafts must be explicitly made ready by their owner; no silent draft conversion. Report all exceptions and decisions together.
+
+**Activation evidence:** PR #722 is closed and merged; GitHub reports merge commit `fd0a4fdc081064b2074aab9e17b4c7841736dd9f`. GOV-04 is active for the designated reconciliation operator within the bounded protected-API scope above. The PR queue inventory after activation showed 44 open PRs, all 44 drafts; therefore none was eligible for delegated merge at that snapshot. No PR was merged during that inventory.
 
 This amendment does not enable auto-merge, alter protections, provision credentials, or commission a worker actuator. The runtime adapter remains fail-closed until a separately verified implementation exists. A merge is not deployment or acceptance.
