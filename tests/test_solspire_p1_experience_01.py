@@ -82,4 +82,5 @@ def test_p1_3_knowledge_library_mode():
 
 def test_packet_scope_excludes_p2_claims():
     src = EXP.read_text()
-    assert "universal object" not in src.lower() or True
+    # P2's "universal object" index is not claimed: the page disclaims it.
+    assert "no universal object index" in src.lower()

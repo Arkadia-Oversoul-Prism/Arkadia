@@ -93,11 +93,24 @@ def test_galactica_has_five_volumes():
     assert g["current_volume"] in {v["volume"] for v in g["volumes"]}
 
 
+def _heavy_module_imports(source: str) -> set[str]:
+    """Top-level modules a source file imports from the API/HTTP stack."""
+    import ast
+    found: set[str] = set()
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.Import):
+            found.update(alias.name.split(".")[0] for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module and not node.level:
+            found.add(node.module.split(".")[0])
+    return found & {"api", "httpx", "fastapi", "starlette"}
+
+
 def test_stellar_decoupled_from_api_main():
-    """The engine must import without pulling in api.main's heavy deps."""
-    import sys
-    # If stellar.py imported api.main at module load, httpx etc. would be in
-    # sys.modules — confirm it stays standalone.
-    import kernel.stellar  # noqa: F401
-    # api.main should not have been imported as a side effect of stellar
-    assert "api.main" not in sys.modules or True  # tolerant; stellar does not import it
+    """kernel/stellar.py must load standalone: no API or HTTP-stack imports."""
+    from pathlib import Path
+    source = (Path(__file__).resolve().parents[1] / "kernel" / "stellar.py").read_text(
+        encoding="utf-8"
+    )
+    assert _heavy_module_imports(source) == set()
+    # Negative control: the detector must flag the coupling it exists to catch.
+    assert _heavy_module_imports("from api.main import app\nimport httpx\n") == {"api", "httpx"}
