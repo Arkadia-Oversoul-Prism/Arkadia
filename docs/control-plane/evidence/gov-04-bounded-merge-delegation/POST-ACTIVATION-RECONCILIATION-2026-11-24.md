@@ -62,6 +62,15 @@ convention that a line carrying a pinned claim is corrected by appending, never 
 | delete the restored authorization-time line | `2 failed, 2 passed` — the node reddens |
 | restore it byte-identically | `1 failed, 3 passed` — only the node that already fails on `main` |
 
+**Runtime confirmation (CI, after the repair).** `provider-routing` on head `d67a3c63` —
+run [45532222870](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/45532222870) —
+completed **success** in 9m30s with gate verdict `PASS`, `baseline_nodes 21 == candidate_nodes 21`
+and `newly_failing: []`. The same gate on `1ab40328` was `FAIL` with `21 -> 22` and one newly
+failing node, so the repair is proven by the gate that reported the defect rather than by local
+reasoning alone. The two remaining red checks on this head (`beta-beta-01-english`,
+`bundle-beta-evidence`) fail with `"reason": "external runtime did not return usable inference"` —
+the external N-ATLAS provider class, not this tree.
+
 **Verification run after the repair**
 
 ```
