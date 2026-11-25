@@ -1,7 +1,8 @@
 # GOV-04 — Bounded merge delegation
 
 **Authorization:** Explicit user authorization in ChatGPT, 2026-11-24.
-**State:** ACTIVE — activated by human merge of PR #722 on 2026-11-24. Merge commit: `fd0a4fdc081064b2074aab9e17b4c7841736dd9f`. This record documents the verified repository state; it does not grant itself authority.
+**State:** PROPOSED at authorization; effective only after this dedicated PR is independently reviewed and human-merged. This PR cannot self-authorize.
+**Activation:** ACTIVE since 2026-11-24 — PR #722 was human-merged at `fd0a4fdc081064b2074aab9e17b4c7841736dd9f`. This record documents the verified repository state; it does not grant itself authority.
 **Scope:** Existing PRs targeting canonical main; protected GitHub merge API only, with exact-head checks.
 **No authorization:** auto-merge, direct push, force-push, protection/check bypass, deployment, provider configuration, or acceptance.
 
