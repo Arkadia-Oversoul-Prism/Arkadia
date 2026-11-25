@@ -229,3 +229,24 @@ or the `#717`/`#710`/`#713` modules; re-pinning F-01.
 **Completion condition.** This cycle is complete when this record is reviewable, the branch
 carries the repair and its guard, its gate executes the guard, `main` is unmodified, and no merge,
 deployment or acceptance is claimed.
+
+## 10. Runtime verification — the gate executed, not merely configured
+
+Source-level wiring claims are the recurring defect this repository has recorded many times
+("a guard no workflow executes is decoration"). The new gate was therefore proven at runtime on
+the pull request, not asserted from YAML.
+
+| observation | result |
+|---|---|
+| PR | **#735** (draft) |
+| `source-sync-error-contract` check | **pass**, 37 s — run `45576890775` |
+| its step log | `3 passed in 1.05s` — the guard **executed**, it is not a "no tests ran" green |
+| all check-runs on the head | **15 / 15 pass** |
+| `mergeStateStatus` | **CLEAN**, `mergeable: MERGEABLE`, `isDraft: true` |
+| `native-arkadia-golden-workflow` | **pass** on this head — the same job that failed on `#733`, `#730`, `#725`, `#724`, `#721`, `#717`, `#712`, `#709`, `#700`, `#693`, `#681`. Direct confirmation of §4: the failure is external-provider availability, not the diff |
+
+The last row is the negative control for §4: a job cannot be evidence about a branch when the
+identical job flips between branches without those branches touching its inputs.
+
+**No merge, deployment or acceptance is claimed.** The pull request is a draft for human review
+under GOV-03/GOV-04.
