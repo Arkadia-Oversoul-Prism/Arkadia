@@ -95,8 +95,8 @@ semantic conflict.
 
 ## 5.1 CI
 
-All **10/10** check-runs `completed/success` on the code head `eeab2415` and again on the
-docs-only follow-up `f03fc036` (final head at time of writing): `Full-history secret scan`,
+All **10/10** check-runs `completed/success` on the code head `eeab2415`, and the same set
+passed again on the docs-only follow-ups (`f03fc036` measured): `Full-history secret scan`,
 `boot-syntax`, `console-contract` (3m15s), `test` (economic-seam engine), `posture-currency`,
 `provider-forensics`, `beta-beta-01-english`, `beta-beta-02-hausa`, `bundle-beta-evidence`,
 `native-arkadia-golden-workflow`. `mergeStateStatus` = `CLEAN`, PR remains a **draft**.
