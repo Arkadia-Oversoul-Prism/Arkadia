@@ -39,6 +39,6 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m pip install --upgrade pip
-      - run: python -m pip install pytest
+      - run: python -m pip install pytest pyyaml
       - name: Compose the queue and judge every composition by a real merge
         run: python -m pytest tests/test_pr_wave_dry_run.py -q
