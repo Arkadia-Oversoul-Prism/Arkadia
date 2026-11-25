@@ -190,3 +190,32 @@ controls); combined run of that suite, `test_agents_md_encoding_adjudication.py`
   should remain tracked at all.
 - `ELIGIBLE_TO_MERGE` assessment only. Under GOV-03/GOV-04 no agent may merge; the merge
   decision is human. Merge is not deployment verification and is not acceptance.
+
+## CI boundary at the synchronized head — one non-attributable failure
+
+At head `acbef34c`, 15 of 16 check-runs completed `success`, including every gate that
+judges this change: `lab-security-contract`, `test`, `validate`, `console-contract`,
+`Full-history secret scan`, `boot-syntax`, `posture-currency`, `verdict-step-integrity`,
+`provider-routing`.
+
+`bundle-beta-evidence` failed, and it is **not attributable to this branch**:
+
+- Its failing assertion is `statuses: {'beta-02-hausa.json': 'FAILED'}`.
+- `beta-beta-02-hausa` failed first with `RUN_FAILED: "external runtime did not return
+  usable inference"` and `errors: []` — the live external N-ATLAS provider returned
+  nothing usable. The recorded `git_sha` in that payload is `4de30c58`, a fixed bundle
+  revision, not the commit under test.
+- Re-running the failed jobs turned `beta-beta-02-hausa`, `native-arkadia-golden-workflow`
+  and `validate` to `success`, which proves the provider boundary rather than a code
+  defect: the same tree passes when the provider answers.
+- `bundle-beta-evidence` still read `FAILED` afterwards because it consumed the
+  **artifact from the first attempt**; re-running a producing job inside the same run id
+  does not refresh the artifact a dependent job downloads. A fresh run is the remedy, not
+  a code change.
+
+For contrast, `bundle-beta-evidence` is `success` on `main`-based heads `f2555736`,
+`2a9310ab`, `747c60e3`, `1ab40328` and `bc5ce222`, so the job itself is not broken.
+
+Classification: **BLOCKED on a live external provider**, not a regression. It is recorded
+here rather than "fixed" by weakening the assertion, which would remove the only check that
+the external betas actually produced a usable inference.
