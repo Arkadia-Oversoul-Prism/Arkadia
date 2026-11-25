@@ -82,6 +82,11 @@ async def sync_source(source: str, user: dict = Depends(require_auth)):
         result = await asyncio.to_thread(_sync)
         record_sync(user, source, result["live"])
         return {"source": source, "status": "synced", **result}
-    except Exception as exc:
+    except Exception:
+        # The cause is not public copy: a corpus adapter or ingest failure can
+        # carry provider URLs, file paths and credential material. It is logged
+        # so the operator keeps the diagnostic the caller must not receive.
         logger.exception("Source sync failed: %s", source)
-        raise HTTPException(status_code=502, detail=f"Sync failed: {exc}") from exc
+        raise HTTPException(
+            status_code=502, detail="Source sync failed; inspect server logs for the cause"
+        ) from None
