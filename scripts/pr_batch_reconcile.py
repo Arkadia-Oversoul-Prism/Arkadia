@@ -105,11 +105,22 @@ def _reviews(token: str, api: str, repo: str, number: int) -> dict:
 
 
 def _checks(token: str, api: str, repo: str, sha: str) -> dict:
+    """GitHub check-runs is an object envelope, not a bare list."""
     path = f"/repos/{repo}/commits/{sha}/check-runs"
-    rows = get_pages(token, api, path)
+    rows: list[dict] = []
+    page = 1
+    while True:
+        status, body = _get(token, _url(api, path, per_page=100, page=page))
+        if status != 200 or not isinstance(body, dict) or not isinstance(body.get("check_runs"), list):
+            raise EvidenceError(f"{path} page {page}: HTTP {status} or invalid check-runs envelope")
+        batch = body["check_runs"]
+        rows.extend(x for x in batch if isinstance(x, dict))
+        if len(batch) < 100:
+            break
+        page += 1
     statuses = [str((r.get("conclusion") or r.get("status") or "UNKNOWN")).upper()
                 for r in rows]
-    bad = [s for s in statuses if s not in ("SUCCESS",)]
+    bad = [s for s in statuses if s != "SUCCESS"]
     return {"count": len(rows), "conclusions": statuses,
             "all_success": bool(rows) and not bad,
             "unknown_or_non_success": bad}
@@ -152,7 +163,7 @@ def build_packet(token: str, repo: str, api: str = API) -> dict:
             detail = get_object(token, api, f"/repos/{repo}/pulls/{n}")
             row["mergeable"] = ("UNKNOWN" if detail.get("mergeable") is None else
                                "CLEAN" if detail.get("mergeable") else "CONFLICT")
-            row["mergeable_state"] = detail.get("mergeable_state", "UNKNOWN")
+            row["mergeable_state"] = str(detail.get("mergeable_state") or "UNKNOWN").lower()
         except EvidenceError as exc:
             row["evidence_errors"].append(f"detail: {exc}")
         try:
