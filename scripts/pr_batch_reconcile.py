@@ -190,8 +190,10 @@ def build_packet(token: str, repo: str, api: str = API) -> dict:
             row["classification"] = "EVIDENCE_INCOMPLETE"
         elif row["dependencies"]:
             row["classification"] = "DEPENDENCY_ORDER_REVIEW"
-        elif row["mergeable"] == "CONFLICT" or row.get("mergeable_state") not in ("clean", "UNKNOWN"):
+        elif row["mergeable"] == "CONFLICT" or row.get("mergeable_state") == "dirty":
             row["classification"] = "CONFLICT_REVIEW"
+        elif row["mergeable"] != "CLEAN" or row.get("mergeable_state") != "clean":
+            row["classification"] = "MERGEABILITY_UNKNOWN"
         elif not row["checks"]["all_success"]:
             row["classification"] = "CHECKS_NOT_GREEN_OR_UNKNOWN"
         elif row["reviews"]["changes_requested"]:
