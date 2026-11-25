@@ -8,6 +8,7 @@ These are source-level contracts, matching this repository's frontend-test
 convention. They are the pre-deployment half of AEAS-05: they must pass before a
 production cutover may be claimed.
 """
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -145,3 +146,138 @@ def test_gate2_archived_prism_build_input_is_still_observable():
     """The Prism lineage must stay observable after the archive move; its build
     input is read under the archive location, not the removed path."""
     assert "archive/frontend/arkadia-prism/web/public_prism/" in GATE2
+
+
+# ---------------------------------------------------------------------------
+# The canonical browser smoke observes routes it can actually resolve
+# ---------------------------------------------------------------------------
+
+SMOKE = (ROOT / ".github" / "workflows" / "canonical-render-browser-smoke.yml").read_text(
+    encoding="utf-8"
+)
+ROUTER = (CONSOLE / "src" / "lib" / "router.ts").read_text(encoding="utf-8")
+
+
+def declared_surface_paths() -> set[str]:
+    """Every path ``surfaces.ts`` declares, which is the only source of surfaces."""
+    return set(re.findall(r'path:\s*"([^"]+)"', SURFACES))
+
+
+def surface_paths_by_id() -> dict[str, str]:
+    """`SurfaceId -> declared path`, read from the same table."""
+    ids = [(m.start(), m.group(1)) for m in re.finditer(r'id:\s*"([^"]+)"', SURFACES)]
+    paths: dict[str, str] = {}
+    for index, (offset, surface_id) in enumerate(ids):
+        end = ids[index + 1][0] if index + 1 < len(ids) else len(SURFACES)
+        found = re.search(r'path:\s*"([^"]+)"', SURFACES[offset:end])
+        if found:
+            paths[surface_id] = found.group(1)
+    return paths
+
+
+def path_aliases() -> dict[str, str]:
+    """`legacy path -> SurfaceId`, read from the router's own alias table."""
+    body = ROUTER.split("export const PATH_ALIASES", 1)[1].split("};", 1)[0]
+    return dict(re.findall(r'"([^"]+)":\s*"([^"]+)"', body))
+
+
+def smoke_route_entries() -> list[dict[str, str]]:
+    """The route table the smoke drives, as ``{path, resolvesTo}`` pairs."""
+    body = SMOKE.split("const routes = [", 1)[1].split("];", 1)[0]
+    entries = []
+    for block in re.findall(r"\{(.*?)\}", body, re.S):
+        path = re.search(r"path:\s*'([^']+)'", block)
+        resolves = re.search(r"resolvesTo:\s*'([^']+)'", block)
+        if path and resolves:
+            entries.append({"path": path.group(1), "resolvesTo": resolves.group(1)})
+    return entries
+
+
+def is_declared_or_lens(path: str, declared: set[str]) -> bool:
+    """True when ``path`` is a declared surface path or a declared lens of one."""
+    return path in declared or any(
+        path.startswith(d + "/") for d in declared if d != "/"
+    )
+
+
+def route_binding_findings(entries: list[dict[str, str]]) -> list[str]:
+    """Findings for a smoke route table that cannot measure what it claims.
+
+    A path the console does not declare falls through ``resolvePath`` to ``home``
+    and still answers 200 with a full page, so a drifted route is invisible to a
+    status/body check. Two shapes are therefore rejected: a path that resolves to
+    nothing the console declares, and a legacy alias whose declared target
+    disagrees with the one the router actually applies.
+    """
+    declared = declared_surface_paths()
+    by_id = surface_paths_by_id()
+    aliases = path_aliases()
+    findings: list[str] = []
+    for entry in entries:
+        path, resolves = entry["path"], entry["resolvesTo"]
+        if path == resolves:
+            if not is_declared_or_lens(path, declared):
+                findings.append(f"{path}: not a declared surface path or lens of one")
+            continue
+        if not is_declared_or_lens(resolves, declared):
+            findings.append(
+                f"{path}: resolves to {resolves}, which is not a declared surface "
+                f"path or lens of one"
+            )
+            continue
+        target = aliases.get(path)
+        if target is None:
+            findings.append(f"{path}: resolves elsewhere but is not a PATH_ALIASES key")
+            continue
+        expected = by_id.get(target)
+        if expected != resolves:
+            findings.append(
+                f"{path}: alias target is {expected!r}, but the smoke expects {resolves!r}"
+            )
+    return findings
+
+
+def test_smoke_routes_are_bound_to_declared_surfaces():
+    entries = smoke_route_entries()
+    assert len(entries) >= 7, f"the smoke drives only {len(entries)} routes"
+    assert route_binding_findings(entries) == []
+
+
+def test_smoke_route_detector_flags_the_pre_repair_shapes():
+    """Negative control: the detector must redden on the defects it exists to catch.
+
+    A route the console does not declare, and a legacy alias pointed at the wrong
+    surface, are the two ways a row can look wired while measuring the fallback.
+    """
+    assert route_binding_findings(
+        [
+            {"path": "/", "resolvesTo": "/"},
+            {"path": "/definitely-not-a-surface", "resolvesTo": "/definitely-not-a-surface"},
+            {"path": "/oracle", "resolvesTo": "/n-atlas-lab"},
+        ]
+    ) == [
+        "/definitely-not-a-surface: not a declared surface path or lens of one",
+        "/oracle: alias target is '/arkana', but the smoke expects '/n-atlas-lab'",
+    ]
+
+
+def test_smoke_scores_the_fallback_and_names_the_deployed_revision():
+    """A 200 with a full body is not evidence a route resolved, and the artifact
+    must name the revision the deployment reported rather than the repository's."""
+    assert "fell_back: finalPath !== route.resolvesTo" in SMOKE
+    assert "!record.fell_back" in SMOKE, "the fallback is recorded but not scored"
+    assert "deployed_revision: process.env.DEPLOYED_REVISION" in SMOKE
+    assert "source_revision: process.env.GITHUB_SHA" not in SMOKE, (
+        "the artifact must not label the observation with the repository SHA"
+    )
+    assert "steps.ready.outputs.observed_revision" in SMOKE
+
+
+def test_smoke_readiness_requires_a_readable_deployment_revision():
+    """The Render hibernation wake page is a 200 HTML body with no revision. A
+    readiness check that accepts a bare 200 can smoke a loader and report PASS."""
+    readiness = SMOKE.split("Wait for canonical Render readiness", 1)[1].split(
+        "Install Playwright", 1
+    )[0]
+    assert "grep -Eq '^[0-9a-f]{40}$'" in readiness
+

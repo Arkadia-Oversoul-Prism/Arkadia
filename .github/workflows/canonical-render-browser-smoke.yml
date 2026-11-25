@@ -29,6 +29,7 @@ jobs:
         with:
           node-version: 22
       - name: Wait for canonical Render readiness and deployed revision
+        id: ready
         run: |
           set -eu
           require_revision=0
@@ -40,18 +41,29 @@ jobs:
           for attempt in $(seq 1 60); do
             status=$(curl --silent --show-error --max-time 2 --output /tmp/arkadia-version.json --write-out "%{http_code}" "$ARKADIA_PRODUCTION_ORIGIN/api/version" 2>/dev/null || true)
             observed_revision=$(jq -r '.source_revision // empty' /tmp/arkadia-version.json 2>/dev/null || true)
-            if [ "$status" = "200" ] && { [ "$require_revision" -eq 0 ] || [ "$observed_revision" = "$GITHUB_SHA" ]; }; then
+            # A 200 alone is not readiness. The Render hibernation wake page is also a
+            # 200 HTML body, and it carries no revision -- so a run that accepted a bare
+            # 200 could render a loader on every route, find no console errors, and
+            # report PASS without ever observing the application. Requiring a readable
+            # 40-hex revision makes the observation attributable to a deployment.
+            if [ "$status" = "200" ] \
+               && printf '%s' "$observed_revision" | grep -Eq '^[0-9a-f]{40}$' \
+               && { [ "$require_revision" -eq 0 ] || [ "$observed_revision" = "$GITHUB_SHA" ]; }; then
               echo "Canonical Render is ready (HTTP 200, source revision $observed_revision; attempt $attempt)."
               ready=1
               break
             fi
-            echo "Waiting for canonical Render (attempt $attempt/60; /api/version HTTP $status; observed revision $observed_revision)."
+            echo "Waiting for canonical Render (attempt $attempt/60; /api/version HTTP $status; observed revision '${observed_revision}')."
             sleep 3
           done
           if [ "$ready" -ne 1 ]; then
-            echo "Canonical Render did not become ready on the expected revision within 300 seconds; refusing to interpret deployment-time responses as route results."
+            echo "Canonical Render did not serve a readable deployment revision within 300 seconds; refusing to interpret deployment-time responses as route results."
             exit 1
           fi
+          {
+            echo "observed_revision=$observed_revision"
+            echo "require_revision=$require_revision"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Install Playwright Chromium
         run: |
@@ -59,24 +71,47 @@ jobs:
           npm install playwright
           npx playwright install --with-deps chromium
       - name: Exercise canonical production routes
+        env:
+          REPOSITORY_SHA: ${{ github.sha }}
+          DEPLOYED_REVISION: ${{ steps.ready.outputs.observed_revision }}
+          REQUIRE_REVISION: ${{ steps.ready.outputs.require_revision }}
         run: |
           mkdir -p artifacts/canonical-render-browser-smoke
           node <<'NODE'
           const fs = require('node:fs');
           const { chromium } = require('playwright');
           const base = process.env.ARKADIA_PRODUCTION_ORIGIN.replace(/\/$/, '');
+          // Canonical paths, bound to `web/arkadia_console/src/lib/surfaces.ts` by
+          // `tests/test_aeas05_canonical_frontend_acceptance.py`. An entry with
+          // `resolvesTo` names a legacy alias whose address bar normalises, so the
+          // expected final path is the canonical one rather than the requested one.
           const routes = [
-            { path: '/', surface: 'public entry' },
-            { path: '/solariun', surface: 'Solariun personal canvas' },
-            { path: '/oracle', surface: 'Arkana Oracle' },
-            { path: '/solariun/engineering-lab', surface: 'Solariun Canvas / Engineering Lab' },
-            { path: '/operator', surface: 'Operator Console' },
-            { path: '/n-atlas-lab', surface: 'N-ATLaS Lab' },
-            { path: '/n-atlas-tester', surface: 'N-ATLaS Tester' },
+            { path: '/', resolvesTo: '/', surface: 'public entry' },
+            { path: '/arkana', resolvesTo: '/arkana', surface: 'Arkana Oracle' },
+            { path: '/oracle', resolvesTo: '/arkana', surface: 'legacy /oracle alias -> Arkana' },
+            { path: '/solariun', resolvesTo: '/solariun', surface: 'Solariun personal canvas' },
+            { path: '/solariun/engineering-lab', resolvesTo: '/solariun/engineering-lab', surface: 'Solariun Canvas / Engineering Lab lens' },
+            { path: '/operator', resolvesTo: '/operator', surface: 'Operator Console' },
+            { path: '/n-atlas-lab', resolvesTo: '/n-atlas-lab', surface: 'N-ATLaS Lab' },
+            { path: '/n-atlas-tester', resolvesTo: '/n-atlas-lab', surface: 'legacy /n-atlas-tester alias -> N-ATLaS Lab' },
+            { path: '/enterprise', resolvesTo: '/enterprise', surface: 'SolSpire' },
           ];
+          // This smoke is unauthenticated by design: the console's anonymous session
+          // probe is refused with 401 on every route, including the public ones. That
+          // refusal is the accepted condition, not a fault -- but it is counted and
+          // recorded rather than silenced, and *any other* console error still fails.
+          const ANONYMOUS_401 = /Failed to load resource: the server responded with a status of 401\b/;
           (async () => {
             const browser = await chromium.launch({ headless: true });
-            const report = { captured_at: new Date().toISOString(), origin: base, source_revision: process.env.GITHUB_SHA, routes: [], result: 'PASS' };
+            const report = {
+              captured_at: new Date().toISOString(),
+              origin: base,
+              repository_sha: process.env.REPOSITORY_SHA,
+              deployed_revision: process.env.DEPLOYED_REVISION,
+              require_revision: process.env.REQUIRE_REVISION,
+              routes: [],
+              result: 'PASS',
+            };
             try {
               for (const route of routes) {
                 const page = await browser.newPage();
@@ -92,23 +127,53 @@ jobs:
                   await page.waitForTimeout(1000);
                 } catch (error) { navigationError = error.message; }
                 const bodyText = await page.locator('body').innerText().catch(() => '');
+                const finalPath = new URL(page.url()).pathname;
+                const anonymous401 = errors.filter(e => ANONYMOUS_401.test(e));
+                const unexpected = errors.filter(e => !ANONYMOUS_401.test(e));
                 const record = {
-                  path: route.path, surface: route.surface, status: response?.status() ?? null,
-                  final_url: page.url(), title: await page.title().catch(() => ''),
-                  body_characters: bodyText.trim().length, body_preview: bodyText.trim().slice(0, 240),
-                  console_errors: errors, page_errors: pageErrors, navigation_error: navigationError,
+                  path: route.path,
+                  expected_path: route.resolvesTo,
+                  surface: route.surface,
+                  status: response?.status() ?? null,
+                  final_url: page.url(),
+                  final_path: finalPath,
+                  // A route the router does not know falls back to Home and still
+                  // answers 200 with a full page. Without this check the smoke cannot
+                  // tell a resolved surface from the fallback it replaced.
+                  fell_back: finalPath !== route.resolvesTo,
+                  title: await page.title().catch(() => ''),
+                  body_characters: bodyText.trim().length,
+                  body_preview: bodyText.trim().slice(0, 240),
+                  console_errors: errors,
+                  anonymous_401_count: anonymous401.length,
+                  unexpected_console_errors: unexpected,
+                  page_errors: pageErrors,
+                  navigation_error: navigationError,
                   screenshot: 'artifacts/canonical-render-browser-smoke/' + route.path.replace(/[^a-z0-9]+/gi, '_').replace(/^_|_$/g, '') + '.png'
                 };
+                record.ok = Boolean(record.status) && record.status < 400
+                  && record.body_characters > 0
+                  && !record.fell_back
+                  && unexpected.length === 0
+                  && pageErrors.length === 0
+                  && !navigationError;
                 await page.screenshot({ path: record.screenshot, fullPage: true }).catch(() => {});
-                if (!record.status || record.status >= 400 || record.body_characters === 0 || errors.length || pageErrors.length || navigationError) report.result = 'FAIL';
+                if (!record.ok) report.result = 'FAIL';
                 report.routes.push(record);
                 await page.close();
               }
             } finally {
               await browser.close();
             }
+            // Defence in depth: the readiness step already refuses a mismatched
+            // revision on a main push, but the artifact must never label an
+            // observation with a revision the deployment did not report.
+            if (report.require_revision === '1' && report.deployed_revision !== report.repository_sha) {
+              report.result = 'FAIL';
+              report.revision_mismatch = true;
+            }
             fs.writeFileSync('artifacts/canonical-render-browser-smoke/browser-route-report.json', JSON.stringify(report, null, 2));
-            console.log(JSON.stringify({ result: report.result, source_revision: report.source_revision, routes: report.routes.map(({path,surface,status,body_characters,console_errors,page_errors,navigation_error})=>({path,surface,status,body_characters,console_errors,page_errors,navigation_error})) }, null, 2));
+            console.log(JSON.stringify({ result: report.result, repository_sha: report.repository_sha, deployed_revision: report.deployed_revision, routes: report.routes.map(({path,expected_path,status,final_path,fell_back,body_characters,anonymous_401_count,unexpected_console_errors,page_errors,navigation_error,ok})=>({path,expected_path,status,final_path,fell_back,body_characters,anonymous_401_count,unexpected_console_errors,page_errors,navigation_error,ok})) }, null, 2));
             if (report.result !== 'PASS') process.exit(1);
           })().catch(error => { console.error(error); process.exit(1); });
           NODE
