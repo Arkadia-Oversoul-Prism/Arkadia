@@ -1,0 +1,44 @@
+name: pr-wave-dry-run
+
+# Milestone 2 of #732: the open-PR queue is composed onto a base revision and each
+# composition is decided by a real `git merge`. `tests/test_pr_wave_dry_run.py`
+# asserts this file selects the script, the guard, and itself, that a step executes
+# the guard, and that no step can hide a failure. Narrowing the filter reddens it.
+#
+# The gate runs the guard only. The live queue dry-run stays an operator command: it
+# needs a token and a full history, and its output is evidence, not a pass/fail.
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/pr_wave_dry_run.py'
+      - 'tests/test_pr_wave_dry_run.py'
+      - '.github/workflows/pr-wave-dry-run.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/pr_wave_dry_run.py'
+      - 'tests/test_pr_wave_dry_run.py'
+      - '.github/workflows/pr-wave-dry-run.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PYTHONPATH: .
+
+jobs:
+  wave-dry-run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install pytest
+      - name: Compose the queue and judge every composition by a real merge
+        run: python -m pytest tests/test_pr_wave_dry_run.py -q
