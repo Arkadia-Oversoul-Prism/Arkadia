@@ -147,7 +147,12 @@ def _boundary(
             "algorithm": "HMAC-SHA256",
         }
 
-    if "SOVEREIGN_KEY" in source and "X-Sovereign-Key" in source:
+    # HTTP header names are case-insensitive, so this must match the repository's
+    # own lowercase spellings (`request.headers.get("x-sovereign-key")`) as well as
+    # the canonical mixed case. A case-sensitive match declared every such route
+    # anonymous while it refused anonymous callers at runtime.
+    lowered_source = source.lower()
+    if "sovereign_key" in lowered_source and "x-sovereign-key" in lowered_source:
         return [{SOVEREIGN_SCHEME: []}], {
             "classification": "sovereign_key_header",
             "runtime_guard": "X-Sovereign-Key",

@@ -4,15 +4,21 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
+
+from api.auth import require_auth
 
 router = APIRouter(prefix="/api/commune/threads", tags=["arkana-threads"])
 
 
-async def _user_id(request: Request) -> str:
-    from api.auth import get_current_user
-    user = await get_current_user(request)
-    uid = (user or {}).get("uid") if user else None
+def _user_id(user: dict | None) -> str:
+    """The verified subject of the request.
+
+    Every route declares ``require_auth``, so the identity is already verified
+    when this runs; a profile without a ``uid`` is refused rather than treated
+    as an anonymous caller.
+    """
+    uid = (user or {}).get("uid")
     if not uid:
         raise HTTPException(status_code=401, detail="Authentication required")
     return uid
@@ -72,16 +78,22 @@ def _turn_messages(content: str) -> list[tuple[str, str]]:
 
 
 @router.get("")
-async def list_arkana_threads(request: Request, project_id: int | None = None) -> dict[str, Any]:
+async def list_arkana_threads(
+    request: Request,
+    project_id: int | None = None,
+    user: dict = Depends(require_auth),
+) -> dict[str, Any]:
     from knowledge.vault import list_threads
-    uid = await _user_id(request)
+    uid = _user_id(user)
     return {"threads": [_public_thread(x) for x in list_threads(uid, project_id=project_id)]}
 
 
 @router.post("")
-async def create_arkana_thread(request: Request) -> dict[str, Any]:
+async def create_arkana_thread(
+    request: Request, user: dict = Depends(require_auth)
+) -> dict[str, Any]:
     from knowledge.vault import create_thread
-    uid = await _user_id(request)
+    uid = _user_id(user)
     body = await request.json()
     title = str(body.get("title") or "New conversation").strip()[:200]
     project_id = body.get("project_id")
@@ -98,11 +110,13 @@ async def create_arkana_thread(request: Request) -> dict[str, Any]:
 
 
 @router.patch("/{thread_uuid}")
-async def rename_arkana_thread(thread_uuid: str, request: Request) -> dict[str, Any]:
+async def rename_arkana_thread(
+    thread_uuid: str, request: Request, user: dict = Depends(require_auth)
+) -> dict[str, Any]:
     """Rename a canonical Arkana thread. Titles are system-owned, not user-authored."""
     from knowledge.vault import get_thread
     from knowledge.db import execute
-    uid = await _user_id(request)
+    uid = _user_id(user)
     thread = get_thread(thread_uuid, user_id=uid)
     if not thread:
         raise HTTPException(status_code=404, detail="Thread not found")
@@ -116,9 +130,11 @@ async def rename_arkana_thread(thread_uuid: str, request: Request) -> dict[str, 
 
 
 @router.get("/{thread_uuid}")
-async def get_arkana_thread(thread_uuid: str, request: Request) -> dict[str, Any]:
+async def get_arkana_thread(
+    thread_uuid: str, request: Request, user: dict = Depends(require_auth)
+) -> dict[str, Any]:
     from knowledge.vault import get_thread
-    uid = await _user_id(request)
+    uid = _user_id(user)
     row = get_thread(thread_uuid, user_id=uid)
     if not row:
         raise HTTPException(status_code=404, detail="Thread not found")
@@ -126,10 +142,12 @@ async def get_arkana_thread(thread_uuid: str, request: Request) -> dict[str, Any
 
 
 @router.get("/{thread_uuid}/messages")
-async def list_arkana_thread_messages(thread_uuid: str, request: Request) -> dict[str, Any]:
+async def list_arkana_thread_messages(
+    thread_uuid: str, request: Request, user: dict = Depends(require_auth)
+) -> dict[str, Any]:
     from knowledge.vault import get_thread
     from knowledge.db import execute
-    uid = await _user_id(request)
+    uid = _user_id(user)
     thread = get_thread(thread_uuid, user_id=uid)
     if not thread:
         raise HTTPException(status_code=404, detail="Thread not found")
