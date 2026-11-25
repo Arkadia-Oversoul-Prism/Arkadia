@@ -118,3 +118,75 @@ commits of history and a consumer in `tests/test_weaver_context.py`).
 `ELIGIBLE_TO_MERGE` assessment only. Under GOV-03 no agent may merge, enable auto-merge, or
 deploy; the PR is opened as a draft and the merge decision is human. A merge is not deployment
 verification and is not acceptance.
+
+---
+
+# Branch synchronization — 2026-11-25
+
+## Why
+
+The branch was `CONFLICTING` / `DIRTY` against `main` and could not be reviewed as a
+candidate. The security fix was correct and the conflict was not about it.
+
+## What was done
+
+Merge commit `8cb4725f`, parents `d67aec5a` (previous head) and `fd0a4fdc` (`main`).
+No source behaviour changed in this commit; it removes the conflict only.
+
+The single conflicted path was `AGENTS.md`, and the conflict was a pure end-of-file
+insertion collision — `main` appended the GOV-04 section while this branch appended the
+tracked-artifact secret-hygiene lesson. Both are kept: `main`'s text byte-identical, this
+branch's section appended after it.
+
+| Check | Result |
+|---|---|
+| resolved file starts with `origin/main:AGENTS.md` byte-identically | `True` |
+| Cyrillic codepoints | `0` |
+| `scripts/agents_md_encoding_audit.py` | `inserted=1741 alterations=0 reproduced=True` |
+| diff vs `d67aec5a` | 10 files, **411 insertions, 0 deletions** |
+
+`decidable: False` on the audit is the pre-existing `cruft_delta_vs_oracle`, present on
+`main` itself; it is not introduced or changed here.
+
+## End-to-end demonstration of the defect
+
+A scratch repository whose `origin` carries URL userinfo, read through the real module:
+
+```
+main   (fd0a4fdc)  remote -> https://x-access-token:<REDACTED>@github.com/o/r.git
+branch (8cb4725f)  remote -> https://github.com/o/r.git
+                   remote_redacted -> True
+```
+
+`main` hands the credential to a writer whose output is a **tracked** file. The branch
+redacts it and reports the redaction as a reading, so a credential-free remote truthfully
+reports `False`.
+
+## Regression attribution (node identity, not counts)
+
+| | `main` `fd0a4fdc` | branch `8cb4725f` |
+|---|---|---|
+| full suite | 20 failed / 4253 passed / 22 skipped / 1 error | 20 failed / 4257 passed / 22 skipped / 1 error |
+| failing + error node set | **21** nodes | **21** nodes |
+| set sha256 | `d0249a6799c5556ab07b7da40fcf73bf9d5a44118ee456e9d53c0a188aac87c5` | identical |
+
+`only-on-main` and `only-on-branch` are both empty. The `+4 passed` is exactly the four
+redaction nodes (`tests/test_repository_remote_redaction.py` 14 → 18). Both trees measured
+in the same environment.
+
+## Targeted verification on the merged tree
+
+`tests/test_repository_remote_redaction.py` **18 passed** (including both negative
+controls); combined run of that suite, `test_agents_md_encoding_adjudication.py`,
+`tests/architecture` and `test_m02a_ci_gate_integrity.py` → **126 passed, 2 skipped**.
+
+## Unchanged non-claims
+
+- Production was observed at `source_revision = fd0a4fdc`; that is source↔runtime
+  consistency for the current revision, not acceptance of this branch, and this branch is
+  not deployed.
+- The two previously recorded open questions stand unchanged: the untracked-but-unignored
+  `data/engineering_lab/agent_events.jsonl`, and whether `data/weaver/context/current.json`
+  should remain tracked at all.
+- `ELIGIBLE_TO_MERGE` assessment only. Under GOV-03/GOV-04 no agent may merge; the merge
+  decision is human. Merge is not deployment verification and is not acceptance.
