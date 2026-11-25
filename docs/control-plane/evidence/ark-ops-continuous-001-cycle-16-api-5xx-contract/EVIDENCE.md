@@ -111,10 +111,11 @@ Each of the eight sites now calls it, e.g.
 ```
 
 The helper is a separate module rather than an in-file function because `api/main.py` is at
-**2597** lines against a **2600** budget (`tests/architecture/test_layer_boundaries.py:415`);
-the import (+1) and the eight sites (−1) leave the file **exactly the size it was** (2597 →
-2597), so the change costs no budget. The ingest site names the file the caller asked for, so it
-interpolates: `_internal_failure_detail(f"Ingest of {file_name!r}")`.
+**2598** lines against a **2600** budget (`tests/architecture/test_layer_boundaries.py:415`).
+The import sits in the stdlib block, seven lines from the anchor `#701` inserts at, because a
+worktree merge measured a one-line composition conflict when it sat beside `import os as _os`
+(§6). The ingest site names the file the caller asked for, so it interpolates:
+`_internal_failure_detail(f"Ingest of {file_name!r}")`.
 
 **Deliberately preserved:** `POST /api/forge` still returns the per-image failure text in its
 `200` body. That route is behind `X-Sovereign-Key` — the caller *is* the sovereign operator, so
@@ -187,6 +188,21 @@ The `github_tree` **route body** is not in `#701`'s diff (its `api/main.py` hunk
 client call sites, `sources()`, and the header helpers), so repairing the response contract here
 does not duplicate it: `#701` removes the common cause, this change bounds what any remaining
 cause can disclose.
+
+**Composition measured, not assumed.** Three open PRs edit `api/main.py` (`#701`, `#711`,
+`#717`). In a detached worktree at this branch's head, `git merge --no-edit` of each in turn
+produced **zero** unmerged files at every step, and the composed tree ran:
+
+```
+tests/test_api_5xx_error_contract.py + tests/architecture +
+  tests/test_corpus_cache_coordination.py + tests/test_github_corpus_credential_fallback.py
+-> 29 passed          api/main.py 2589 lines
+```
+
+The first attempt did conflict: with the helper import beside `import os as _os`, `#701`'s own
+insertion lands in the same three-line window (`CONFLICT (content): Merge conflict in
+api/main.py`, 1 unmerged path). Moving the import into the stdlib block removed it — so this is
+a measured repair of a real composition defect, not a claim that git is conflict-free.
 
 ## 7. Limitations
 
