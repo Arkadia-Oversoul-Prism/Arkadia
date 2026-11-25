@@ -1916,6 +1916,10 @@ Lane ownership, the one-open-PR-per-lane constraint, branch protection, and the 
   evidence. Re-run the control against the live function and paste **its** output; the merge commit
   in the message (`0c615bda`) is also the check that the right record was fed.
 
+## GOV-04 — bounded merge delegation (authorized; activation pending)
+
+GOV-03 human-only execution remains the active rule until this GOV-04 amendment is independently reviewed and human-merged. After activation, the designated reconciliation operator may merge only exact-head PRs through GitHub's normal protected merge API after every documented eligibility, review, check, dependency, composition, and reserved-decision gate passes. See `docs/control-plane/evidence/gov-04-bounded-merge-delegation/AUTHORIZATION.md`. Fail closed on stale, missing, or contradictory evidence. No auto-merge, direct/force push, protection/check bypass, deployment, or acceptance. This governance PR itself must be human-reviewed and human-merged; runtime worker merge remains disabled pending separate verified implementation.
+
 ## A tracked artifact turns a read-model leak into a published one (secret-hygiene)
 - `weaver/recon.py::git_identity()` returned `git remote get-url origin` verbatim, and
   `write_context_packet()` persists that value into `data/weaver/context/current.json`,

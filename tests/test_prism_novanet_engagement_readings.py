@@ -214,12 +214,62 @@ def _unmounted_defect(source: str) -> bool:
     return "SurfaceLenses" in source and "EngagementBar" not in source
 
 
+# The two refusals the bar can show are different facts: a transmission that no
+# longer exists (the router answers 404) and a write the server declined for some
+# other reason. The bar distinguishes them by returning a *literal* on
+# `NOT_FOUND`; collapsing the gone-post case into the caller's generic `fallback`
+# tells a reader their reaction was rejected when the post itself is gone.
+_NOT_FOUND_BRANCH = re.compile(r'\.kind\s*===\s*["\']NOT_FOUND["\']')
+_NOT_FOUND_LITERAL = re.compile(
+    r'\.kind\s*===\s*["\']NOT_FOUND["\']\s*\)\s*return\s*["\']'
+)
+_GENERIC_REFUSAL = re.compile(
+    r'return\s+caught\s+instanceof\s+Error\s*\?\s*caught\.message\s*:\s*fallback'
+)
+
+
+def _refusal_collapse_defect(source: str) -> bool:
+    """True when a vanished transmission is reported as a generic fault.
+
+    Module level so the live assertion and the negative control call the *same*
+    predicate: an edit that makes this function answer `False` unconditionally
+    reddens the control. Both polarities are judged — the `NOT_FOUND` branch must
+    return its own literal, and the generic branch must still exist, so the
+    detector is not satisfied by deleting the fallback it is meant to contrast
+    against.
+    """
+    if "export function EngagementBar" not in source:
+        return False
+    return not (_NOT_FOUND_LITERAL.search(source) and _GENERIC_REFUSAL.search(source))
+
+
+def test_gone_transmission_is_named_not_generically_faulted():
+    """A 404 on a write is reported as the post being gone, not as a refusal.
+
+    `api/transmissions.py` raises 404 for a post id it cannot find on both write
+    handlers, so the case is reachable and not hypothetical.
+    """
+    src = _read(ENGAGEMENT)
+    backend = _read(BACKEND)
+    assert 'detail="post not found"' in backend, (
+        "the router no longer answers 404 for a missing post; re-derive this guard"
+    )
+    assert _NOT_FOUND_BRANCH.search(src), (
+        "the bar must branch on NOT_FOUND before reporting a refusal"
+    )
+    assert _NOT_FOUND_LITERAL.search(src), (
+        "a gone transmission must be named with its own message, not the generic fallback"
+    )
+    assert not _refusal_collapse_defect(src), "the shipped surface collapses the two refusals"
+
+
 def test_detectors_are_silent_on_the_live_tree():
     assert not _third_path_defect(_read(ENGAGEMENT))
     assert not _inline_path_defect(_read(ENGAGEMENT))
     assert not _invented_count_defect(_read(ENGAGEMENT))
     assert not _vocabulary_defect(_read(ENGAGEMENT))
     assert not _unmounted_defect(_read(PAGE))
+    assert not _refusal_collapse_defect(_read(ENGAGEMENT))
 
 
 def test_detector_flags_a_third_write_path():
@@ -285,6 +335,41 @@ def test_detector_flags_a_divergent_vocabulary():
         "export function EngagementBar() {\n  return null;\n}\n"
     )
     assert _vocabulary_defect(defect), "the vocabulary detector missed a divergent key set"
+
+
+def test_detector_flags_a_collapsed_refusal():
+    """Negative control: a gone post reported as a generic refusal.
+
+    Two shapes, because either one alone leaves a hole. The first has no
+    `NOT_FOUND` branch at all — the pre-repair form, where every failure of a
+    write on a deleted transmission read as "not accepted". The second keeps the
+    branch but returns the caller's `fallback` from it, which satisfies a detector
+    that only looks for the branch.
+    """
+    no_branch = (
+        "export function EngagementBar({ transmission }) {\n"
+        "  return refusalFor(caught, 'The reaction was not accepted.');\n"
+        "}\n"
+        "function refusalFor(caught: unknown, fallback: string): string {\n"
+        "  return caught instanceof Error ? caught.message : fallback;\n"
+        "}\n"
+    )
+    assert _refusal_collapse_defect(no_branch), "the detector missed a missing NOT_FOUND branch"
+
+    collapsed = (
+        "export function EngagementBar({ transmission }) {\n"
+        "  return null;\n"
+        "}\n"
+        "function refusalFor(caught: unknown, fallback: string): string {\n"
+        '  if (caught?.kind === "NOT_FOUND") return fallback;\n'
+        "  return caught instanceof Error ? caught.message : fallback;\n"
+        "}\n"
+    )
+    assert _refusal_collapse_defect(collapsed), (
+        "the detector accepted a NOT_FOUND branch that returns the generic fallback"
+    )
+    # ...and the shipped surface is clean under the same predicate the controls used.
+    assert _refusal_collapse_defect(_read(ENGAGEMENT)) is False
 
 
 def test_detector_flags_a_dropped_mount():
