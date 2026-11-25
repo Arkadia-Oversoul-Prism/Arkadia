@@ -93,13 +93,15 @@ No open PR among the **51** open heads touches any file this change edits
 (`git diff --name-only origin/main...refs/remotes/pr/<n>` checked per head). No textual or
 semantic conflict.
 
-## 5.1 CI at head `eeab2415`
+## 5.1 CI
 
-All **10/10** check-runs `completed/success`: `Full-history secret scan`, `boot-syntax`,
-`console-contract` (3m15s), `test` (economic-seam engine), `posture-currency`,
+All **10/10** check-runs `completed/success` on the code head `eeab2415` and again on the
+docs-only follow-up `f03fc036` (final head at time of writing): `Full-history secret scan`,
+`boot-syntax`, `console-contract` (3m15s), `test` (economic-seam engine), `posture-currency`,
 `provider-forensics`, `beta-beta-01-english`, `beta-beta-02-hausa`, `bundle-beta-evidence`,
-`native-arkadia-golden-workflow`. `lane-doc-currency` is path-filtered and did not run at this
-revision (absence is not a pass; the lane suites were not modified).
+`native-arkadia-golden-workflow`. `mergeStateStatus` = `CLEAN`, PR remains a **draft**.
+`lane-doc-currency` is path-filtered and did not run at either revision (absence is not a pass;
+the lane suites were not modified).
 
 ## 6. Limitations (not claimed)
 
