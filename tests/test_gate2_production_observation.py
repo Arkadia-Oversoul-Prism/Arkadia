@@ -35,8 +35,10 @@ from scripts.gate2_production_observation import (
     MARKER_APP,
     MARKER_APPS,
     MARKERS,
+    RUNTIME_REVISION_BOUNDARY,
     classify_deployment_identity,
     classify_marker_oracle,
+    classify_runtime_revision,
     classify_sg04,
     classify_source_lineage,
     frontend_of,
@@ -484,3 +486,186 @@ def test_ordering_detector_flags_the_defective_order():
         'report["deployed_app"] = frontend_of(prod[0]["environment"]) if prod else None\n'
     )
     assert _sg04_call_line(defective) < _assignment_line(defective, "deployed_app")
+
+
+# ---------------------------------------------------------------------------
+# Served-artifact app identity
+#
+# The deployment API was the only source of app identity, and it no longer
+# publishes the canonical runtime's record: the canonical origin is Render, whose
+# API is not GitHub deployments. Measured at main ``034d8879``: the alias served
+# HTTP 200 with ``assets/index-CYGHeCpJ.js``, yet the harness printed
+# ``artifact app: UNDETERMINED`` and ``marker-set oracle NOT OBSERVED`` -- the
+# artifact had been fetched, and nothing scored it. These tests pin the fallback
+# that decides identity from the served shell, and pin that it *fails closed*.
+# ---------------------------------------------------------------------------
+from scripts.gate2_production_observation import (  # noqa: E402  (appended section)
+    detect_served_app,
+    served_identity,
+)
+
+
+def test_served_identity_is_the_declared_title_of_each_app():
+    """Each app's identity is read from its own shell, not restated here."""
+    prism = served_identity("arkadia-prism")
+    console = served_identity("arkadia-console")
+    assert prism and console
+    assert prism != console
+
+
+def test_detection_identifies_the_console_shell():
+    """The active console's own shell resolves to the console."""
+    title = served_identity("arkadia-console")
+    assert detect_served_app(f"<html><head><title>{title}</title></head></html>") == "arkadia-console"
+
+
+def test_detection_identifies_the_prism_shell():
+    """The archived Prism shell stays distinguishable from the console."""
+    title = served_identity("arkadia-prism")
+    assert detect_served_app(f"<html><head><title>{title}</title></head></html>") == "arkadia-prism"
+
+
+def test_detection_is_undetermined_for_a_non_application_page():
+    """Negative control: Render's cold-start holding page is not an app shell.
+
+    Measured live on this pass: the alias returned HTTP 503 with
+    ``<title>Render - Application loading</title>`` while the instance booted. A
+    detector that guessed an app from any 200/503 body would score that page
+    against a real marker set and report the resulting zeros as a regression.
+    """
+    holding = (
+        "<!doctype html><html><head><title>Render - Application loading</title>"
+        "</head><body>Application loading</body></html>"
+    )
+    assert detect_served_app(holding) is None
+    assert detect_served_app("") is None
+
+
+def test_detection_refuses_an_ambiguous_shell():
+    """Two declared identities in one shell is undetermined, not a coin flip."""
+    both = (
+        f"<title>{served_identity('arkadia-prism')}</title>"
+        f"<title>{served_identity('arkadia-console')}</title>"
+    )
+    assert detect_served_app(both) is None
+
+
+def test_a_shared_marker_list_does_not_make_one_app_ambiguous():
+    """Negative control for the alias dedupe.
+
+    ``MARKER_APPS["console"]`` is the same object as ``MARKER_APPS["arkadia-console"]``
+    (two project labels, one application). Without the ``id()`` dedupe both keys
+    would match the console shell, ``len(matches) == 2``, and detection would
+    return ``None`` -- silently disabling the fallback it exists to provide.
+    """
+    aliases = [k for k, v in MARKER_APPS.items() if v is MARKER_APPS["arkadia-console"]]
+    assert len(aliases) > 1, "the alias this control exercises has been removed"
+    title = served_identity("arkadia-console")
+    assert detect_served_app(f"<title>{title}</title>") == "arkadia-console"
+
+
+def test_a_deployment_label_still_wins_over_the_served_shell():
+    """The fallback is a fallback: a naming deployment record is authoritative.
+
+    Asserted over the real assignment so the order cannot be inverted without
+    reddening this test. A detected shell must never override a record that names
+    a different app -- that would let the artifact redefine what it is measured
+    against.
+    """
+    src = _SCRIPT.read_text(encoding="utf-8")
+    assignments = [
+        line for line in src.splitlines() if line.strip().startswith("deployed_app =")
+    ]
+    assert len(assignments) == 1, assignments
+    line = assignments[0]
+    assert "frontend_of(" in line and "detect_served_app(html)" in line
+    assert line.index("frontend_of(") < line.index("detect_served_app(")
+
+
+# ── canonical runtime revision: the record is not the runtime ────────────────
+# Under ADR-016 the reconciled deployment is the Render runtime, which publishes
+# no provider deployment record -- so `classify_deployment_identity` can only ever
+# answer UNKNOWN for it. The runtime publishes its own exact revision at
+# `GET /api/version`. Measured on `main` @ bb19aabd: the record path reported
+# `main -> deployment identity: UNKNOWN` while the runtime reported
+# `source_revision == main` and `revision_conflict: false`.
+#
+# These pin the classifier's fail-closed precedence, which is the shared
+# `scripts/version_reconciliation.compare` semantics rather than a second copy.
+
+_MAIN = "bb19aabda34d59594615b0279a45e9cbd3d8204d"
+_OLDER = "7da3affb" + "0" * 32
+
+
+def _evidence(revision=None, *, conflict=False, blocked=False, invalid=None):
+    return {
+        "verdict_hint": "BLOCKED" if blocked else "OK",
+        "revision": revision,
+        "conflict": conflict,
+        "sources": {},
+        "invalid_sources": invalid or [],
+        "url": "https://example.test/api/version",
+    }
+
+
+def test_a_matching_runtime_revision_is_verified():
+    assert classify_runtime_revision(_MAIN, _evidence(_MAIN)) == "VERIFIED (source_revision == main)"
+
+
+def test_a_differing_runtime_revision_is_drift_naming_both_shas():
+    verdict = classify_runtime_revision(_MAIN, _evidence(_OLDER))
+    assert verdict.startswith("DRIFT")
+    assert _MAIN[:12] in verdict and _OLDER[:12] in verdict
+
+
+def test_the_classifier_reads_the_expected_revision_and_is_not_a_constant():
+    """Negative control: matching evidence against a *different* main must not pass.
+
+    A classifier that returned VERIFIED whenever a revision was present would
+    satisfy every positive case above. Feeding the same evidence with another
+    expected SHA is what discriminates it.
+    """
+    assert not classify_runtime_revision(_OLDER, _evidence(_MAIN)).startswith("VERIFIED")
+    assert not classify_runtime_revision(_MAIN, _evidence(None)).startswith("VERIFIED")
+
+
+def test_a_revision_conflict_is_never_a_pass():
+    verdict = classify_runtime_revision(_MAIN, _evidence(_MAIN, conflict=True))
+    assert verdict.startswith("UNKNOWN")
+    assert "VERIFIED" not in verdict
+
+
+def test_an_unreadable_version_endpoint_is_blocked_not_unknown():
+    """BLOCKED and UNKNOWN need different responses, so they must not share a verdict."""
+    assert classify_runtime_revision(_MAIN, _evidence(None, blocked=True)).startswith("BLOCKED")
+
+
+def test_an_invalid_reported_source_fails_closed():
+    verdict = classify_runtime_revision(_MAIN, _evidence(_MAIN, invalid=["ARKADIA_SOURCE_REVISION"]))
+    assert verdict.startswith("UNKNOWN")
+    assert "ARKADIA_SOURCE_REVISION" in verdict
+
+
+def test_absent_revision_is_unknown_never_a_match():
+    for value in (None, "", "unknown", "not-a-sha"):
+        assert classify_runtime_revision(_MAIN, _evidence(value)).startswith("UNKNOWN")
+
+
+def test_no_evidence_at_all_is_unknown():
+    assert classify_runtime_revision(_MAIN, None).startswith("UNKNOWN")
+
+
+def test_the_boundary_is_wired_to_its_classifier():
+    """The classifier must be executed by the harness, not merely defined.
+
+    Source-level, following this suite's convention: a defined-but-unwired
+    classifier is dead code that can never report anything.
+    """
+    src = _SCRIPT.read_text(encoding="utf-8")
+    assert (
+        'report["boundaries"][RUNTIME_REVISION_BOUNDARY] = classify_runtime_revision('
+        in src
+    )
+    # The revision semantics are reused from the shared module, not restated here.
+    assert "from scripts.version_reconciliation import" in src
+    assert "compare_revisions(main_sha, reported)" in src

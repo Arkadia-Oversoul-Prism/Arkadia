@@ -40,6 +40,23 @@ import sys
 import urllib.error
 import urllib.request
 
+# The script is executable directly (`python scripts/gate2_production_observation.py`),
+# so the repository root must be importable before `scripts.*` is resolved.
+if __package__ in (None, ""):
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Revision semantics are shared, not restated. `compare` already fails closed on
+# absent/placeholder/invalid values, so the runtime-revision boundary below cannot
+# disagree with `scripts/version_reconciliation.py` about what a match means.
+from scripts.version_reconciliation import (  # noqa: E402
+    BLOCKED as REVISION_BLOCKED,
+    MATCH as REVISION_MATCH,
+    MISMATCH as REVISION_MISMATCH,
+    compare as compare_revisions,
+    fetch_reported_evidence,
+    invalid_reported_sources,
+)
+
 REPO = "Arkadia-Oversoul-Prism/Arkadia"
 ALIAS = "https://arkadia-qzu4.onrender.com/"
 
@@ -82,6 +99,10 @@ MARKER_APPS: dict[str, dict] = {
     "arkadia-prism": {
         "source_root": "archive/frontend/arkadia-prism/web/public_prism/src",
         "dist_root": "archive/frontend/arkadia-prism/web/public_prism/dist/assets",
+        # Build-invariant HTML identity: the app's declared <title>, served
+        # verbatim by the SPA shell. Used only when no deployment label names the
+        # observed app (see ``detect_served_app``).
+        "html_root": "archive/frontend/arkadia-prism/web/public_prism/index.html",
         "markers": {
             "separate explicit downstream stages": ("CapabilityChamber.tsx (SG-03 boundary)", True, "SG-03 chamber rewrite"),
             "separate downstream stages": ("control: pre-SG-03 wording", False, "control -- must be absent"),
@@ -99,6 +120,7 @@ MARKER_APPS: dict[str, dict] = {
     "arkadia-console": {
         "source_root": "web/arkadia_console/src",
         "dist_root": "web/arkadia_console/dist/assets",
+        "html_root": "web/arkadia_console/index.html",
         "markers": {
             "Protected surface": ("App.tsx auth threshold heading", True, "auth threshold"),
             "Sign in to continue": ("App.tsx auth threshold copy", True, "auth threshold"),
@@ -149,6 +171,56 @@ def sh(args: list[str]) -> str:
 
 def repo_root() -> str:
     return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def served_identity(app: str) -> str | None:
+    """The app's build-invariant HTML identity -- its declared ``<title>``.
+
+    Read from the app's own ``index.html`` so the identity cannot drift from the
+    shell that is actually built. Returns ``None`` when the shell is absent or
+    declares no title, which leaves that app undetectable rather than guessed.
+    """
+    entry = MARKER_APPS.get(app) or {}
+    html_root = entry.get("html_root")
+    if not html_root:
+        return None
+    path = os.path.join(repo_root(), html_root)
+    try:
+        with open(path, encoding="utf-8") as handle:
+            text = handle.read()
+    except OSError:
+        return None
+    match = re.search(r"<title>(.*?)</title>", text, re.S)
+    return match.group(1).strip() if match else None
+
+
+def detect_served_app(html: str) -> str | None:
+    """Which application does the served HTML shell belong to?
+
+    The deployment API used to be the only source of app identity, and it no
+    longer is: the canonical runtime is Render, which publishes no deployment
+    record, so ``frontend_of`` returns ``None`` and the marker oracle could never
+    score the artifact it had actually fetched.
+
+    Identity is decided by the app's declared ``<title>``, which survives
+    minification and is served verbatim by the SPA shell. Exactly one app must
+    match: zero matches (an error page, a cold-start holding page) or several
+    (two apps sharing a title) is *undetermined*, never a guess. Aliases that
+    share one marker list are deduplicated so a single app cannot look
+    ambiguous.
+    """
+    if not html:
+        return None
+    matches: list[str] = []
+    seen: set[int] = set()
+    for app, entry in MARKER_APPS.items():
+        if id(entry) in seen:
+            continue
+        seen.add(id(entry))
+        title = served_identity(app)
+        if title and f"<title>{title}</title>" in html:
+            matches.append(app)
+    return matches[0] if len(matches) == 1 else None
 
 
 def resolve_main() -> str:
@@ -248,6 +320,65 @@ def classify_deployment_identity(main_sha: str, prod: list[dict]) -> str:
     if not prod:
         return "UNKNOWN"
     return "VERIFIED" if prod[0].get("sha") == main_sha else "STALE"
+
+
+# The canonical runtime publishes no provider deployment record (ADR-016: the
+# reconciled deployment is the Render service, not the retired Vercel project),
+# so the record-based boundary above can only ever answer UNKNOWN for it. The
+# runtime does publish its own exact source revision at ``GET /api/version``.
+# That is a *separate* link about a *separate* system, so it is classified as its
+# own boundary rather than folded into the record one -- two systems sharing one
+# verdict is how a stale record and a current runtime came to look identical.
+RUNTIME_REVISION_BOUNDARY = "main -> canonical runtime revision"
+RUNTIME_REVISION_TIMEOUT = 15.0
+
+
+def read_runtime_revision(base_url: str = ALIAS) -> dict:
+    """Read the canonical runtime's revision evidence from ``GET /api/version``.
+
+    Returns the shared reader's evidence plus the two facts this boundary needs:
+    the URL actually read, and the names of any revision source carrying an
+    unusable value. Read-only and credential-free.
+    """
+    evidence = dict(fetch_reported_evidence(base_url, RUNTIME_REVISION_TIMEOUT))
+    evidence["url"] = base_url.rstrip("/") + "/api/version"
+    evidence["invalid_sources"] = invalid_reported_sources(evidence.get("sources") or {})
+    return evidence
+
+
+def classify_runtime_revision(main_sha: str, evidence: dict | None) -> str:
+    """Classify ``main -> canonical runtime revision`` from ``GET /api/version``.
+
+    Precedence mirrors ``scripts/version_reconciliation.py`` exactly, because a
+    second copy of these rules would be free to drift from the one the repository
+    already tests:
+
+    * unreadable endpoint -> ``BLOCKED``;
+    * two valid sources that disagree -> ``UNKNOWN`` (fail closed, never a pass);
+    * an unusable value in a reported source -> ``UNKNOWN``;
+    * equal valid revisions -> ``VERIFIED``; differing valid revisions -> ``DRIFT``,
+      naming both SHAs.
+
+    A matching revision is necessary evidence of source<->runtime consistency. It
+    is not proof the application works, and it is not deployment acceptance.
+    """
+    if evidence is None:
+        return "UNKNOWN (runtime revision not read)"
+    if evidence.get("verdict_hint") == REVISION_BLOCKED:
+        return "BLOCKED (GET /api/version unreadable)"
+    if evidence.get("conflict"):
+        return "UNKNOWN (revision_conflict: the runtime reports contradictory sources)"
+    invalid = evidence.get("invalid_sources") or []
+    if invalid:
+        return f"UNKNOWN (invalid revision source: {', '.join(invalid)})"
+
+    reported = evidence.get("revision")
+    verdict = compare_revisions(main_sha, reported)
+    if verdict == REVISION_MATCH:
+        return "VERIFIED (source_revision == main)"
+    if verdict == REVISION_MISMATCH:
+        return f"DRIFT (main {main_sha[:12]} != reported {str(reported)[:12]})"
+    return "UNKNOWN (no usable source_revision reported)"
 
 
 def lineage_closed(closure: list[dict]) -> bool:
@@ -517,6 +648,24 @@ def main() -> int:
     report["newest_production_sha"] = prod[0]["sha"] if prod else None
     report["newest_production_created_at"] = prod[0]["created_at"] if prod else None
 
+    # ---- link 2b: canonical runtime revision (ADR-016) ----------------------
+    # The record-based link above describes the retired Vercel project, which the
+    # canonical Render runtime does not publish. Ask the runtime itself for the
+    # revision it is running. This is kept as its own boundary: a GitHub record and
+    # a running process are different systems, and only one of them is canonical.
+    runtime_revision = read_runtime_revision(ALIAS)
+    report["runtime_revision"] = {
+        "url": runtime_revision.get("url"),
+        "verdict_hint": runtime_revision.get("verdict_hint"),
+        "reported": runtime_revision.get("revision"),
+        "conflict": bool(runtime_revision.get("conflict")),
+        "invalid_sources": runtime_revision.get("invalid_sources") or [],
+        "sources": runtime_revision.get("sources") or {},
+    }
+    report["boundaries"][RUNTIME_REVISION_BOUNDARY] = classify_runtime_revision(
+        main_sha, runtime_revision
+    )
+
     # ---- link 3: deployment-specific observation ----------------------------
     # The deployment-specific host is published on the deployment *status*, not on
     # the deployment record itself, and its hostname is a provider hash -- it is
@@ -563,7 +712,12 @@ def main() -> int:
     # and the source-lineage closure are all scoped to the observed app, and a read
     # that precedes this write sees ``None`` for every deployment -- collapsing the
     # evaluable branches so a genuine regression can never be reported.
-    deployed_app = frontend_of(prod[0]["environment"]) if prod else None
+    # The observed app is named by the deployment label when a record exists. The
+    # canonical runtime (Render) publishes no deployment record, so fall back to
+    # the *served artifact's* build-invariant identity rather than leaving the app
+    # undetermined -- an undetermined app cannot be scored, which read as "no
+    # marker set observed" even though the artifact was fetched successfully.
+    deployed_app = (frontend_of(prod[0]["environment"]) if prod else None) or detect_served_app(html)
     report["deployed_app"] = deployed_app
 
     # ---- link 5: marker-set lineage -----------------------------------------
@@ -609,7 +763,8 @@ def main() -> int:
     app_for_closure = deployed_app or MARKER_APP
     if deployed_app is None and prod:
         report["deployed_app_error"] = (
-            f"environment '{prod[0]['environment']}' names no known frontend; "
+            f"environment '{prod[0]['environment']}' names no known frontend and "
+            "the served shell carries no declared identity; "
             "build<->source lineage cannot be scoped"
         )
     last_sha, last_date, last_subject = last_build_input_commit(app_for_closure)
@@ -667,6 +822,18 @@ def main() -> int:
               + ("" if prod[0].get("sha") == main_sha else "  (deploy predates main -> STALE)"))
     else:
         print(f"newest Production deploy: UNAVAILABLE {report.get('deployments_error', '')}")
+    print()
+    print("CANONICAL RUNTIME REVISION (ADR-016: Render is the reconciled deployment)")
+    rr = report["runtime_revision"]
+    print(f"  {rr['url']} -> {rr['verdict_hint'] or 'unreadable'}")
+    print(
+        f"  reported source_revision: "
+        f"{rr['reported'] if rr['reported'] is not None else 'absent'}"
+        + (f"   (revision_conflict: {rr['conflict']})" if rr["conflict"] else "")
+    )
+    print(f"  {RUNTIME_REVISION_BOUNDARY}: {report['boundaries'][RUNTIME_REVISION_BOUNDARY]}")
+    print("  note: a matching revision is necessary evidence of source<->runtime")
+    print("        consistency -- not proof the application works, not acceptance.")
     print()
     print("ALIAS OBSERVATION")
     print(f"  {ALIAS} -> HTTP {report['alias_status']}")
