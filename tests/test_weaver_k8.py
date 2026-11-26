@@ -86,7 +86,7 @@ def test_fresh_session_no_authorization(tmp_path):
 
 def test_continuation_not_pass_spec():
     from weaver.continuation import WeaverContinuation
-    assert not hasattr(WeaverContinuation, "allowed_paths") or True
+    assert not hasattr(WeaverContinuation, "allowed_paths")
     # loaders have no write/commit
     import weaver.continuation as m
     assert not hasattr(m, "write_file")

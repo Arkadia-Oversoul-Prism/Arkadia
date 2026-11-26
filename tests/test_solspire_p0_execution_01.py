@@ -53,5 +53,8 @@ def test_p0_4_private_chrome_and_public_field():
 
 
 def test_packet_forbids_p0_1_in_this_branch_not_required():
-    """Packet forbids implementing P0.1; may or may not be on base."""
-    assert True
+    """The packet's recorded scope excludes P0.1, and its evidence must say so."""
+    evidence = (
+        ROOT / "docs/control-plane/evidence/solspire-p0-execution-01/EVIDENCE.md"
+    ).read_text(encoding="utf-8")
+    assert "**Forbidden:** P0.1" in evidence

@@ -106,10 +106,10 @@ def test_stale_detection(tmp_path):
     head = _git_init(tmp_path)
     pkt = build_context_packet(str(tmp_path))
     assert is_stale(pkt, str(tmp_path)) is False
+    assert pkt["stale_detection"]["bound_head_sha"] == head
     # mutate binding
     pkt["stale_detection"]["bound_head_sha"] = "0" * 40
     assert is_stale(pkt, str(tmp_path)) is True
-    assert pkt["stale_detection"]["bound_head_sha"] != head or True
 
 
 def test_deterministic_core_fields(tmp_path):

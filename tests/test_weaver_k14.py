@@ -52,7 +52,7 @@ def test_patch_deterministic(tmp_path):
     assert a.patch_id == b.patch_id
     assert a.files[0]["patch_text"] == b.files[0]["patch_text"]
     assert a.execution["EXECUTED"] is False
-    assert a.authorization["current_pass_authorized"] is False or True  # may inherit no pass_spec on patch call
+    assert a.authorization["current_pass_authorized"] is False
     # no mutation
     assert "gamma" in (tmp_path / "weaver" / "m.py").read_text()
     assert "[K14 PROPOSED]" not in (tmp_path / "weaver" / "m.py").read_text()

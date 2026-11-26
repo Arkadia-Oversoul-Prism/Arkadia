@@ -59,17 +59,12 @@ def test_corpus_sync_state_columns(db_path):
 
 def test_corpus_sync_state_index(db_path):
     conn = sqlite3.connect(db_path)
-    idxs = _indexes(conn, "corpus_sync_state")
+    # A TEXT primary key is backed by an automatic (origin "pk") index; the
+    # schema declares no separate index for `key`.
+    origins = {row[3] for row in conn.execute("PRAGMA index_list(corpus_sync_state)")}
+    pk_cols = {r[1] for r in conn.execute("PRAGMA table_info(corpus_sync_state)") if r[5] == 1}
     conn.close()
-    # key is PRIMARY KEY → auto index; no extra index required
-    assert any("corpus_sync_state" in idx or "key" in idx for idx in idxs) or True
-    # Primary key always enforced — just verify the column is the PK
-    row = conn.execute(
-        "PRAGMA table_info(corpus_sync_state)"
-    ) if False else None  # already closed; access via fresh connection
-    conn2 = sqlite3.connect(db_path)
-    pk_cols = {r[1] for r in conn2.execute("PRAGMA table_info(corpus_sync_state)") if r[5] == 1}
-    conn2.close()
+    assert "pk" in origins
     assert pk_cols == {"key"}
 
 
