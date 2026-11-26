@@ -18,8 +18,9 @@
  *                   console has no enterprise workspace projection yet, so the
  *                   lens says exactly that rather than rendering an empty board.
  *  - `voice`      — the served governed voice chain; no console surface yet.
- *  - `proposals`  — the served proposal and work-event spines; a decision is a
+ *  - `proposals`  — the served proposal ledger is read here; a decision is a
  *                   human act on the authority chain, so no control is offered.
+ *                   The served work-event spine has no console surface yet.
  *
  * A section outside the declared lens set renders an honest "not a lens" state
  * listing the reconciled lenses, rather than silently showing the field view.
@@ -27,6 +28,7 @@
 import { Page, Panel, Facts, ContractState, NotYetWired } from "../components/ui";
 import { SurfaceLenses } from "../components/SurfaceLenses";
 import { OpportunityRadarSection } from "../components/opportunities/OpportunityRadarSection";
+import { ProposalLedger } from "../components/solspire/ProposalLedger";
 import { SolSpireControlPlane } from "../components/solspire/SolSpireControlPlane";
 import { useAuth } from "../contexts/AuthContext";
 import { useHydration } from "../lib/useHydration";
@@ -124,10 +126,7 @@ export function SolSpirePage({
 
       {section === "proposals" && (
         <div className="grid gap-4 md:grid-cols-2">
-          <NotYetWired
-            contract="/solspire/proposals"
-            note="Proposal reads and the proposal decision endpoint are served, but a decision is a human act on the authority chain, so the console does not offer one yet."
-          />
+          <ProposalLedger />
           <NotYetWired
             contract="/solspire/workevents"
             note="The work-event spine is served (list and single reads), but it is a provenance record whose event refs are not reconciled with the console's provenance surface yet."
