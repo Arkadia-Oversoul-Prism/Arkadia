@@ -114,7 +114,9 @@ export interface GraphSummary {
   titles: string[];
 }
 
-const TITLE_LIMIT = 8;
+/** Cap on the title chips the summary carries. Exported so the panel can hand
+ *  the *same* bound to the disclosure it renders (one constant, not two). */
+export const TITLE_LIMIT = 8;
 
 export function summarizeGraph(graph: KnowledgeGraphData): GraphSummary {
   const scope = classifyGraphScope(graph);
@@ -213,11 +215,15 @@ export function provenanceNotice(summary: ProvenanceSummary): string | null {
  */
 
 /** Copy stating that a bounded list is a prefix of the readable set, or `null`
- *  when nothing was withheld (a complete list needs no disclosure). */
-export function boundedRowNotice(shown: number, total: number): string | null {
+ *  when nothing was withheld (a complete list needs no disclosure).
+ *
+ *  `noun` exists because this panel bounds two different lists over the same
+ *  node set (provenance rows and title chips); the disclosure copy must name
+ *  the list the reader is actually looking at. */
+export function boundedRowNotice(shown: number, total: number, noun = "rows"): string | null {
   if (total <= shown) return null;
   return (
-    `Showing ${shown} of ${total} readable rows. The remainder is not rendered in this view; ` +
+    `Showing ${shown} of ${total} readable ${noun}. The remainder is not rendered in this view; ` +
     "the count facts above are exact."
   );
 }

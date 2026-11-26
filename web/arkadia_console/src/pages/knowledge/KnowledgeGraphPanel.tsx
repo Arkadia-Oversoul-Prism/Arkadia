@@ -22,6 +22,7 @@ import {
   authorshipReading,
   authorshipNotice,
   boundedRowNotice,
+  TITLE_LIMIT,
   scopeNotice,
   type KnowledgeGraphData,
   type ViewerKind,
@@ -69,6 +70,7 @@ function GraphReading({ graph, viewer }: { graph: KnowledgeGraphData; viewer: Vi
   const authorship = summarizeAuthorship(graph);
   const authorshipCopy = authorshipNotice(authorship);
   const rowNotice = boundedRowNotice(PROVENANCE_ROWS, graph.nodes.length);
+  const titleNotice = boundedRowNotice(TITLE_LIMIT, graph.nodes.length, "titles");
 
   return (
     <div className="flex flex-col gap-4">
@@ -120,13 +122,20 @@ function GraphReading({ graph, viewer }: { graph: KnowledgeGraphData; viewer: Vi
       )}
 
       {summary.titles.length > 0 && (
-        <ul className="flex flex-wrap gap-2">
-          {summary.titles.map((title) => (
-            <li key={title} className="rounded border border-line px-2 py-1 font-mono text-[11px] text-white/60">
-              {title}
-            </li>
-          ))}
-        </ul>
+        <>
+          <ul className="flex flex-wrap gap-2" data-testid="knowledge-graph-titles">
+            {summary.titles.map((title) => (
+              <li key={title} className="rounded border border-line px-2 py-1 font-mono text-[11px] text-white/60">
+                {title}
+              </li>
+            ))}
+          </ul>
+          {titleNotice && (
+            <p data-testid="knowledge-graph-titles-bounded" className="text-xs text-white/45">
+              {titleNotice}
+            </p>
+          )}
+        </>
       )}
     </div>
   );
