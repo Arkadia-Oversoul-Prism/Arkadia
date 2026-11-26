@@ -8,6 +8,11 @@ on:
       - "solspire/project_store.py"
       - "solspire/integration_health.py"
       - "solspire/console_router.py"
+      # The guard's domain is every SolSpire module that constructs an
+      # `APIRouter`, so a router added anywhere under `solspire/` must select the
+      # gate that judges it — not only the five files named individually below.
+      - "solspire/**"
+      - "tests/test_solspire_router_async_blocking_io_contract.py"
       - "api/lab_routes.py"
       - "lab/engineering_lab/**"
       - "tests/solspire/**"
@@ -36,7 +41,13 @@ jobs:
           python -m pip install pytest
       - name: Unit and contract gates
         run: |
-          python -m pytest -q             tests/solspire/test_project_execution_boundary.py             tests/solspire/test_live_container_execution.py             tests/test_solspire_project_execution_service.py             tests/test_solspire_integration_health.py             tests/test_engineering_lab_candidate_proposals.py
+          python -m pytest -q \
+            tests/solspire/test_project_execution_boundary.py \
+            tests/solspire/test_live_container_execution.py \
+            tests/test_solspire_project_execution_service.py \
+            tests/test_solspire_integration_health.py \
+            tests/test_engineering_lab_candidate_proposals.py \
+            tests/test_solspire_router_async_blocking_io_contract.py
       - name: Pull immutable acceptance image
         run: |
           set -euo pipefail

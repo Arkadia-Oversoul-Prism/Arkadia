@@ -190,8 +190,11 @@ def _execute_run(body: RunRequest, user: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+# The run routes are deliberately `def`, not `async def`: `_execute_run` blocks
+# (provider work plus up to 60 s of polling), and the container runs one Uvicorn
+# worker, so an async handler here would stall every other request in the process.
 @router.post("/run")
-async def run_request(body: RunRequest, user: dict = Depends(require_auth)) -> dict[str, Any]:
+def run_request(body: RunRequest, user: dict = Depends(require_auth)) -> dict[str, Any]:
     """Route a natural language request through the full kernel pipeline."""
     return _execute_run(body, user)
 
@@ -230,7 +233,7 @@ async def list_projects(status: str | None = None, user: dict = Depends(require_
     return {"projects": [p.to_dict() for p in projects], "count": len(projects)}
 
 @router.post("/projects")
-async def create_project(body: CreateProjectRequest, user: dict = Depends(require_auth)) -> dict[str, Any]:
+def create_project(body: CreateProjectRequest, user: dict = Depends(require_auth)) -> dict[str, Any]:
     from solspire.project_manager import get_project_manager
     from solspire.project_templates import instantiate_project_metadata
     try:
@@ -243,7 +246,7 @@ async def create_project(body: CreateProjectRequest, user: dict = Depends(requir
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/projects/instantiate-eden")
-async def instantiate_eden_project(user: dict = Depends(require_auth)) -> dict[str, Any]:
+def instantiate_eden_project(user: dict = Depends(require_auth)) -> dict[str, Any]:
     """Idempotently instantiate Eden for the authenticated sovereign owner.
 
     The endpoint is deliberately owner-bound: the authenticated Firebase uid
@@ -438,18 +441,20 @@ async def fs_list(body: FsListRequest, user: dict = Depends(require_auth)) -> di
 
 # ── GitHub tools ───────────────────────────────────────────────────────────
 
+# Sync handlers on purpose: `solspire.tools_github` uses the blocking `httpx`
+# client, so these must run in the threadpool rather than on the single event loop.
 @router.post("/tools/github/repos")
-async def github_repos(body: GithubReposRequest, user: dict = Depends(require_auth)) -> dict[str, Any]:
+def github_repos(body: GithubReposRequest, user: dict = Depends(require_auth)) -> dict[str, Any]:
     from solspire.tools_github import list_repos
     return list_repos(body.owner)
 
 @router.post("/tools/github/tree")
-async def github_tree(body: GithubTreeRequest, user: dict = Depends(require_auth)) -> dict[str, Any]:
+def github_tree(body: GithubTreeRequest, user: dict = Depends(require_auth)) -> dict[str, Any]:
     from solspire.tools_github import get_tree
     return get_tree(body.owner, body.repo, body.branch)
 
 @router.post("/tools/github/read")
-async def github_read(body: GithubReadRequest, user: dict = Depends(require_auth)) -> dict[str, Any]:
+def github_read(body: GithubReadRequest, user: dict = Depends(require_auth)) -> dict[str, Any]:
     from solspire.tools_github import read_file
     return read_file(body.owner, body.repo, body.path, body.branch)
 
@@ -678,7 +683,7 @@ async def apply_project_patch(
 
 
 @router.get("/projects/{project_id}/integration-health")
-async def project_integration_health_route(
+def project_integration_health_route(
     project_id: str, user: dict = Depends(require_project_owner),
 ) -> dict[str, Any]:
     from solspire.project_manager import get_project_manager
@@ -1119,8 +1124,8 @@ async def project_list_events(project_id: str, event_type: str | None = None,
 
 
 @router.post("/projects/{project_id}/run")
-async def project_run(project_id: str, body: RunRequest,
-                      user: dict = Depends(require_project_owner)) -> dict[str, Any]:
+def project_run(project_id: str, body: RunRequest,
+                user: dict = Depends(require_project_owner)) -> dict[str, Any]:
     """Run an intent in the context of a project — logs an event on completion."""
     from solspire.project_store import log_event
 
@@ -1315,7 +1320,7 @@ async def project_weaver_execution_readiness(project_id: str, body: WeaverReadin
 
 
 @router.post("/projects/{project_id}/weaver/execution/pass-spec")
-async def project_weaver_bind_pass_spec(project_id: str, body: WeaverPassSpecRequest,
+def project_weaver_bind_pass_spec(project_id: str, body: WeaverPassSpecRequest,
                                         user: dict = Depends(require_project_owner)) -> dict[str, Any]:
     from solspire.project_manager import get_project_manager
     from solspire.weaver_bridge import project_bind_pass_spec
@@ -1345,7 +1350,7 @@ async def project_weaver_bind_approval(project_id: str, body: WeaverApprovalRequ
 
 
 @router.post("/projects/{project_id}/weaver/execution/execute")
-async def project_weaver_execute(project_id: str, body: WeaverExecuteRequest,
+def project_weaver_execute(project_id: str, body: WeaverExecuteRequest,
                                  user: dict = Depends(require_project_owner)) -> dict[str, Any]:
     from solspire.project_manager import get_project_manager
     from solspire.weaver_bridge import project_execute_governed
