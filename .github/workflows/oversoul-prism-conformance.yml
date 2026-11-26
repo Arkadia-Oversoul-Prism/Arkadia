@@ -1,0 +1,50 @@
+name: Oversoul Prism Conformance
+
+# `research/oversoul_prism_144/README.md` states what the 9-cell harness checks —
+# including that "authority-shaped fields are rejected at the transformation
+# boundary" — and `scripts/validate_oversoul_prism_12x12_registry.py` validates the
+# 144-cell registry the harness loads. Measured before this workflow existed:
+#
+#   grep -rn "oversoul_prism_144\|validate_oversoul_prism" .github/workflows/
+#   (no match)
+#
+# so both ran only when a human invoked them, and the authority-boundary assertion
+# was broken (`transform_node` used without an import) without any check noticing.
+#
+# `tests/test_oversoul_prism_conformance.py` keeps this gate honest: it requires a
+# workflow to *execute* both surfaces, and it derives the gate's inputs from these
+# commands and asserts the `paths` filter selects every one of them. The job installs
+# no application dependency — the harness and the validator are stdlib-only — so a
+# dependency gap cannot be misreported as a conformance failure.
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/oversoul-prism-conformance.yml"
+      - "research/**"
+      - "scripts/validate_oversoul_prism_12x12_registry.py"
+      - "docs/architecture/oversoul_prism_12x12_registry.json"
+      - "tests/test_oversoul_prism_conformance.py"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/oversoul-prism-conformance.yml"
+      - "research/**"
+      - "scripts/validate_oversoul_prism_12x12_registry.py"
+      - "docs/architecture/oversoul_prism_12x12_registry.json"
+      - "tests/test_oversoul_prism_conformance.py"
+  workflow_dispatch:
+
+jobs:
+  conformance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - run: pip install pytest pyyaml
+      - name: Validate the 144-cell registry
+        run: python scripts/validate_oversoul_prism_12x12_registry.py
+      - name: Run the 9-cell conformance harness
+        run: python -m pytest research/oversoul_prism_144/test_substrate.py tests/test_oversoul_prism_conformance.py -q

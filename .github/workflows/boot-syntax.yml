@@ -14,6 +14,12 @@ name: Boot Syntax Boundary
 # the pull request that introduced it. The filter therefore selects every `.py` file
 # at any depth. `tests/test_boot_syntax_ci_wiring.py` proves the filter is complete
 # against the guard's own domain and proves the step can fail the job.
+#
+# `tests/test_python_global_reference_integrity.py` shares that domain and that
+# dependency-free property: it resolves every global a tracked module references
+# against module scope and the builtins, which is the check that catches a call to a
+# name nobody imported (the class that broke the Oversoul Prism conformance harness
+# while `compile()` stayed green). It runs in the same step.
 on:
   pull_request:
     paths:
@@ -40,7 +46,8 @@ jobs:
       - run: pip install pytest pyyaml
       - name: Boot-syntax boundary guards
         run: |
-          # The guard uses `compile()`, not `import`, so it needs no application
-          # dependency: it runs on a machine (like this job) that never installs
-          # fastapi/pydantic, and cannot misreport a dependency gap as a boot break.
-          python -m pytest tests/test_boot_syntax_boundary.py tests/test_boot_syntax_ci_wiring.py -q
+          # The guards use `compile()` / `symtable`, not `import`, so they need no
+          # application dependency: they run on a machine (like this job) that never
+          # installs fastapi/pydantic, and cannot misreport a dependency gap as a
+          # boot break.
+          python -m pytest tests/test_boot_syntax_boundary.py tests/test_boot_syntax_ci_wiring.py tests/test_python_global_reference_integrity.py -q
