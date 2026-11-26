@@ -10,6 +10,9 @@ import hmac
 import httpx
 import threading
 import uuid as _uuid_mod
+
+# 5xx copy helper — its own module because this file is at its line budget.
+from api.http_failure import internal_failure_detail as _internal_failure_detail
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from fastapi import FastAPI, Request, HTTPException, Depends
@@ -1381,11 +1384,10 @@ async def commune_resonance(request: Request):
                        "notes_retrieved": memory_meta.get("notes_retrieved", 0),
                        "source": memory_meta.get("source", "knowledge_os"), "injected": bool(memory_block)},
         }
-    except Exception as e:
-        logger.error(f"Gemini error: {e}")
+    except Exception:
         return JSONResponse(
             status_code=502,
-            content={"error": "Oracle field disruption.", "detail": str(e)},
+            content={"error": "Oracle field disruption.", "detail": _internal_failure_detail("Oracle resonance")},
         )
 
 
@@ -1773,8 +1775,11 @@ async def github_tree():
     try:
         tree = await _fetch_github_tree()
         return {"total": len(tree), "files": tree}
-    except Exception as e:
-        return JSONResponse(status_code=502, content={"error": str(e)})
+    except Exception:
+        return JSONResponse(
+            status_code=502,
+            content={"error": _internal_failure_detail("Spiral Codex GitHub tree")},
+        )
 
 
 # ── File Upload for Spiral Codex ──────────────────────────────────────────────
@@ -1970,9 +1975,8 @@ async def personal_ingest_file(request: Request):
             "note": result,
             "message": f"'{file_name}' ingested into your personal Knowledge OS vault.",
         }
-    except Exception as e:
-        logger.warning(f"[PERSONAL-INGEST] pipeline failed for {file_name}: {e}")
-        raise HTTPException(status_code=500, detail=f"Knowledge pipeline ingestion failed: {e}")
+    except Exception:
+        raise HTTPException(status_code=500, detail=_internal_failure_detail(f"Ingest of {file_name!r}"))
 
 
 @app.post("/api/personal/ingest-note")
@@ -2004,8 +2008,8 @@ async def personal_ingest_note(request: Request):
         logger.info(f"[PERSONAL-NOTE] ingested: {title!r} ({len(content)} chars, user={user_id[:8]}…)")
         return {"status": "ingested", "title": title, "note": result,
                 "message": "Personal capture ingested into your Knowledge OS vault."}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Knowledge pipeline ingestion failed: {e}")
+    except Exception:
+        raise HTTPException(status_code=500, detail=_internal_failure_detail("Personal note ingestion"))
 
 
 # ── Living Larder Orders ──────────────────────────────────────────────────────
@@ -2187,9 +2191,8 @@ async def text_to_speech(request: Request):
 
         logger.info(f"[TTS] engine={engine_used} voice={voice_key} {speed}× → {len(audio_bytes)} bytes")
 
-    except Exception as e:
-        logger.error(f"[TTS] Synthesis failed: {e}")
-        raise HTTPException(status_code=502, detail=f"TTS synthesis failed: {str(e)}")
+    except Exception:
+        raise HTTPException(status_code=502, detail=_internal_failure_detail("TTS synthesis"))
 
     from fastapi.responses import Response as _Response
     return _Response(
@@ -2398,8 +2401,8 @@ async def run_tool_endpoint(
 
     try:
         result = tool.run(payload)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        raise HTTPException(status_code=500, detail=_internal_failure_detail("Tool execution"))
     return result
 
 
@@ -2526,9 +2529,8 @@ async def agent_spawn(request: Request, user: dict = Depends(_require_auth)):
             }
         except HTTPException:
             raise
-        except Exception as e:
-            logger.exception("[SPAWN/ORACLE] Gemini call failed")
-            raise HTTPException(status_code=502, detail=f"Oracle error: {e}")
+        except Exception:
+            raise HTTPException(status_code=502, detail=_internal_failure_detail("Oracle reply"))
 
     # ── Kernel agents: queue for background worker ────────────────────────────
     kernel_intent = {
@@ -2557,9 +2559,8 @@ async def agent_spawn(request: Request, user: dict = Depends(_require_auth)):
             "source":  source,
             "poll_url": f"/api/job/{job_id}",
         }
-    except Exception as e:
-        logger.exception("[SPAWN] Failed to enqueue job")
-        raise HTTPException(status_code=500, detail=f"Spawn failed: {e}")
+    except Exception:
+        raise HTTPException(status_code=500, detail=_internal_failure_detail("Spawn enqueue"))
 
 
 # ──────────────────────────────────────────────────────────────────────
