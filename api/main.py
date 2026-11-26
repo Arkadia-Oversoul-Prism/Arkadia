@@ -1730,8 +1730,8 @@ async def echoes_feed():
 
 
 
-@app.post("/api/webhook/github")
-async def github_webhook(request: Request):
+@app.post("/api/webhook/github", operation_id="github_webhook_api_webhook_github_post")
+async def github_webhook_corpus_resync(request: Request):
     """GitHub push webhook — triggers immediate corpus re-ingestion.
     Configure in GitHub repo → Settings → Webhooks → Payload URL → /api/webhook/github
     """
