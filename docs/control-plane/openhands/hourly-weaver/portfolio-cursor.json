@@ -1,0 +1,41 @@
+{
+  "schema": "arkadia.portfolio-cursor/1.0",
+  "updated_at": "2026-11-26T02:30:00Z",
+  "authority": "authored judgements. The directive is the source of each phase label; this file records no measurement -- portfolio-state.json does.",
+  "repositories": [
+    {
+      "repository": "Arkadia-Oversoul-Prism/sonata",
+      "phase": "S1 — playback state and connectivity truth",
+      "active_issue_or_pr": "#7 (P0/P1: retry transient synthesis failures, truthful notification)",
+      "blocked": false,
+      "blockers": [
+        "physical-device acceptance needs the household Samsung A23 and OPPO; CI is not device evidence"
+      ],
+      "next_legal_task": "Continue the existing PR #7 branch: reconcile the S1 state contract across reader, service, notification and overlay, and record the state-contract evidence against the current head.",
+      "last_pulse_at": null
+    },
+    {
+      "repository": "Arkadia-Oversoul-Prism/family-safety-network",
+      "phase": "F0 — integrate and recover CI",
+      "active_issue_or_pr": "#8 (Fsn/integration)",
+      "blocked": false,
+      "blockers": [
+        "no repository-visible activity since 2026-11-07; the open PR is the only carrier of the integration work"
+      ],
+      "next_legal_task": "Continue PR #8: reproduce the build, repair the missing Gradle wrapper/build prerequisites, and get a reproducible CI green on the candidate tree before any F1 work.",
+      "last_pulse_at": null
+    },
+    {
+      "repository": "Arkadia-Oversoul-Prism/Arkadia",
+      "phase": "ARK-OPS-CONTINUOUS-001 — continuous reconciliation and gap closure",
+      "active_issue_or_pr": "open PR queue (62 open, all draft) plus the ARK-OPS-CONTINUOUS-001 cycle ledger",
+      "blocked": false,
+      "blockers": [
+        "merge execution is human-only under GOV-04; a draft PR also needs its owner to mark it ready",
+        "60+ draft PRs accumulate faster than human review can absorb them"
+      ],
+      "next_legal_task": "Continue the oldest owned branch/PR for one bounded objective per pulse; do not open a parallel PR for a task that already has one.",
+      "last_pulse_at": "2026-11-26T02:30:00Z"
+    }
+  ]
+}
