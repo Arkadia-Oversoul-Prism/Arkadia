@@ -13,9 +13,11 @@ from __future__ import annotations
 
 import hashlib
 import os
+import time
 import uuid
 import urllib.error
 import urllib.request
+from dataclasses import replace
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -46,16 +48,54 @@ from lab.engineering_lab.runtime import (
 from lab.engineering_lab.sandbox import SandboxPolicy
 from lab.engineering_lab.store import get_store
 from lab.engineering_lab.voice import resolve_voice_command, voice_boundary_report
+from lab.engineering_lab.github_app import (
+    GitHubAppWorker,
+    GitHubUnavailable,
+    HttpGitHubReader,
+    RateLimited,
+    WebhookRejected,
+    WorkerUnavailable,
+    verify_webhook_delivery,
+)
+from lab.engineering_lab.pr_review import (
+    APPROVE,
+    GENERATE_FINDINGS,
+    PUBLISH_COMMENT,
+    REQUEST_CHANGES,
+    SCHEMA as PR_REVIEW_SCHEMA,
+    PrReviewRequest,
+    RetryPolicy,
+    ReviewPolicy,
+    StaleHead,
+    approval_scope,
+    assert_action_permitted,
+    assert_grant_matches,
+    assert_head_current,
+    assert_independent,
+    attach_evidence,
+    build_evidence,
+    capability_manifest,
+    review_pull_request,
+    rollout_state,
+)
 
 _PUBLIC_NATLAS_PATHS = {
     "/api/lab/engineering/n-atlas/catalog",
     "/api/lab/engineering/n-atlas/test-session",
 }
 
+#: The GitHub App webhook receiver. It is not an account-authenticated route:
+#: its authentication is the HMAC signature over the raw body plus the
+#: installation/repository binding, both verified inside the handler. A delivery
+#: that fails verification is refused before any state is written.
+_PUBLIC_WEBHOOK_PATHS = {"/api/lab/engineering/pr-review/webhook"}
+
 
 async def require_lab_auth(request: Request) -> None:
-    """Keep the Lab authenticated by default, with two narrow public tester paths."""
+    """Keep the Lab authenticated by default, with narrow declared exemptions."""
     if request.url.path in _PUBLIC_NATLAS_PATHS:
+        return None
+    if request.url.path in _PUBLIC_WEBHOOK_PATHS:
         return None
     await require_auth(request)
 
@@ -785,3 +825,685 @@ async def run_agent_loop(
         if "policy" in locals() and policy is not None and getattr(policy, "containerized", False):
             import shutil
             shutil.rmtree(os.path.dirname(policy.root), ignore_errors=True)
+
+
+# -- ARKADIA-CHIEF-PR-REVIEW-001: governed PR review --------------------------
+#
+# A capability of the existing canonical Chief identity (ARKADIA-CHIEF-001),
+# executed through this Lab boundary. It reuses the Lab's evidence
+# (``el_evidence``), its human grant store (``el_authorizations``) and its
+# durable job ledger (``el_pr_review_jobs``). It creates no second identity,
+# conversation, memory store, workspace, authorization engine or evidence path.
+#
+# Rollout: read-only shadow review. Every GitHub-writing action has its own gate
+# and refuses unless the active policy has *reached* that stage AND carries the
+# named flag AND a human grant binds the exact repository/PR/head/action. Merge
+# is refused unconditionally — a GREEN review is never merge authorization.
+
+#: Owner of webhook-enqueued ingress records. It is not an identity: it is the
+#: installation-scoped subject an account-unauthenticated delivery is recorded
+#: under. The review that runs from such a job is attributed to the *operator's*
+#: verified principal, never to this string.
+PR_REVIEW_SYSTEM_SUBJECT = "service:chief-pr-review"
+
+
+class PrReviewRequestBody(BaseModel):
+    repository: str = Field(min_length=3)
+    pr_number: int = Field(gt=0)
+    base_sha: str = Field(min_length=7)
+    head_sha: str = Field(min_length=7)
+    installation_id: int | None = None
+    event_id: str | None = None
+    action: str = GENERATE_FINDINGS
+
+
+class PrReviewGrantBody(BaseModel):
+    """Record a human grant for one GitHub-writing action on one exact tuple."""
+
+    action: str
+    duration_minutes: int = Field(default=30, ge=1, le=120)
+
+
+class PrReviewPublishBody(BaseModel):
+    action: str
+    authorization_ref: str = Field(min_length=3)
+
+
+def _review_retry_policy() -> RetryPolicy:
+    return RetryPolicy(
+        max_attempts=int(os.environ.get("ARKADIA_PR_REVIEW_MAX_ATTEMPTS", "3") or 3),
+        base_backoff_seconds=int(os.environ.get("ARKADIA_PR_REVIEW_BACKOFF_SECONDS", "15") or 15),
+    )
+
+
+def _review_replay_window_seconds() -> int:
+    return int(os.environ.get("ARKADIA_PR_REVIEW_REPLAY_WINDOW_SECONDS", "600") or 600)
+
+
+def _review_policy() -> ReviewPolicy:
+    """Resolve the active policy. The worker's allowlist is the default one."""
+    policy = ReviewPolicy.from_env()
+    if not policy.repositories:
+        policy = replace(policy, repositories=GitHubAppWorker.from_env().repositories)
+    return policy
+
+
+def _canonical_path_policy():
+    """The canonical mutation-boundary policy, injected rather than reimplemented.
+
+    ``scripts.cp10_mutation_boundary_policy`` is the single source of the
+    repository's path-admission decision — the same module the CP10 gate
+    executes. The Lab consumes it; it does not carry a second copy.
+    """
+    from scripts.cp10_mutation_boundary_policy import evaluate_changed_paths
+
+    def judge(paths):
+        return evaluate_changed_paths(list(paths))
+
+    return judge
+
+
+def _review_reader(worker: GitHubAppWorker):
+    return HttpGitHubReader(worker)
+
+
+def _count_states(jobs: list[dict]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for job in jobs:
+        state = str(job.get("state") or "UNKNOWN")
+        counts[state] = counts.get(state, 0) + 1
+    return counts
+
+
+def _job_view(job: dict) -> dict:
+    return {
+        "job_id": job.get("job_id"),
+        "state": job.get("state"),
+        "repository": job.get("repository_ref"),
+        "pr_number": job.get("pr_number"),
+        "base_sha": job.get("base_sha"),
+        "head_sha": job.get("head_sha"),
+        "action": job.get("action"),
+        "attempts": job.get("attempts"),
+        "delivery_id": job.get("delivery_id"),
+        "event_id": job.get("event_id"),
+        "deduplicated": job.get("deduplicated"),
+        "failure_reason": job.get("failure_reason"),
+        "retry_after_seconds": job.get("retry_after_seconds"),
+        "next_attempt_at": job.get("next_attempt_at"),
+        "status": job.get("status"),
+        "created_at": job.get("created_at"),
+        "updated_at": job.get("updated_at"),
+        "result": job.get("result"),
+        "markdown": job.get("markdown"),
+    }
+
+
+def _load_review_job(job_id: str, subject_uid: str) -> dict:
+    """Load a job the caller may act on.
+
+    Owner-scoped, with one declared exception: an ingress job recorded under the
+    capability's system subject is an installation-scoped record on an
+    allowlisted repository, carries no user data, and may be run by any
+    authenticated operator — the run is attributed to that operator.
+    """
+    store = get_store()
+    job = store.get_pr_review_job(job_id, subject_uid)
+    if job is None:
+        job = store.get_pr_review_job(job_id, PR_REVIEW_SYSTEM_SUBJECT)
+    if job is None:
+        raise HTTPException(status_code=404, detail="review job not found")
+    return job
+
+
+def _execute_review_job(
+    job: dict,
+    *,
+    principal: str,
+    subject_ref: str,
+    worker: GitHubAppWorker,
+    policy: ReviewPolicy,
+) -> dict:
+    """Run one review and persist its outcome. Shared by request and run paths."""
+    store = get_store()
+    retry = _review_retry_policy()
+    attempts = int(job.get("attempts") or 0) + 1
+    store.update_pr_review_job(
+        job["job_id"], job["subject_ref"], state="RUNNING", attempts=attempts
+    )
+
+    request = PrReviewRequest(
+        subject_ref=subject_ref,
+        principal=principal,
+        repository=str(job["repository_ref"]),
+        pr_number=int(job["pr_number"]),
+        base_sha=str(job.get("base_sha") or ""),
+        head_sha=str(job["head_sha"]),
+        installation_id=job.get("installation_id"),
+        event_id=str(job.get("event_id") or ""),
+        requested_action=str(job.get("action") or GENERATE_FINDINGS),
+        job_id=str(job["job_id"]),
+        work_event_ref=job.get("work_event_ref"),
+    )
+
+    try:
+        result = review_pull_request(
+            request,
+            reader=_review_reader(worker),
+            policy=policy,
+            worker=worker,
+            path_policy=_canonical_path_policy(),
+        )
+    except RateLimited as exc:
+        if retry.should_retry(attempts):
+            updated = store.update_pr_review_job(
+                job["job_id"],
+                job["subject_ref"],
+                state="RETRY_WAIT",
+                attempts=attempts,
+                retry_after_seconds=exc.retry_after_seconds,
+                next_attempt_at=str(time.time() + exc.retry_after_seconds),
+                failure_reason=str(exc),
+            )
+            raise HTTPException(
+                status_code=429,
+                detail={
+                    "reason": str(exc),
+                    "retry_after_seconds": exc.retry_after_seconds,
+                    "attempts": attempts,
+                    "state": "RETRY_WAIT",
+                    "job": _job_view(updated or job),
+                },
+            ) from exc
+        updated = store.update_pr_review_job(
+            job["job_id"],
+            job["subject_ref"],
+            state="DEAD_LETTER",
+            attempts=attempts,
+            failure_reason=str(exc),
+        )
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "reason": str(exc),
+                "state": "DEAD_LETTER",
+                "attempts": attempts,
+                "job": _job_view(updated or job),
+            },
+        ) from exc
+    except (WorkerUnavailable, GitHubUnavailable, BoundaryViolation) as exc:
+        # Every one of these is a fail-closed refusal: an unverified worker, an
+        # unreadable repository, or a boundary violation. The job is dead-lettered
+        # with its reason rather than retried into a fabricated result.
+        updated = store.update_pr_review_job(
+            job["job_id"],
+            job["subject_ref"],
+            state="DEAD_LETTER",
+            attempts=attempts,
+            failure_reason=str(exc),
+        )
+        status = 503 if isinstance(exc, WorkerUnavailable) else 409
+        raise HTTPException(
+            status_code=status,
+            detail={
+                "reason": str(exc),
+                "state": "DEAD_LETTER",
+                "job": _job_view(updated or job),
+            },
+        ) from exc
+
+    evidence = build_evidence(
+        result, workspace_ref=str(job.get("workspace_ref") or "engineering-lab")
+    )
+    saved = store.save_evidence(evidence)
+    result = attach_evidence(result, saved["evidence_id"])
+    payload = result.to_dict()
+    markdown = result.to_markdown()
+    updated = store.update_pr_review_job(
+        job["job_id"],
+        job["subject_ref"],
+        state="COMPLETED",
+        attempts=attempts,
+        result=payload,
+        markdown=markdown,
+        evidence_ref=saved["evidence_id"],
+        status=result.status,
+    )
+    return {
+        "job": _job_view(updated or job),
+        "result": payload,
+        "markdown": markdown,
+        "evidence": saved,
+        "deduplicated": False,
+    }
+
+
+@router.get("/engineering/pr-review/status")
+async def pr_review_status(user: dict = Depends(require_auth)) -> dict:
+    """Rollout state, worker identity, permission matrix and job ledger health.
+
+    The rollout state is *derived* from configuration evidence, never asserted:
+    a worker that is not configured cannot report SHADOW.
+    """
+    worker = GitHubAppWorker.from_env()
+    policy = _review_policy()
+    jobs = get_store().list_pr_review_jobs(user["uid"], limit=200)
+    return {
+        "schema": PR_REVIEW_SCHEMA,
+        "capability": capability_manifest(),
+        "rollout": rollout_state(policy, worker),
+        "worker": worker.status(),
+        "permissions": worker.permissions(),
+        "policy": policy.to_dict(),
+        "retry": _review_retry_policy().to_dict(),
+        "replay_window_seconds": _review_replay_window_seconds(),
+        "jobs": {
+            "count": len(jobs),
+            "by_state": _count_states(jobs),
+            "dead_letters": [
+                job["job_id"] for job in jobs if job.get("state") == "DEAD_LETTER"
+            ],
+        },
+        "merge": {
+            "enabled": False,
+            "reason": "merge is human-only and structurally refused by this substrate",
+        },
+        "non_collapses": [
+            "REVIEW != APPROVAL",
+            "APPROVAL != MERGE",
+            "GREEN != MERGE AUTHORIZATION",
+            "SHADOW != ACTIVATED",
+        ],
+    }
+
+
+@router.post("/engineering/pr-review/request")
+async def pr_review_request(
+    body: PrReviewRequestBody, user: dict = Depends(require_auth)
+) -> dict:
+    """Request a shadow review of an exact head. Read-only; idempotent per head."""
+    worker = GitHubAppWorker.from_env()
+    policy = _review_policy()
+    event_id = (body.event_id or "").strip() or f"REQ-{uuid.uuid4().hex[:12]}"
+    idempotency_key = "|".join(
+        [
+            str(body.installation_id),
+            body.repository,
+            str(body.pr_number),
+            body.head_sha,
+            event_id,
+            body.action,
+        ]
+    )
+    store = get_store()
+    job = store.claim_pr_review_job(
+        {
+            "job_id": f"PRR-{uuid.uuid4().hex[:12]}",
+            "idempotency_key": idempotency_key,
+            "repository_ref": body.repository,
+            "pr_number": int(body.pr_number),
+            "base_sha": body.base_sha,
+            "head_sha": body.head_sha,
+            "installation_id": body.installation_id,
+            "action": body.action,
+            "event_id": event_id,
+            "state": "QUEUED",
+            "attempts": 0,
+            "workspace_ref": "engineering-lab",
+        },
+        user["uid"],
+    )
+    if job.get("deduplicated") and job.get("result"):
+        return {
+            "job": _job_view(job),
+            "result": job["result"],
+            "markdown": job.get("markdown"),
+            "deduplicated": True,
+        }
+    if job.get("deduplicated") and job.get("state") in {"RUNNING", "COMPLETED"}:
+        # A concurrent or completed run owns this key; report it instead of
+        # starting a second review of the same head.
+        return {"job": _job_view(job), "result": job.get("result"), "deduplicated": True}
+
+    try:
+        return _execute_review_job(
+            job, principal=user["uid"], subject_ref=user["uid"], worker=worker, policy=policy
+        )
+    except BoundaryViolation as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/engineering/pr-review/jobs/{job_id}/run")
+async def pr_review_run_job(job_id: str, user: dict = Depends(require_auth)) -> dict:
+    """Execute a queued ingress job. Bounded retries; dead letters stay visible."""
+    job = _load_review_job(job_id, user["uid"])
+    if job.get("state") == "COMPLETED":
+        return {"job": _job_view(job), "result": job.get("result"), "deduplicated": True}
+    worker = GitHubAppWorker.from_env()
+    policy = _review_policy()
+    try:
+        return _execute_review_job(
+            job,
+            principal=user["uid"],
+            subject_ref=job["subject_ref"],
+            worker=worker,
+            policy=policy,
+        )
+    except BoundaryViolation as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.get("/engineering/pr-review/jobs")
+async def pr_review_list_jobs(
+    state: str | None = None, user: dict = Depends(require_auth)
+) -> dict:
+    """List this subject's review jobs, including dead letters."""
+    jobs = get_store().list_pr_review_jobs(user["uid"], state=state, limit=100)
+    return {
+        "jobs": [_job_view(job) for job in jobs],
+        "by_state": _count_states(jobs),
+        "dead_letters": [job["job_id"] for job in jobs if job.get("state") == "DEAD_LETTER"],
+    }
+
+
+@router.get("/engineering/pr-review/jobs/{job_id}")
+async def pr_review_get_job(job_id: str, user: dict = Depends(require_auth)) -> dict:
+    """One job with its findings, evidence and report."""
+    job = _load_review_job(job_id, user["uid"])
+    evidence = get_store().list_evidence(job["subject_ref"], run_ref=job["job_id"])
+    return {"job": _job_view(job), "evidence": evidence}
+
+
+@router.post("/engineering/pr-review/jobs/{job_id}/grant")
+async def pr_review_grant(
+    job_id: str, body: PrReviewGrantBody, user: dict = Depends(require_auth)
+) -> dict:
+    """Record a human grant binding one exact repository/PR/head/action tuple.
+
+    Recording a grant is a human act, and it is *not* the action itself: the
+    publish path re-fetches the head, re-checks independence, re-checks the
+    grant, and consumes it once.
+    """
+    job = _load_review_job(job_id, user["uid"])
+    policy = _review_policy()
+    worker = GitHubAppWorker.from_env()
+    try:
+        assert_action_permitted(body.action, policy)
+    except BoundaryViolation as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    if body.action not in (PUBLISH_COMMENT, REQUEST_CHANGES, APPROVE):
+        raise HTTPException(
+            status_code=400,
+            detail=f"'{body.action}' is not a grantable review action",
+        )
+
+    binding = PrReviewRequest(
+        subject_ref=user["uid"],
+        principal=user["uid"],
+        repository=str(job["repository_ref"]),
+        pr_number=int(job["pr_number"]),
+        base_sha=str(job.get("base_sha") or ""),
+        head_sha=str(job["head_sha"]),
+        installation_id=job.get("installation_id"),
+        event_id=str(job.get("event_id") or ""),
+    ).binding()
+
+    result = job.get("result") or {}
+    author = ((result.get("snapshot") or {}).get("author")) or ""
+    try:
+        assert_independent(user["uid"], author)
+    except BoundaryViolation as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    try:
+        assert_head_current(_review_reader(worker), binding)
+    except StaleHead as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except GitHubUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    authorization = get_runtime().record_authorization(
+        subject_ref=user["uid"],
+        scope_ref=approval_scope(binding, body.action),
+        operations_allowed=(body.action,),
+        duration_minutes=int(body.duration_minutes),
+    )
+    return {
+        "authorization_ref": authorization["authorization_id"],
+        "authorization": authorization,
+        "binding": binding.to_dict(),
+        "action": body.action,
+        "consequences": (
+            "This grant permits exactly one "
+            f"'{body.action}' on {binding.repository}#{binding.pr_number} at head "
+            f"{binding.head_sha}. It expires after {body.duration_minutes} minutes, is "
+            "single-use, is revocable, and is invalidated by any head change."
+        ),
+    }
+
+
+@router.post("/engineering/pr-review/jobs/{job_id}/publish")
+async def pr_review_publish(
+    job_id: str, body: PrReviewPublishBody, user: dict = Depends(require_auth)
+) -> dict:
+    """Perform one GitHub-writing review action, under every gate at once.
+
+    Requires: the stage gate, the action's policy flag, an exact-tuple human
+    grant, an unchanged head, and independent review. Refuses by default.
+    """
+    job = _load_review_job(job_id, user["uid"])
+    policy = _review_policy()
+    worker = GitHubAppWorker.from_env()
+    try:
+        assert_action_permitted(body.action, policy)
+    except BoundaryViolation as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    if body.action not in (PUBLISH_COMMENT, REQUEST_CHANGES, APPROVE):
+        raise HTTPException(
+            status_code=400, detail=f"'{body.action}' is not a publishable review action"
+        )
+
+    binding = PrReviewRequest(
+        subject_ref=user["uid"],
+        principal=user["uid"],
+        repository=str(job["repository_ref"]),
+        pr_number=int(job["pr_number"]),
+        base_sha=str(job.get("base_sha") or ""),
+        head_sha=str(job["head_sha"]),
+        installation_id=job.get("installation_id"),
+        event_id=str(job.get("event_id") or ""),
+    ).binding()
+
+    result = job.get("result") or {}
+    if not result:
+        raise HTTPException(status_code=409, detail="the job has no review result to publish")
+    if result.get("stale"):
+        raise HTTPException(
+            status_code=409,
+            detail="the review is stale for its head; rerun before publishing",
+        )
+
+    author = ((result.get("snapshot") or {}).get("author")) or ""
+    try:
+        assert_independent(user["uid"], author)
+    except BoundaryViolation as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+    authorization = get_runtime().get_authorization(body.authorization_ref, user["uid"])
+    try:
+        assert_grant_matches(authorization, binding, body.action)
+    except BoundaryViolation as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+    reader = _review_reader(worker)
+    try:
+        assert_head_current(reader, binding)
+    except StaleHead as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except GitHubUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    consumed = get_store().consume_authorization(body.authorization_ref, user["uid"])
+    if consumed is None:
+        raise HTTPException(
+            status_code=409,
+            detail="the grant was already consumed or revoked; record a fresh grant",
+        )
+
+    event_map = {
+        PUBLISH_COMMENT: "COMMENT",
+        REQUEST_CHANGES: "REQUEST_CHANGES",
+        APPROVE: "APPROVE",
+    }
+    body_text = str(result.get("markdown") or "") or f"Chief review: {result.get('status')}"
+    try:
+        response = _post_review(
+            worker, binding.repository, binding.pr_number, event_map[body.action], body_text
+        )
+    except RateLimited as exc:
+        raise HTTPException(status_code=429, detail=str(exc)) from exc
+    except GitHubUnavailable as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    return {
+        "action": body.action,
+        "github_event": event_map[body.action],
+        "binding": binding.to_dict(),
+        "authorization_ref": body.authorization_ref,
+        "consumed_at": consumed.get("consumed_at"),
+        "github_response": response,
+        "note": (
+            "A published review is not a merge, not an approval of the change for "
+            "merge, and not production acceptance."
+        ),
+    }
+
+
+def _post_review(
+    worker: GitHubAppWorker, repository: str, pr_number: int, event: str, body: str
+) -> dict:
+    """Submit one review through the App worker credential. Never a PAT."""
+    import json as _json
+
+    token = worker.credential()
+    request = urllib.request.Request(
+        f"https://api.github.com/repos/{repository}/pulls/{int(pr_number)}/reviews",
+        data=_json.dumps({"event": event, "body": body}).encode(),
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/vnd.github+json",
+            "Content-Type": "application/json",
+            "X-GitHub-Api-Version": "2022-11-28",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            payload = _json.loads(response.read().decode("utf-8") or "{}")
+        return {
+            "id": payload.get("id"),
+            "state": payload.get("state"),
+            "html_url": payload.get("html_url"),
+        }
+    except urllib.error.HTTPError as exc:
+        retry_after = exc.headers.get("Retry-After") if exc.headers else None
+        if exc.code in (403, 429) and retry_after and str(retry_after).isdigit():
+            raise RateLimited(
+                "GitHub rate limit on review submission", retry_after_seconds=int(retry_after)
+            ) from exc
+        raise GitHubUnavailable(f"GitHub review submission failed: http {exc.code}") from exc
+    except urllib.error.URLError as exc:
+        raise GitHubUnavailable(f"GitHub review submission failed: {exc.reason}") from exc
+
+
+@router.post("/engineering/pr-review/webhook")
+async def pr_review_webhook(request: Request) -> dict:
+    """GitHub App delivery ingress: verify, deduplicate, enqueue. Never execute.
+
+    Authentication here is the HMAC signature plus the server-side installation
+    and repository binding — not an account session. The receiver performs no
+    GitHub read or write, so a forged or replayed body cannot cause work beyond
+    a refused request.
+    """
+    worker = GitHubAppWorker.from_env()
+    raw = await request.body()
+    try:
+        delivery = verify_webhook_delivery(
+            headers={key: value for key, value in request.headers.items()},
+            body=raw,
+            worker=worker,
+        )
+    except WebhookRejected as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.reason) from exc
+
+    if not delivery.accepted:
+        return {
+            "status": "IGNORED",
+            "reason": delivery.reason,
+            "delivery_id": delivery.delivery_id,
+        }
+
+    claim = get_store().claim_pr_review_delivery(
+        delivery.delivery_id,
+        installation_id=delivery.installation_id,
+        repository_ref=delivery.repository,
+        payload_digest=delivery.payload_digest,
+        window_seconds=_review_replay_window_seconds(),
+        now_epoch=time.time(),
+    )
+    if claim == "replay":
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"delivery {delivery.delivery_id} was first seen outside the replay "
+                "window; a replayed delivery is refused"
+            ),
+        )
+    if claim == "duplicate":
+        return {
+            "status": "DUPLICATE",
+            "delivery_id": delivery.delivery_id,
+            "reason": "this delivery was already accepted; no second job was created",
+        }
+
+    if delivery.pr_number is None or not delivery.head_sha or not delivery.base_sha:
+        raise HTTPException(
+            status_code=400,
+            detail="a verified delivery must name a pull request and both SHAs",
+        )
+
+    idempotency_key = "|".join(
+        [
+            str(delivery.installation_id),
+            delivery.repository,
+            str(delivery.pr_number),
+            delivery.head_sha,
+            delivery.delivery_id,
+            GENERATE_FINDINGS,
+        ]
+    )
+    job = get_store().claim_pr_review_job(
+        {
+            "job_id": f"PRR-{uuid.uuid4().hex[:12]}",
+            "idempotency_key": idempotency_key,
+            "repository_ref": delivery.repository,
+            "pr_number": int(delivery.pr_number),
+            "base_sha": delivery.base_sha,
+            "head_sha": delivery.head_sha,
+            "installation_id": delivery.installation_id,
+            "action": GENERATE_FINDINGS,
+            "event_id": delivery.delivery_id,
+            "delivery_id": delivery.delivery_id,
+            "state": "QUEUED",
+            "attempts": 0,
+            "workspace_ref": "engineering-lab",
+        },
+        PR_REVIEW_SYSTEM_SUBJECT,
+    )
+    return {
+        "status": "QUEUED",
+        "delivery_id": delivery.delivery_id,
+        "job": _job_view(job),
+        "deduplicated": bool(job.get("deduplicated")),
+    }
