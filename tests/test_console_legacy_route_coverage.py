@@ -155,7 +155,10 @@ LEGACY_GAP_DISPOSITIONS = {
     "/sci": "the archived Spiral Command Interface has no console surface",
     "/pulse": "the archived ArkadianPulse surface has no console surface",
     "/reset": "the archived Coherence Reset surface has no console surface",
-    "/reasomate": "the archived ReasoMate surface has no console surface",
+    # `/reasomate` was recorded here as an absent surface. It was reconciled: the
+    # archived surface's Arkana lens already exists as `/arkana`, and its direct
+    # thread lens now has its own `/reasomate` surface over `api/messages.py`
+    # (evidence: docs/control-plane/evidence/console-reasomate-direct-threads-01/).
     "/challenge": "the archived Future Skills Challenge has no console surface",
     "/future-skills": "same absent challenge surface as `/challenge`",
     "/offerings": "the archived Offerings surface has no console surface",

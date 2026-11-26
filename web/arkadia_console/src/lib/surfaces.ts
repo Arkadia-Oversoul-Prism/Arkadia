@@ -12,6 +12,7 @@ export type SurfaceId =
   | "home"
   | "novanet"
   | "arkana"
+  | "reasomate"
   | "solariun"
   | "projects"
   | "engineering-lab"
@@ -134,6 +135,20 @@ export const SURFACES: SurfaceDef[] = [
     summary: "Conversational intelligence and synthesis over the shared spine.",
     path: "/arkana",
     accent: "text-emerald",
+    group: "converse",
+  },
+  {
+    id: "reasomate",
+    requiresAuth: true,
+    name: "ReasoMate",
+    boundary: "Arkana + Knowledge OS",
+    summary: "Private node-to-node threads over the authenticated message substrate.",
+    // Recovered from the archived Prism surface, which carried two lenses: the
+    // Arkana conversation and direct threads. Arkana already has its own
+    // surface, so this one is the direct-thread lens only — not a second
+    // chatbot and not a second store. The backend contract is `api/messages.py`.
+    path: "/reasomate",
+    accent: "text-teal",
     group: "converse",
   },
   {
