@@ -141,6 +141,48 @@ def _token() -> str | None:
     return None
 
 
+def _self_branch() -> str | None:
+    """The branch this derivation is running on, when CI names it.
+
+    The snapshot cannot record the pull request that carries it: the PR number
+    does not exist while the snapshot is being written, and once that PR merges
+    a record naming it is stale by definition. ``scripts/lane_state.py`` already
+    excludes the carrier from the derivation it compares against
+    (:func:`lane_state._self_branch`); without the same exclusion here the
+    documented repair command -- ``--write`` -- writes a snapshot its own guard
+    then calls wrong, so the repair reddens the revision that carries it.
+
+    Kept in step with ``lane_state._self_branch`` by
+    ``tests/test_lane_instruction_doc_currency.py``, which asserts the two agree
+    across the whole environment matrix rather than trusting this comment.
+    """
+    for name in ("GITHUB_HEAD_REF", "GITHUB_REF_NAME"):
+        value = os.environ.get(name)
+        if value:
+            return value
+    return None
+
+
+def exclude_carrier(
+    open_prs: list[dict], files: dict[int, list[str]], self_branch: str | None
+) -> tuple[list[dict], dict[int, list[str]], list[int]]:
+    """Drop the PR headed by ``self_branch`` from a derivation.
+
+    Returns the filtered pair plus the excluded PR numbers, so a dry run can
+    report what it withheld instead of silently producing a different snapshot.
+    """
+    if not self_branch:
+        return open_prs, files, []
+    excluded = sorted(
+        pr["number"]
+        for pr in open_prs
+        if (pr.get("head") or {}).get("ref") == self_branch
+    )
+    kept = [pr for pr in open_prs if pr["number"] not in set(excluded)]
+    kept_files = {n: f for n, f in files.items() if n not in set(excluded)}
+    return kept, kept_files, excluded
+
+
 def _get(url: str, token: str, timeout: float = 30.0):
     req = urllib.request.Request(
         url,
@@ -537,6 +579,13 @@ def main(argv: list[str] | None = None) -> int:
         print(f"aggregate classification unavailable: {exc}", file=sys.stderr)
         return 2
     open_prs, files = fetch_all(token, args.repo)
+    self_branch = _self_branch()
+    open_prs, files, excluded = exclude_carrier(open_prs, files, self_branch)
+    if self_branch:
+        print(
+            f"carrier branch {self_branch!r} excluded from the snapshot "
+            f"(PRs {excluded})"
+        )
     state = build(open_prs, files, base_main, args.repo, aggregate=aggregate)
     merged, closed = merge_history(existing, open_prs, token, args.repo)
     for lane_no, entries in merged.items():

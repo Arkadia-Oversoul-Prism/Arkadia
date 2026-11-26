@@ -426,6 +426,172 @@ def _pr_state_findings(
     return findings
 
 
+def _unassigned_state_findings(
+    state: dict, records: dict[int, dict], failure: str | None = None
+) -> list[str]:
+    """Require every PR the snapshot lists as *unassigned open* to be open.
+
+    ``unassigned_open_prs`` was written by the derivation and read by no check:
+    the live oracle judged ``open_prs`` and ``deferred_to_pr`` only, so the
+    field could assert any PR state at all. Measured 2026-11-22 at ``main``
+    ``034d8879``: it listed #669, which is MERGED (``bec86f3d``), and
+    ``--check --verify-live`` exited 0. A field that is derived, committed and
+    never judged records a fact without judging it; this judges it in the same
+    direction as ``open_prs`` -- a claimed-open PR must be open.
+
+    Completeness is deliberately *not* required here. Lane ownership is a claim
+    the snapshot makes about lanes, so a lane PR it omits is a defect (see
+    :func:`_derivation_findings`). ``unassigned_open_prs`` is a catch-all, and
+    requiring every currently-open unowned PR to be listed would make the
+    snapshot unsatisfiable for any change that is itself such a PR.
+    """
+    if failure:
+        return [
+            f"live PR state unavailable ({failure}); every unassigned-open record "
+            f"is UNKNOWN, not a pass -- re-measure with GitHub read access"
+        ]
+
+    findings: list[str] = []
+    for entry in state.get("unassigned_open_prs", []):
+        number = entry.get("number")
+        record = records.get(number)
+        if record is None:
+            findings.append(
+                f"PR #{number} (unassigned_open_prs) is not in the live PR "
+                f"response; its state is UNKNOWN, not a pass"
+            )
+            continue
+        status = pr_status(record)
+        if status == "OPEN":
+            continue
+        if status == "MERGED":
+            detail = (
+                "MERGED (merge commit "
+                f"{str(record.get('merge_commit_sha'))[:8]})"
+            )
+        elif status == "CLOSED_UNMERGED":
+            detail = "CLOSED without merging"
+        else:
+            detail = f"UNKNOWN ({record.get('state')!r})"
+        findings.append(
+            f"PR #{number} (unassigned_open_prs) is recorded as open but is "
+            f"{detail}; re-measure the lane PRs"
+        )
+    return findings
+
+
+def _lane_refresh_module():
+    """Load the snapshot derivation module by path.
+
+    ``scripts/lane_state.py`` runs as a script (``scripts`` on ``sys.path``) and
+    is also imported by path from the fitness tests (neither ``scripts`` nor the
+    repo root on ``sys.path``), so a plain ``import`` works in only one of the
+    two. Loading by path keeps one form working in both.
+    """
+    import importlib.util
+
+    path = Path(__file__).resolve().with_name("lane_state_refresh.py")
+    spec = importlib.util.spec_from_file_location("lane_state_refresh", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _self_branch() -> str | None:
+    """The branch this check is running on, when CI names it.
+
+    The snapshot cannot record the pull request that carries it -- the PR number
+    does not exist until after the snapshot is written -- so a completeness rule
+    that did not exclude that PR would be unsatisfiable for every lane-doc
+    change, which is the same structural trap as comparing a recorded tip with
+    the current tip. ``GITHUB_HEAD_REF`` is set for ``pull_request`` events;
+    ``GITHUB_REF_NAME`` covers a branch push.
+    """
+    for name in ("GITHUB_HEAD_REF", "GITHUB_REF_NAME"):
+        value = os.environ.get(name)
+        if value:
+            return value
+    return None
+
+
+def _derivation_findings(
+    state: dict,
+    open_prs: list[dict],
+    files: dict[int, list[str]],
+    repo_slug: str = DEFAULT_REPO,
+    self_branch: str | None = None,
+    refresh=None,
+) -> list[str]:
+    """Require the snapshot's lane records to equal a fresh derivation.
+
+    ``_pr_state_findings`` judges one direction: a record the snapshot claims is
+    open must be open. Nothing judged the other direction -- a lane PR that is
+    open, owns a lane's paths, and is absent from the snapshot -- so the guard
+    reported "lane instruction docs consistent with snapshot" while every lane
+    declared ``**Active thread:** none`` and six lane-owned PRs were live.
+
+    Measured 2026-11-22 at ``main`` ``034d8879`` (``python
+    scripts/lane_state.py --check`` -> exit 0): the committed snapshot recorded
+    all four lanes idle with ``unassigned_open_prs`` holding only the merged
+    #669, while a fresh derivation returned lane 1 ``[678]``, lane 2 ``[677]``,
+    lane 3 ``[679]``, lane 4 ``[680]`` and unassigned ``[675, 681, 682, 683]``.
+    A successor agent reading a lane doc would have been told the lane was free
+    while its work was in flight -- the continuity failure the lane model exists
+    to prevent, in the direction the guard could not see.
+
+    Comparison is per lane, in both directions, against the same derivation the
+    snapshot is written from, so the committed snapshot and the gate cannot
+    disagree about how lane assignment is decided. ``self_branch`` excludes the
+    PR carrying this change (see :func:`_self_branch`), and ``refresh`` lets a
+    control substitute the derivation module so the fail-closed path is
+    executable rather than merely described.
+    """
+    refresh = refresh or _lane_refresh_module()
+    try:
+        aggregate = refresh.load_aggregate_config()
+    except refresh.AggregateConfigError as exc:
+        return [
+            f"snapshot completeness is UNKNOWN, not a pass -- aggregate "
+            f"classification unavailable: {exc}"
+        ]
+
+    excluded = {
+        pr["number"]
+        for pr in open_prs
+        if self_branch and (pr.get("head") or {}).get("ref") == self_branch
+    }
+    visible = [pr for pr in open_prs if pr["number"] not in excluded]
+    visible_files = {n: f for n, f in files.items() if n not in excluded}
+    fresh = refresh.build(
+        visible,
+        visible_files,
+        state.get("base_main") or "",
+        repo_slug,
+        aggregate=aggregate,
+    )
+
+    findings: list[str] = []
+    for lane_no in _lane_numbers(state):
+        recorded = {p["number"] for p in state["lanes"][lane_no].get("open_prs", [])}
+        derived = {p["number"] for p in fresh["lanes"][lane_no]["open_prs"]}
+        for missing in sorted(derived - recorded):
+            findings.append(
+                f"lane {lane_no}: open PR #{missing} changes this lane's owned "
+                f"paths but the snapshot does not record it; a lane doc that "
+                f"declares no active thread is then false -- re-measure with "
+                f"scripts/lane_state_refresh.py --write and re-point the lane"
+            )
+        for extra in sorted(recorded - derived):
+            findings.append(
+                f"lane {lane_no}: PR #{extra} is recorded as an open lane PR but "
+                f"a fresh derivation does not assign it to this lane (it has "
+                f"closed, or its paths no longer fall inside the lane's "
+                f"ownership); re-measure with "
+                f"scripts/lane_state_refresh.py --write"
+            )
+    return findings
+
+
 def _declared_pointer_findings(
     state: dict,
     records: dict[int, dict],
@@ -1019,15 +1185,21 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.verify_live:
         numbers = sorted(claimed_open_prs(state))
+        unassigned_numbers = sorted(
+            e["number"]
+            for e in state.get("unassigned_open_prs", [])
+            if isinstance(e.get("number"), int)
+        )
         declared = {
             declared_pr((LANE_DIR / state["lanes"][n]["doc"]).read_text(encoding="utf-8"))
             for n in _lane_numbers(state)
             if (LANE_DIR / state["lanes"][n]["doc"]).exists()
         }
         records, failure = fetch_pr_records(
-            numbers + sorted(n for n in declared if n is not None)
+            numbers + unassigned_numbers + sorted(n for n in declared if n is not None)
         )
         findings += _pr_state_findings(state, records, failure)
+        findings += _unassigned_state_findings(state, records, failure)
         # Dead pointers block only for the lanes this guard owns. Every lane is
         # still *reported*: a finding nobody prints is the hole being repaired.
         # Blocking on a doc the guard does not own would make the gate
@@ -1042,11 +1214,40 @@ def main(argv: list[str] | None = None) -> int:
         ]
         print(
             f"live PR state: {len(records)} PR(s) read from {DEFAULT_REPO} "
-            f"({len(numbers)} claimed-open + declared doc pointers)"
+            f"({len(numbers)} claimed-open + {len(unassigned_numbers)} unassigned "
+            f"+ declared doc pointers)"
             + (f" -- {failure}" if failure else "")
         )
         for note in advisory:
             print(f"  NOTE {note} (lane not owned by this guard; reported, not blocking)")
+
+        # Completeness: the snapshot's lane records must equal a fresh
+        # derivation. The liveness oracle above cannot see a lane PR the
+        # snapshot omits entirely, which is the measured defect (six live lane
+        # PRs, four idle declarations, green gate).
+        token = _github_token()
+        if not token:
+            findings.append(
+                "snapshot completeness is UNKNOWN, not a pass -- no GitHub token "
+                "in GH_TOKEN/GITHUB_TOKEN/GITHUB_PERSONAL_ACCESS_TOKEN"
+            )
+        else:
+            try:
+                open_prs, files = _lane_refresh_module().fetch_all(token, DEFAULT_REPO)
+            except Exception as exc:  # transport, auth, non-200, malformed JSON
+                findings.append(
+                    f"snapshot completeness is UNKNOWN, not a pass -- the open-PR "
+                    f"read failed ({type(exc).__name__}); re-measure with GitHub "
+                    f"read access"
+                )
+            else:
+                print(
+                    f"live open-PR derivation: {len(open_prs)} open PR(s) read from "
+                    f"{DEFAULT_REPO} (self branch excluded: {_self_branch()!r})"
+                )
+                findings += _derivation_findings(
+                    state, open_prs, files, self_branch=_self_branch()
+                )
 
     print(freshness_text(state, base_main))
     print(f"doc-guard lanes: {current_lanes(state)}; deferred: "
