@@ -1,0 +1,49 @@
+name: Source Sync Error Contract
+
+# `POST /solspire/sources/{source}/sync` delegates to a corpus adapter and the
+# Knowledge OS ingest pipeline. Both raise exception text that is not public
+# copy (provider URLs, credential material, filesystem paths). This gate holds
+# the pair: the caller receives stable copy that points at the log, and the log
+# receives the cause.
+#
+# `tests/test_source_sync_error_disclosure.py` is the guard. This workflow is
+# its executable surface: it selects the module the guard judges, the module
+# that supplies the curated configuration copy the guard pins as deliberate,
+# the guard itself, and this file.
+
+on:
+  pull_request:
+    paths:
+      - "api/source_routes.py"
+      - "api/source_connections.py"
+      - "tests/test_source_sync_error_disclosure.py"
+      - ".github/workflows/source-sync-error-contract.yml"
+  push:
+    branches: [main]
+    paths:
+      - "api/source_routes.py"
+      - "api/source_connections.py"
+      - "tests/test_source_sync_error_disclosure.py"
+      - ".github/workflows/source-sync-error-contract.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-sync-error-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install backend dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install pytest
+      - name: Source sync error contract
+        run: python -m pytest tests/test_source_sync_error_disclosure.py -q
