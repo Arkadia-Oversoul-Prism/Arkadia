@@ -3,16 +3,6 @@
  "observed_at": "2026-11-26",
  "main_sha": "68db6619ee438ade7d8c32786076aab877e308a5",
  "open_pr_count": 65,
- "merge_batch_a": [
-  727,
-  705,
-  741,
-  703,
-  680,
-  698,
-  738,
-  683
- ],
  "prs": [
   {
    "number": 680,
@@ -1888,5 +1878,32 @@
    "capability_entrypoint": "REFUSED:WorkerUnavailable",
    "disposition": "MERGE_CANDIDATE"
   }
- ]
+ ],
+ "merge_batch_a_eligible_as_measured": [
+  727,
+  705,
+  680,
+  698,
+  738,
+  683
+ ],
+ "merge_batch_a_external_red_m6_fail": [
+  741,
+  703
+ ],
+ "merge_batch_a_order": [
+  727,
+  705,
+  741,
+  703,
+  680,
+  698,
+  738,
+  683
+ ],
+ "execution_blockers": {
+  "draft_state": "all 8 are drafts authored by Arkadia-Oversoul-Prism; GOV-04 forbids silent draft conversion",
+  "branch_protection": "GET /branches/main/protection -> 403 Resource not accessible by integration; /rulesets -> 0; UNKNOWN, not PASS",
+  "m6_exemption": "none: the failures on #741/#703 are external but M6 admits no exemption"
+ }
 }

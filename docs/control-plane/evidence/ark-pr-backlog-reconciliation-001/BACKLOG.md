@@ -370,3 +370,90 @@ git worktree add --detach /tmp/wt-batch origin/main
 cd /tmp/wt-batch && for n in 727 705 741 703 680 698 738 683; do git merge --no-edit pr/$n; done
 PYTHONPATH=<repo>/archive/legacy_python python -m pytest tests/ -q -rEf --continue-on-collection-errors
 ```
+
+---
+
+## 11. Execution pre-flight for batch A (re-measured 2026-11-26, after §5)
+
+The report above was written against `main` `68db6619`. This section is the
+re-verification required before any merge, and it **corrects one thing in §5**.
+
+### 11.1 What is unchanged
+
+| Fact | Re-measured |
+|---|---|
+| `main` | `68db6619ee438ade7d8c32786076aab877e308a5` — **unchanged** |
+| Batch A heads | **all 8 unchanged** (`f3d10739`, `2732b81a`, `b9898141`, `3b2e5b73`, `0023c781`, `91e73dfd`, `4ede1928`, `4c9261cf`) |
+| Base ref / mergeability | all 8 `base=main`, `mergeable=MERGEABLE`, `mergeStateStatus=CLEAN` |
+| Batch A composition (§5) | still valid — no head and no base moved |
+
+### 11.2 Correction: M6 admits no exemption, so §5's batch is two PRs wider than is eligible
+
+`docs/control-plane/evidence/residual-recovery-2026-10-27-01/EVIDENCE.md` §8.12
+is the repository's own precedent for the retained M1–M13 rubric, and its M6
+reads: *"checks: … the criterion admits no exemption"* — a pre-existing,
+environmental, or someone-else's-debt failure does **not** satisfy M6. GOV-01's
+preserved boundaries also forbid waiving M1–M13.
+
+Applying M6 as written splits batch A:
+
+| Group | PRs | Checks on head | M6 |
+|---|---|---|---|
+| **Eligible as measured** | #727, #705, #680, #698, #738, #683 | 6/6, 6/6, 10/10, 10/10, 10/10, 10/10 | PASS |
+| **Not eligible as measured** | #741, #703 | 3/6 and 5/6 — `beta-beta-02-hausa`, `bundle-beta-evidence`, `native-arkadia-golden-workflow` | **FAIL** |
+
+The two failures are still the external N-ATLaS jobs (§F5), and they are still
+not evidence about those diffs. But "not the branch's fault" is not an M6
+exemption, so #741 and #703 must either collect a green re-run of those jobs or
+stay open. **They are moved out of the executable batch**; the order of the
+remaining six is unchanged.
+
+### 11.3 Two preconditions that only a human can clear
+
+**Draft state.** All six eligible PRs are `draft: true`, authored by
+`Arkadia-Oversoul-Prism`. GOV-04: *"Drafts must be explicitly made ready by
+their owner; no silent draft conversion."* No agent may flip that bit.
+
+**Branch protection is unreadable with this credential.**
+`GET /repos/…/branches/main/protection` returns **403 "Resource not accessible
+by integration"** and `/rulesets` returns `0`. So "branch protections and merge
+queue are satisfied" (GOV-04 condition 2) cannot be *affirmatively verified by an
+agent here* — it is `UNKNOWN`, not `PASS` and not `FAIL`. Only GitHub's own
+enforcement at merge time settles it. Recorded rather than assumed in either
+direction: the earlier "`main` has no protection" note was a **404**, and a 403 is
+a different observation.
+
+### 11.4 Eligibility assessment — first in sequence, #727
+
+Exact head `f3d10739644ddc173514c9435bbb3c4b172224b1`, base `main` `68db6619`.
+
+| criterion | state | evidence |
+|---|---|---|
+| M1 canonical target | PASS | `base.ref == main`, canonical repository |
+| M2 provenance | PASS | head unchanged since the inventory; single commit `f3d10739` |
+| M3 scope | PASS | 1 new file, `docs/…/gate-hygiene-repair-wave-composition-01/EVIDENCE.md`, +144/−0; CP10 judge → *Mutation boundary PASS* |
+| M4 governance | PASS | docs-only evidence record; no authority, identity, approval, K15/K3, deployment or acceptance surface |
+| M5 reviews | UNKNOWN | `reviewDecision` empty, 0 reviews; no required-review configuration readable (protection 403) |
+| M6 checks | PASS | 6/6 `completed/success` on the exact head, no pending, no skipped-required |
+| M7 tests | PASS | the file is documentation; batch-A composed suite (§5) is the regression evidence |
+| M8 conflicts/freshness | PASS | `MERGEABLE`/`CLEAN` vs `68db6619`; `merge-tree` clean |
+| M9 dependencies | PASS | none; first in the order, disjoint from every other batch path |
+| M10 regression boundary | PASS | composed-tree node set adds nothing (§5) |
+| M11 merge method | PASS (would be) | PR merge at expected head only; no direct push, no force-push |
+| M12 authorization | **HUMAN_AUTHORITY_REQUIRED** | draft owner action + per-PR human merge authorization |
+| M13 final revalidation | NOT REACHED | blocked at M5/M12 |
+
+**Disposition: NOT YET ELIGIBLE — fail-closed at M5/M12.** Nothing about the diff
+is in question; the two blockers are platform state (draft bit) and the
+authorization boundary, both reserved to the human.
+
+### 11.5 Per-PR execution protocol (to be repeated after every merge)
+
+For PR *n* in the order:
+1. re-fetch `main`; if it moved, re-run the composition measurement before proceeding;
+2. confirm `pulls/<n>.head.sha` equals the recorded head, else discard the disposition;
+3. re-read check-runs on that exact head and require `completed/success` for all (M6);
+4. require owner action to clear the draft bit, then human merge authorization for that PR;
+5. merge through the protected merge API with `sha=<recorded head>`;
+6. after the merge, verify the resulting `main` SHA and that the intended diff landed;
+7. reconcile PR *n+1* against the new `main` — the earlier composition is no longer proof.
