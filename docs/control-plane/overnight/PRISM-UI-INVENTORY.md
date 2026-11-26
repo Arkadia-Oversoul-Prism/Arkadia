@@ -38,8 +38,8 @@ Legacy routes are from `archive/.../src/App.tsx`. "Current surface" is the conso
 | `/nexus/grove` | grove | `SpiralGrovePage.tsx` | — | `UNKNOWN` | Defer | MISSING |
 | `/nexus/larder` | larder | `LivingLarderPage.tsx` | — | `UNKNOWN` | Defer | MISSING |
 | `/nexus/distribution` | distribute | `DistributePage.tsx` | — | `UNKNOWN` | Defer | MISSING |
-| `/encyclopedia` | encyclopedia | `NexusSpiralCodex.tsx` | — | `/api/codex`, `/api/scrolls` | Defer | MISSING |
-| `/spiral-codex` | spiral-codex | `SpiralCodexFeed.tsx` | — | `/api/scrolls`, `/api/codex` | Defer | MISSING |
+| `/encyclopedia` | encyclopedia | `NexusSpiralCodex.tsx` | `novanet` → `/novanet` (`codex` lens; `LENS_ALIASES`) | `/api/codex`, `/api/stellar-cartography` | Adapt (Slice A) | PARTIAL |
+| `/spiral-codex` | spiral-codex | `SpiralCodexFeed.tsx` | `novanet` → `/novanet` (`codex` lens; `LENS_ALIASES`) | `/api/codex`, `/api/stellar-cartography` | Adapt (Slice A) | PARTIAL |
 | `/offerings` | offerings | `OfferingsPage.tsx` | — | `UNKNOWN` | Defer | MISSING |
 | `/future-skills` `/challenge` | challenge | `FutureSkillsChallenge.tsx` | — | `UNKNOWN` | Defer | MISSING |
 | `/reset` | reset | `CoherenceReset.tsx` | — | `UNKNOWN` | Defer | MISSING |
@@ -51,13 +51,24 @@ Legacy routes are from `archive/.../src/App.tsx`. "Current surface" is the conso
 | `/solariun` + 13 sections | solariun | `SolariunConsole.tsx` | `solariun` → `/solariun` | `/api/me/field`, `/api/me/codex` | Adapt (Slice B) | PARTIAL |
 | `/codex` `/knowledge-os` | solariun/knowledge | `pages/knowledge/*` | `knowledge` → `/knowledge` | `/api/knowledge/*` | Adapt (Slice E) | PARTIAL |
 | `/loops` | solariun/tasks | `OpenLoopsPage.tsx` | — | `/api/open-loops`, `/api/dashboard/loops` | Defer | MISSING |
-| `/dashboard` | solariun/overview | `pages/dashboard/*` | — | `UNKNOWN` | Defer | MISSING |
-| `/personal-echofeild` `/echofeild-matrix` | solariun/observatory | `PersonalEchofeild.tsx` | — | `/api/me/field`, `/api/echoes` | Adapt (Slice B) | MISSING |
-| `/settings` `/account` | solariun/settings | `SettingsPage.tsx` | — | `/api/keys`, `/api/provider-keys` | Defer | MISSING |
+| `/dashboard` | solariun/overview | `pages/dashboard/*` | `solariun` → `/solariun` (`overview` lens; the route itself is not aliased) | `/api/me/field`, `/solspire/projects` | Adapt (Slice B) | PARTIAL |
+| `/personal-echofeild` `/echofeild-matrix` | solariun/observatory | `PersonalEchofeild.tsx` | `solariun` → `/solariun` (`memory` lens) | `/api/me/field` | Adapt (Slice B) | PARTIAL |
+| `/settings` `/account` | solariun/settings | `SettingsPage.tsx` | `settings` → `/settings` (`/account` is a `PATH_ALIASES` alias) | `/api/me`, `/api/me/ais-profile`, `/api/sources`, `/api/knowledge/providers`, `/solspire/workspace` | Adapt (Slice B) | PARTIAL |
 | `/about` | about | `AboutArkadia.tsx` | `about` → `/about` | — (static) | Reuse | IMPLEMENTED |
 | `/login` | login | `LoginPage.tsx` | `login` → `/login` | `/api/me` | Reuse | IMPLEMENTED |
 
-Console surfaces with **no legacy counterpart** (new architecture): `engineering-lab` → `/engineering-lab`, `weaver` → `/weaver` (both `requiresAuth`).
+Console surfaces with **no legacy counterpart** (new architecture). Every surface declared in
+`web/arkadia_console/src/lib/surfaces.ts` must be accounted for here or in a row above;
+`tests/test_prism_ui_inventory_currency.py` enforces that against the live declaration.
+
+| Surface | Canonical path | Note |
+|---|---|---|
+| `workspace` | `/workspace` | default destination; `requiresAuth` |
+| `projects` | `/projects` | `requiresAuth` |
+| `engineering-lab` | `/engineering-lab` | `requiresAuth` |
+| `weaver` | `/weaver` | `requiresAuth` |
+| `operator` | `/operator` | read-only operator bundle (`/api/jobs`, `/api/tools`, `/api/approvals`) |
+| `n-atlas` | `/n-atlas-lab` | standalone surface; `/n-atlas-tester` is a `PATH_ALIASES` alias |
 
 ### 2.1 Route and suffix conflicts to preserve
 
@@ -312,3 +323,65 @@ workstream 1 to apply (Finding 2).
 - No claim that `https://arkadia-qzu4.onrender.com` serves this change.
 - No Vercel path used, promoted, or treated as evidence (directive §8).
 - Finding 2 is a source-level router measurement, not a runtime/device observation.
+
+## 9. Currency correction — 2026-11-23 (ARK-OPS-CONTINUOUS-001 cycle 05)
+
+**Observed:** `main` = `bb19aabda34d59594615b0279a45e9cbd3d8204d`, tree clean. Production
+`GET /api/version` reports `source_revision` = that same SHA (`revision_conflict: false`).
+
+**Defect measured.** The §2 matrix disagreed with the console's own route declaration in
+`web/arkadia_console/src/lib/surfaces.ts` + `src/lib/router.ts`, in both directions:
+
+1. **Five legacy routes the console already resolves were recorded as `MISSING`** with an
+   empty current-surface cell:
+   - `/encyclopedia` and `/spiral-codex` — both are `LENS_ALIASES` entries resolving to
+     `novanet` + the `codex` lens, and `NovaNetPage.tsx` states in its own header that
+     "the `codex` lens **is** reconciled" over `GET /api/codex`.
+   - `/settings` and `/account` — `settings` is a declared surface at `/settings`
+     (`SettingsPage.tsx`, 223 lines, reading five served contracts) and `/account` is a
+     `PATH_ALIASES` entry for it.
+   - `/personal-echofeild` / `/echofeild-matrix` — rendered at the `solariun` `memory`
+     lens (`SolariunPage.tsx` → `PersonalFieldPanel`), and `/dashboard` — restored by the
+     `solariun` `overview` lens (`SolariunOverview.tsx`, whose header names the archived
+     cockpit explicitly).
+2. **Three declared surfaces were absent from the document entirely** — `/workspace`,
+   `/operator`, `/n-atlas-lab`. An inventory that omits live surfaces cannot be used to
+   decide what to build next.
+
+The stale `/settings` row also carried a stale contract claim: it advertised
+`/api/keys` + `/api/provider-keys`, which `SettingsPage.tsx` does not read. It reads
+`/api/me`, `/api/me/ais-profile`, `/api/sources`, `/api/knowledge/providers` and
+`/solspire/workspace`; all five resolve in the deployed `app.openapi()` (300 paths).
+
+**Correction.** Rows 41, 42, 54, 55, 56 of §2 now name the resolving surface and its
+canonical path, the contract the surface actually reads, and `PARTIAL` status (each
+capability is reconciled but narrower than the archived module). The
+no-legacy-counterpart paragraph became a table enumerating all six new-architecture
+surfaces. No product code, test, workflow, `api/main.py` line or deployment configuration
+was changed by the correction itself.
+
+**Guard.** `tests/test_prism_ui_inventory_currency.py` derives its domain from the live
+declarations rather than restating them, and fails when:
+
+- a surface declared in `surfaces.ts` is not accounted for in this document;
+- a surface id or path named here does not exist in `surfaces.ts` (an invented surface);
+- a row marked `MISSING` names a console surface (a half-edit);
+- **a row marked `MISSING` covers a legacy route the router resolves** through a declared
+  surface path, `PATH_ALIASES` or `LENS_ALIASES` — the exact defect above.
+
+It carries a negative control (the pre-repair rows, verbatim, must be reported), a
+planted-defect control (one repaired row reverted to `MISSING` must be reported) and a
+positive control (this document must be silent). A guard that is silent on the defect it
+was written for is not a guard.
+
+**Superseded figures, named rather than reconciled.** §3's "288 paths" was measured at the
+bound revision; the deployed `app.openapi()` now serves **300** paths. §4's page line
+counts (`SolariunPage.tsx` 87, `ArkanaPage.tsx` 88, `SolSpirePage.tsx` 35,
+`KnowledgePage.tsx` 46) are that same bound-revision snapshot; at this revision they are
+**229**, **475**, **148** and **88**. §5's baseline stays as measured and is not restated
+here.
+
+**Explicit non-claims.** No merge, no deployment, no production acceptance. The console
+was not rebuilt in this pass, so this section claims nothing about what
+`https://arkadia-qzu4.onrender.com` renders beyond the `/api/version` revision identity
+recorded above. No Vercel path was used, promoted, or treated as evidence.
