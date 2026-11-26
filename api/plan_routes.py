@@ -12,9 +12,13 @@ also repairs the prior import of ``execute_plan`` from ``kernel.execution``
 """
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from api.auth import require_auth
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Plan"])
 
@@ -43,5 +47,9 @@ async def run_plan(request: Request, user: dict = Depends(require_auth)):
         }
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        logger.exception("plan execution failed")
+        raise HTTPException(
+            status_code=500,
+            detail="Plan execution failed; inspect server logs for internal details.",
+        )
