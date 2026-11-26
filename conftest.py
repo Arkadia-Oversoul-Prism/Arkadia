@@ -116,3 +116,36 @@ def _sandbox_economic_seams_store():
             module.DB_PATH = db_path
 
     yield
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _sandbox_engineering_lab_events():
+    """Point the Engineering Lab event log at a throwaway directory.
+
+    `lab/engineering_lab/events.py` snapshots
+
+        _DEFAULT_LOG = os.path.join(
+            os.environ.get("ENGINEERING_LAB_DATA_DIR", "data/engineering_lab"),
+            "agent_events.jsonl",
+        )
+
+    at *import* time, and several test modules call
+    ``monkeypatch.setenv("ENGINEERING_LAB_DATA_DIR", ...)`` afterwards, which cannot
+    reach an already-snapshotted constant. A default ``get_event_stream()`` therefore
+    appended to the repository's ``data/engineering_lab/agent_events.jsonl``: a full
+    suite left an untracked runtime log that ``.gitignore`` did not cover. The env var
+    is forced before the rebind so a later import agrees with it, mirroring the
+    SolSpire and economic-seam fixtures.
+    """
+    data_dir = os.path.join(_SESSION_STATE, "engineering_lab")
+    log_path = os.path.join(data_dir, "agent_events.jsonl")
+    os.environ["ENGINEERING_LAB_DATA_DIR"] = data_dir
+
+    for module in list(sys.modules.values()):
+        if module is None:
+            continue
+        current = getattr(module, "_DEFAULT_LOG", None)
+        if isinstance(current, str) and os.path.basename(current) == "agent_events.jsonl":
+            module._DEFAULT_LOG = log_path
+
+    yield

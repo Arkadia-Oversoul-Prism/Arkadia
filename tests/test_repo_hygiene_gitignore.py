@@ -206,3 +206,74 @@ def test_no_module_resolves_the_repository_canonical_store() -> None:
         "these modules still resolve the repository's canonical store: "
         f"{sorted(leaked)} — the session sandbox fixture is missing or ineffective"
     )
+
+
+# ── Engineering Lab event log ────────────────────────────────────────────────
+
+ENGINEERING_LAB_EVENT_LOG = "data/engineering_lab/agent_events.jsonl"
+
+
+def _resolves_into_repository(path: str) -> bool:
+    """Whether ``path`` resolves inside the working tree."""
+    candidate = Path(path)
+    if not candidate.is_absolute():
+        candidate = REPO_ROOT / candidate
+    return REPO_ROOT in candidate.resolve().parents
+
+
+def test_engineering_lab_event_log_is_never_stageable() -> None:
+    """The lab event stream appends runtime telemetry, not review state.
+
+    `lab/engineering_lab/events.py` resolves its log under
+    `ENGINEERING_LAB_DATA_DIR` (default `data/engineering_lab`), so any session that
+    constructs a default `EventStream()` materialises
+    `data/engineering_lab/agent_events.jsonl`. A full-suite run left it untracked and
+    unignored, so a `git add -A` in a hygiene pass would have folded runtime
+    telemetry into canon.
+    """
+    assert _is_ignored(ENGINEERING_LAB_EVENT_LOG), (
+        f"{ENGINEERING_LAB_EVENT_LOG} is not ignored; a session that constructs a "
+        "default Engineering Lab event stream would leave it stageable by `git add -A`"
+    )
+
+
+def test_engineering_lab_event_log_is_not_tracked() -> None:
+    """Ignoring is the guardrail; not being tracked is the actual invariant."""
+    tracked = subprocess.run(
+        ["git", "ls-files", "--error-unmatch", ENGINEERING_LAB_EVENT_LOG],
+        cwd=REPO_ROOT, capture_output=True, text=True,
+    )
+    assert tracked.returncode != 0, f"{ENGINEERING_LAB_EVENT_LOG} is tracked and must not be"
+
+
+def test_engineering_lab_ignore_is_scoped_to_the_lab_tree() -> None:
+    """Negative control: the rule names the lab tree, not all of `data/`."""
+    assert not _is_ignored("data/__hygiene_control__.txt"), (
+        "a non-store file under data/ is ignored; the rule is broader than the "
+        "runtime directory it is meant to cover"
+    )
+
+
+def test_engineering_lab_default_log_is_sandboxed() -> None:
+    """The load-bearing assertion: ignoring hides the symptom.
+
+    The defect is that `lab/engineering_lab/events.py` snapshots `_DEFAULT_LOG` into
+    the repository at *import* time, before any test can redirect it.
+    `conftest.py::_sandbox_engineering_lab_events` rebinds that constant, and this
+    fails if the fixture is ever removed.
+    """
+    from lab.engineering_lab import events
+
+    assert not _resolves_into_repository(events._DEFAULT_LOG), (
+        f"the Engineering Lab event log still resolves into the repository: "
+        f"{events._DEFAULT_LOG}"
+    )
+
+
+def test_engineering_lab_sandbox_control_detects_a_repository_path() -> None:
+    """Negative control: the predicate must report a repository path.
+
+    Without this, `test_engineering_lab_default_log_is_sandboxed` would pass on a
+    predicate that can never fail.
+    """
+    assert _resolves_into_repository(ENGINEERING_LAB_EVENT_LOG)

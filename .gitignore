@@ -30,6 +30,13 @@ data/solspire_projects.db*
 # lane commit, which is what this rule and its guard exist to prevent.
 data/economic_seams.db*
 
+# The Engineering Lab event stream appends to
+# `data/engineering_lab/agent_events.jsonl` (`lab/engineering_lab/events.py`
+# snapshots the directory at import time). A full-suite run materialises it, so a
+# `git add -A` would fold runtime telemetry into canon. `conftest.py` now sandboxes
+# the path; this rule keeps the residue unstageable if anything ever writes it.
+data/engineering_lab/
+
 # API key stores (contain sensitive credentials — never commit)
 data/api_keys.json
 data/provider_keys.json
