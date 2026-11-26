@@ -1,0 +1,54 @@
+name: Root Doc Module Map
+
+# `PROJECT_INDEX.md` declares itself the map an agent reads *instead of*
+# exploring the tree, and binds itself to the codebase ("Never let it drift").
+# Measured on `main` @ `bb19aabd` it advertised `web/public_prism/`, archived by
+# `c081d200` (2026-10-11), while the active console is `web/arkadia_console/`.
+# The only other root-document gate (`root-doc-link-integrity.yml`) reads inline
+# markdown links and excludes fenced code blocks, which is where this claim lives,
+# so no gate executed a currency check on the map.
+#
+# `tests/test_root_doc_module_map_currency.py` derives the document set from root
+# `*.md` and `architecture/*.md` at test time and excludes dated records unless
+# they tell an agent to rely on them instead of the tree. The `paths` filter
+# therefore names the whole derived input surface — every root markdown document,
+# the architecture maps, and the `web/` tree whose existence the guard reads — so
+# a change to any input re-runs the judge that would otherwise never report it.
+
+on:
+  pull_request:
+    paths:
+      - "*.md"
+      - "architecture/**"
+      - "web/**"
+      - "tests/test_root_doc_module_map_currency.py"
+      - ".github/workflows/root-doc-module-map.yml"
+  push:
+    branches: ["main"]
+    paths:
+      - "*.md"
+      - "architecture/**"
+      - "web/**"
+      - "tests/test_root_doc_module_map_currency.py"
+      - ".github/workflows/root-doc-module-map.yml"
+  # The gate is path-filtered, so a revision touching none of the above never
+  # runs it. `workflow_dispatch` lets the invariant be executed against an exact
+  # revision on demand.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  root-doc-module-map:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install test dependencies
+        run: python -m pip install --quiet pytest pyyaml
+      - name: Judge the live root map against the tree
+        run: python -m pytest -q tests/test_root_doc_module_map_currency.py

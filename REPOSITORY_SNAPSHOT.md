@@ -1,6 +1,9 @@
 # Arkadia — Repository Snapshot
 > Regenerate only after major milestones or architectural changes.
 > Last generated: Phase 1, B0.5 complete (2026-07-25).
+> Layer 5 and the Node runtime line corrected 2026-11-24, measured at `bb19aabd`:
+> the Prism SPA was archived into `archive/frontend/arkadia-prism/` by `c081d200`
+> (2026-10-11), and the one application shell is `web/arkadia_console/`.
 > The agent reads this instead of crawling the repository tree.
 
 ---
@@ -39,7 +42,8 @@ Layer 4 — API (least stable — orchestrates everything)
   api/main.py      FastAPI app (~2506 lines; budget: 2600)
 
 Layer 5 — Presentation (views)
-  web/public_prism/    React/Vite SPA
+  web/arkadia_console/ React/Vite console — the one application shell
+  web/console/         Retired operator console (capabilities migrated)
   bot/                 Discord + Telegram bots
   arkadia-android/     Android WebView shell
   sonata-android/      Android companion
@@ -208,7 +212,7 @@ Tests:
 
 ```
 Python:  see requirements.txt (FastAPI, uvicorn, google-generativeai, edge-tts, ...)
-Node.js: web/public_prism/package.json (React, Vite, Tailwind v3)
+Node.js: web/arkadia_console/package.json (React, Vite, Tailwind v3)
 ```
 
 **Secrets required to run** (all missing — pre-existing, not a B1 concern):

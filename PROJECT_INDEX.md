@@ -17,7 +17,7 @@ firestore.rules          Firestore security rules
 
 ## API Surface
 ```
-api/main.py              FastAPI app — 2506 lines — DO NOT GROW (budget: 2600)
+api/main.py              FastAPI app — DO NOT GROW (budget: 2600, pinned by tests/architecture)
 api/key_manager.py       Gemini API key rotation
 api/provider_key_store.py  Per-provider key store
 api/knowledge_routes.py  Knowledge OS routes
@@ -79,10 +79,13 @@ providers/gpt.py         GPTProvider
 
 ## Presentation
 ```
-web/public_prism/        React/Vite SPA — npm run dev on port 5173
+web/arkadia_console/     React/Vite SPA — active console; pnpm dev on port 5100
   src/components/        UI components
-  src/views/             Page views
+  src/pages/             Page views
   src/contexts/          React contexts (voice, oracle, auth)
+  src/lib/               Shared client helpers
+  src/operator/          Operator surfaces
+web/console/             Retired operator console — retained for provenance
 bot/discord-bot.mjs      Discord bot — needs DISCORD_BOT_TOKEN
 bot/telegram-bot.mjs     Telegram bot — needs TELEGRAM_BOT_TOKEN
 arkadia-android/         Android shell (WebView-based)
@@ -119,5 +122,5 @@ tests/                   Unit tests — add alongside each new module
 replit.md                Project overview + user preferences
 .replit                  Replit workflow configuration
 requirements.txt         Python dependencies
-web/public_prism/package.json   Frontend dependencies
+web/arkadia_console/package.json   Frontend dependencies
 ```
