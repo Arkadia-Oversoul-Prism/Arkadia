@@ -58,7 +58,12 @@ dependencies {
     implementation(libs.androidx.cardview)
 
     // Local JVM unit tests (src/test) — MieMusicalInterpreterTest resolves
-    // org.junit.* from here. The module previously declared no test deps, so
-    // `testDebugUnitTest` failed to compile and blocked the APK build.
+    // org.junit.* from here.
     testImplementation(libs.junit)
+    // `org.json` is an Android framework class: on the JVM unit-test classpath
+    // it is a stub whose methods throw ("not mocked"), so a test that exercises
+    // `MieMusicalObject.toJson()` cannot run without a real implementation.
+    // `testDebugUnitTest` gates `assembleDebug`, so that failure suppressed the
+    // APK build itself.
+    testImplementation(libs.org.json)
 }
