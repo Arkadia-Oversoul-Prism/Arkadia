@@ -123,7 +123,7 @@ async def commune_resonance_stream(request: Request):
     active_key = None
     user_id = None
     try:
-        from api.main import _get_current_user, GOOGLE_API_KEY
+        from api.main import _get_current_user
 
         node_user = await _get_current_user(request)
         user_id = node_user.get("uid") if node_user else None
@@ -132,7 +132,7 @@ async def commune_resonance_stream(request: Request):
 
             active_key = get_active_key_for_user(user_id)
     except Exception:
-        GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
+        logger.debug("[stream] per-user key resolution skipped", exc_info=True)
 
     if not active_key:
         try:
