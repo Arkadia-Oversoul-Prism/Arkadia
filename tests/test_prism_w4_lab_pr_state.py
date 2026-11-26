@@ -94,13 +94,19 @@ def run_projection(payload) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def test_handler_emits_the_keys_the_projection_reads():
+def test_handler_emits_the_keys_the_projection_reads(monkeypatch):
     """Every field the projection reads must be a key the handler emits.
 
     A rename on either side would make the surface report an unreported value
     rather than fail, so the keys are measured, not assumed.
     """
     from api import lab_routes
+
+    # The premise is *enforced*, not assumed. The handler selects its branch from
+    # the ambient environment, so a machine that exports GITHUB_TOKEN (a CI runner
+    # or an operator shell) would otherwise execute the AVAILABLE branch and fail
+    # here -- the guard's verdict would depend on who ran it.
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
 
     # No token in the environment -> the handler must report UNAVAILABLE with a
     # reason and a null record. That is the shape the surface renders.
@@ -130,10 +136,11 @@ def test_handler_emits_the_keys_the_projection_reads():
     assert '"state": "AVAILABLE"' in body
 
 
-def test_projection_reads_the_handler_output():
+def test_projection_reads_the_handler_output(monkeypatch):
     """The projection is executed against the handler's own unavailability."""
     from api import lab_routes
 
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
     payload = asyncio.run(lab_routes.pr_state(623))
     result = run_projection(payload)
     assert result["availability"] == "UNAVAILABLE"
@@ -144,6 +151,95 @@ def test_projection_reads_the_handler_output():
     # No field is invented from the absence.
     assert result["reading"]["mergeableState"] is None
     assert result["reading"]["state"] is None
+
+
+class _CannedResponse:
+    """A minimal stand-in for ``urlopen``'s context-managed response."""
+
+    def __init__(self, body: bytes):
+        self._body = body
+
+    def read(self) -> bytes:
+        return self._body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc_info):
+        return False
+
+
+def test_handler_available_branch_emits_the_measured_record(monkeypatch):
+    """Execute the AVAILABLE branch instead of scanning the handler's source.
+
+    Without a token this branch is unreachable, so its key set was previously
+    pinned by a source-text scan (``'"number":' in body``) -- an assertion that
+    passes on a comment and never runs the code it claims to measure. The
+    handler's only external dependency is ``urllib.request.urlopen``, so a canned
+    response exercises the real parsing and key construction without a network
+    call, and the keys the projection reads are then *measured* from the payload
+    the handler actually returns.
+    """
+    import urllib.request
+
+    from api import lab_routes
+
+    monkeypatch.setenv("GITHUB_TOKEN", "test-token-not-a-credential")
+    github = {
+        "number": 623,
+        "title": "Lane 4: bind the PR-state handler",
+        "state": "open",
+        "draft": True,
+        "mergeable_state": "dirty",
+        "html_url": "https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/623",
+        "head": {"sha": "abc123"},
+        "base": {"ref": "main"},
+    }
+    monkeypatch.setattr(
+        urllib.request,
+        "urlopen",
+        lambda request, timeout=None: _CannedResponse(json.dumps(github).encode()),
+    )
+
+    payload = asyncio.run(lab_routes.pr_state(623))
+    assert payload["state"] == "AVAILABLE"
+    assert set(payload["pr"]) >= {
+        "number", "title", "state", "draft", "mergeable_state", "html_url", "head", "base",
+    }
+    assert payload["pr"]["head"] == "abc123"
+    assert payload["pr"]["base"] == "main"
+
+    result = run_projection(payload)
+    assert result["availability"] == "AVAILABLE"
+    assert result["reading"]["hasRecord"] is True
+    assert result["reading"]["head"] == "abc123"
+    assert result["reading"]["mergeableState"] == "dirty"
+
+
+def test_negative_control_the_token_branch_fails_closed(monkeypatch):
+    """Control: the token branch is real, and it never fabricates a record.
+
+    This proves the ``delenv`` in the no-token tests is load-bearing rather than
+    decorative -- the environment genuinely selects the branch. With a token
+    present and the transport answering 401, the handler must report UNAVAILABLE
+    with GitHub's status and a null record, not an invented PR.
+    """
+    import urllib.error
+    import urllib.request
+
+    from api import lab_routes
+
+    monkeypatch.setenv("GITHUB_TOKEN", "test-token-not-a-credential")
+
+    def _unauthorized(request, timeout=None):
+        raise urllib.error.HTTPError(request.full_url, 401, "Unauthorized", {}, None)
+
+    monkeypatch.setattr(urllib.request, "urlopen", _unauthorized)
+
+    payload = asyncio.run(lab_routes.pr_state(623))
+    assert payload["state"] == "UNAVAILABLE"
+    assert payload["pr"] is None
+    assert payload["detail"] == "http 401"
 
 
 # ---------------------------------------------------------------------------
