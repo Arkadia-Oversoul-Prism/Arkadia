@@ -77,7 +77,7 @@ export const WORK_EVENT_NOT_EVIDENCE: BoundaryInstance = {
     "There is no durable WorkEvent → Evidence identifier: a WorkEvent carries no evidence_ref, and no evidence table references a work_event_id.",
     "A WorkEvent's reference fields (artifact_refs, state_before_ref, state_after_ref, decision_ref, witness_ref) are opaque — no code resolves them to a record.",
     "The runtime evidence chain is a different spine: weaver/enterprise_orchestration.py binds ew_evidence to an execution_attempt_id, and a verification's evidence_refs is a string list, not a foreign key.",
-    "The enterprise evidence → verification → proposal chain is read over HTTP only as a projection (GET /solspire/workspaces/{id}/control-room); the forward_walk / reverse_walk graph itself has no HTTP route — implemented, unexposed.",
+    "The enterprise evidence → verification → proposal chain is read over HTTP only as a projection (GET /solspire/enterprise/workspaces/{enterprise_id}/control-room); the forward_walk / reverse_walk graph itself has no HTTP route — implemented, unexposed.",
     "No dedicated route exposes evidence or verification as first-class records; the console cannot list them.",
     "Whether a WorkEvent should produce or reference evidence is a later architectural decision; the absence is recorded, not resolved.",
     "Deployment: the surfaces this boundary names are served by the live runtime. Production verification by an authorized principal is NOT CLAIMED (no operator credential).",
