@@ -166,6 +166,42 @@ def _migrate(conn: sqlite3.Connection) -> None:
             );
             CREATE INDEX IF NOT EXISTS idx_el_authorizations_scope
                 ON el_authorizations (scope_ref);
+
+            -- ARKADIA-CHIEF-PR-REVIEW-001: durable job ledger. The unique
+            -- idempotency key is the deduplication contract
+            -- (installation|repository|pr|head|event|action), so a repeated
+            -- delivery or a retried request converges on one job rather than
+            -- producing a second review of the same head.
+            CREATE TABLE IF NOT EXISTS el_pr_review_jobs (
+                job_id TEXT PRIMARY KEY,
+                subject_ref TEXT NOT NULL,
+                idempotency_key TEXT NOT NULL UNIQUE,
+                repository_ref TEXT NOT NULL,
+                pr_number INTEGER NOT NULL,
+                base_sha TEXT,
+                head_sha TEXT NOT NULL,
+                action TEXT NOT NULL,
+                state TEXT NOT NULL,
+                attempts INTEGER NOT NULL DEFAULT 0,
+                payload TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_el_pr_review_jobs_subject
+                ON el_pr_review_jobs (subject_ref, updated_at);
+
+            -- Webhook delivery ledger: replay protection that survives restart.
+            -- A delivery id is claimed exactly once; a later presentation inside
+            -- the window is a duplicate, outside it a replay.
+            CREATE TABLE IF NOT EXISTS el_pr_review_deliveries (
+                delivery_id TEXT PRIMARY KEY,
+                installation_id INTEGER,
+                repository_ref TEXT,
+                payload_digest TEXT NOT NULL,
+                state TEXT NOT NULL,
+                first_seen_epoch REAL NOT NULL,
+                first_seen_at TEXT NOT NULL
+            );
             """
         )
         # Additive migration for sessions created before project-scoped canvas.
@@ -702,6 +738,163 @@ class EngineeringLabStore:
                 )
                 count += 1
         return count
+
+    # -- ARKADIA-CHIEF-PR-REVIEW-001: durable jobs and delivery ledger ---------
+
+    def claim_pr_review_job(
+        self, record: dict[str, Any], subject_ref: str
+    ) -> dict[str, Any]:
+        """Insert a job, or return the existing job for the same idempotency key.
+
+        The unique index is the deduplication contract. ``deduplicated`` is
+        reported truthfully so a caller can distinguish "I created this" from
+        "this already existed" instead of inferring it.
+        """
+        key = str(record.get("idempotency_key") or "").strip()
+        if not key:
+            raise ValueError("a review job requires an idempotency key")
+        payload = dict(record)
+        payload["subject_ref"] = subject_ref
+        now = utc_now()
+        payload.setdefault("created_at", now)
+        payload["updated_at"] = now
+        with _db() as conn:
+            try:
+                conn.execute(
+                    "INSERT INTO el_pr_review_jobs"
+                    " (job_id, subject_ref, idempotency_key, repository_ref, pr_number,"
+                    "  base_sha, head_sha, action, state, attempts, payload,"
+                    "  created_at, updated_at)"
+                    " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (
+                        payload["job_id"],
+                        subject_ref,
+                        key,
+                        payload["repository_ref"],
+                        int(payload["pr_number"]),
+                        payload.get("base_sha"),
+                        payload["head_sha"],
+                        payload["action"],
+                        payload["state"],
+                        int(payload.get("attempts") or 0),
+                        json.dumps(payload),
+                        payload["created_at"],
+                        payload["updated_at"],
+                    ),
+                )
+            except sqlite3.IntegrityError:
+                row = conn.execute(
+                    "SELECT payload FROM el_pr_review_jobs"
+                    " WHERE idempotency_key = ? AND subject_ref = ?",
+                    (key, subject_ref),
+                ).fetchone()
+                if row is None:
+                    # Another subject owns the key. That is not a dedup hit; it is
+                    # a refusal, because a job is never shared across subjects.
+                    raise ValueError(
+                        "the idempotency key is already claimed by another subject"
+                    )
+                existing = json.loads(row["payload"])
+                existing["deduplicated"] = True
+                return existing
+        payload["deduplicated"] = False
+        return payload
+
+    def get_pr_review_job(self, job_id: str, subject_ref: str) -> dict[str, Any] | None:
+        with _db() as conn:
+            row = conn.execute(
+                "SELECT payload FROM el_pr_review_jobs"
+                " WHERE job_id = ? AND subject_ref = ?",
+                (job_id, subject_ref),
+            ).fetchone()
+        return json.loads(row["payload"]) if row else None
+
+    def update_pr_review_job(
+        self, job_id: str, subject_ref: str, **fields: Any
+    ) -> dict[str, Any] | None:
+        with _db() as conn:
+            row = conn.execute(
+                "SELECT payload FROM el_pr_review_jobs"
+                " WHERE job_id = ? AND subject_ref = ?",
+                (job_id, subject_ref),
+            ).fetchone()
+            if row is None:
+                return None
+            payload = json.loads(row["payload"])
+            payload.update(fields)
+            payload["updated_at"] = utc_now()
+            conn.execute(
+                "UPDATE el_pr_review_jobs"
+                " SET payload = ?, state = ?, attempts = ?, updated_at = ?"
+                " WHERE job_id = ? AND subject_ref = ?",
+                (
+                    json.dumps(payload),
+                    payload.get("state") or "QUEUED",
+                    int(payload.get("attempts") or 0),
+                    payload["updated_at"],
+                    job_id,
+                    subject_ref,
+                ),
+            )
+        return payload
+
+    def list_pr_review_jobs(
+        self, subject_ref: str, *, state: str | None = None, limit: int = 50
+    ) -> list[dict[str, Any]]:
+        query = "SELECT payload FROM el_pr_review_jobs WHERE subject_ref = ?"
+        params: list[Any] = [subject_ref]
+        if state:
+            query += " AND state = ?"
+            params.append(state)
+        query += " ORDER BY updated_at DESC LIMIT ?"
+        params.append(int(limit))
+        with _db() as conn:
+            rows = conn.execute(query, tuple(params)).fetchall()
+        return [json.loads(row["payload"]) for row in rows]
+
+    def claim_pr_review_delivery(
+        self,
+        delivery_id: str,
+        *,
+        installation_id: int | None,
+        repository_ref: str | None,
+        payload_digest: str,
+        window_seconds: int,
+        now_epoch: float,
+    ) -> str:
+        """Claim a webhook delivery. Returns ``new``, ``duplicate`` or ``replay``.
+
+        The distinction matters: a duplicate is the provider redelivering (safe
+        to acknowledge idempotently), while a replay is the same delivery id
+        presented long after its window, which is refused rather than absorbed.
+        """
+        with _db() as conn:
+            row = conn.execute(
+                "SELECT first_seen_epoch, payload_digest FROM el_pr_review_deliveries"
+                " WHERE delivery_id = ?",
+                (delivery_id,),
+            ).fetchone()
+            if row is not None:
+                age = float(now_epoch) - float(row["first_seen_epoch"])
+                if age <= max(0, int(window_seconds)):
+                    return "duplicate"
+                return "replay"
+            conn.execute(
+                "INSERT INTO el_pr_review_deliveries"
+                " (delivery_id, installation_id, repository_ref, payload_digest,"
+                "  state, first_seen_epoch, first_seen_at)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (
+                    delivery_id,
+                    installation_id,
+                    repository_ref,
+                    payload_digest,
+                    "ACCEPTED",
+                    float(now_epoch),
+                    utc_now(),
+                ),
+            )
+        return "new"
 
     # -- helpers --------------------------------------------------------------
 

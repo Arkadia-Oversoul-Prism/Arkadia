@@ -94,6 +94,31 @@ NON_RETRYABLE_RESULT_STATES: frozenset[str] = frozenset({"BOUNDARY_REFUSED"})
 EXECUTABLE_SESSION_STATES: frozenset[str] = frozenset({"AUTHORIZED", "QUEUED"})
 
 
+def authorization_is_usable(authorization: dict[str, Any]) -> bool:
+    """A grant is usable only while unrevoked, unexpired and unconsumed.
+
+    Module level so every consumer of ``el_authorizations`` — the Lab dispatch
+    gate and the PR-review publish path — applies one expiry rule instead of
+    two copies that can drift.
+    """
+    if authorization.get("revoked_at"):
+        return False
+    if authorization.get("consumed_at"):
+        return False
+    created_at = authorization.get("created_at")
+    duration = authorization.get("duration_minutes")
+    if created_at and duration is not None:
+        try:
+            created = datetime.fromisoformat(str(created_at).replace("Z", "+00:00"))
+        except ValueError:
+            return False
+        if created.tzinfo is None:
+            created = created.replace(tzinfo=timezone.utc)
+        if datetime.now(timezone.utc) > created + timedelta(minutes=int(duration)):
+            return False
+    return True
+
+
 def _reachable_states(start: str) -> set[str]:
     """Every session state reachable from *start* through legal transitions."""
     from .contracts import LEGAL_TRANSITIONS
@@ -891,22 +916,7 @@ class EngineeringLabRuntime:
     @staticmethod
     def _authorization_is_usable(authorization: dict[str, Any]) -> bool:
         """A grant is usable only while unrevoked, unexpired and unconsumed."""
-        if authorization.get("revoked_at"):
-            return False
-        if authorization.get("consumed_at"):
-            return False
-        created_at = authorization.get("created_at")
-        duration = authorization.get("duration_minutes")
-        if created_at and duration is not None:
-            try:
-                created = datetime.fromisoformat(str(created_at).replace("Z", "+00:00"))
-            except ValueError:
-                return False
-            if created.tzinfo is None:
-                created = created.replace(tzinfo=timezone.utc)
-            if datetime.now(timezone.utc) > created + timedelta(minutes=int(duration)):
-                return False
-        return True
+        return authorization_is_usable(authorization)
 
     def _require_authorization_for(
         self,

@@ -56,6 +56,16 @@ ALLOWED_MUTATION_ENDPOINTS = {
     # records and remains subject-authenticated.
     "/api/lab/engineering/n-atlas/test-session",
     "/api/lab/engineering/n-atlas/run",
+    # ARKADIA-CHIEF-PR-REVIEW-001. These operate on Lab state (the review job
+    # ledger, Lab evidence, and human grants). The publish route is the only one
+    # that reaches GitHub, and it is gated behind an activation stage, a policy
+    # flag, an exact-tuple human grant and an unchanged head — never enabled by
+    # a review being GREEN.
+    "/api/lab/engineering/pr-review/request",
+    "/api/lab/engineering/pr-review/jobs/{job_id}/run",
+    "/api/lab/engineering/pr-review/jobs/{job_id}/grant",
+    "/api/lab/engineering/pr-review/jobs/{job_id}/publish",
+    "/api/lab/engineering/pr-review/webhook",
 }
 
 
@@ -73,6 +83,13 @@ def test_lab_router_auth_wrapper_only_exempts_natlas_public_paths(monkeypatch):
         "/api/lab/engineering/n-atlas/catalog",
         "/api/lab/engineering/n-atlas/test-session",
     }
+    # The only other exemption is the GitHub App webhook receiver, whose
+    # authentication is the HMAC signature + installation/repository binding
+    # verified inside the handler. It must be exactly that one path.
+    assert lab_routes._PUBLIC_WEBHOOK_PATHS == {"/api/lab/engineering/pr-review/webhook"}
+    assert lab_routes._PUBLIC_WEBHOOK_PATHS & lab_routes._PUBLIC_NATLAS_PATHS == set()
+    for path in lab_routes._PUBLIC_WEBHOOK_PATHS:
+        assert path in routes, f"the exempted webhook path {path} must be a real route"
 
     calls = []
 
@@ -100,7 +117,11 @@ def test_lab_router_auth_wrapper_only_exempts_natlas_public_paths(monkeypatch):
     async def exercise_auth_boundary():
         for public_path in lab_routes._PUBLIC_NATLAS_PATHS:
             await lab_routes.require_lab_auth(request_for(public_path))
-        assert calls == [], "only the two declared N-ATLaS paths may bypass account auth"
+        for webhook_path in lab_routes._PUBLIC_WEBHOOK_PATHS:
+            await lab_routes.require_lab_auth(request_for(webhook_path))
+        assert calls == [], (
+            "only the declared N-ATLaS and webhook paths may bypass account auth"
+        )
 
         protected_path = "/api/lab/engineering/overview"
         await lab_routes.require_lab_auth(request_for(protected_path))

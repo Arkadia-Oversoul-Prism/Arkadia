@@ -29,6 +29,15 @@ PUBLIC_CAPABILITY_PATHS = {
     "/api/lab/engineering/n-atlas/catalog",
 }
 
+#: HMAC-verified ingress endpoints. Their authentication is a signature over the
+#: raw body plus a server-side installation/repository binding, both verified
+#: inside the handler — not an account session. Named explicitly so the boundary
+#: is declared rather than inferred from whether a literal happens to appear in
+#: the handler source.
+WEBHOOK_HMAC_PATHS = {
+    "/api/lab/engineering/pr-review/webhook",
+}
+
 def _dependency_callables(dependant: Any) -> Iterable[Any]:
     """Walk nested FastAPI dependencies, including router-level dependencies."""
     for item in getattr(dependant, "dependencies", ()) or ():
@@ -84,6 +93,17 @@ def _boundary(
             "classification": "public_capability_entry",
             "runtime_guard": "require_lab_auth",
             "note": "Public entry only; subsequent capability is session- and path-scoped.",
+        }
+
+    # Declared HMAC ingress, checked before the account guards: the Lab router's
+    # `require_lab_auth` dependency is present on every route, but this path is
+    # exempted from it and authenticated by the signature instead. Classifying it
+    # as a bearer route would disclose a guard it does not have.
+    if path in WEBHOOK_HMAC_PATHS:
+        return [{WEBHOOK_SCHEME: []}], {
+            "classification": "github_webhook_hmac",
+            "runtime_guard": "X-Hub-Signature-256",
+            "algorithm": "HMAC-SHA256",
         }
 
     if "require_sovereign" in names:

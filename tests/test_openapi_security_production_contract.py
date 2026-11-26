@@ -127,7 +127,40 @@ def test_all_composed_operations_have_adjudicated_security_boundaries():
             f"{method.upper()} {path} must require the Firebase bearer"
         )
 
-    assert len(operations) == 344, f"Expected captured 344-operation inventory; got {len(operations)}"
+    # Inventory 344 -> 352 is the same reviewable act for
+    # ARKADIA-CHIEF-PR-REVIEW-001 (the governed Chief PR-review capability):
+    # eight operations on `api/lab_routes.py`. Seven are account-authenticated Lab
+    # routes; the eighth is the GitHub App webhook receiver, whose boundary is the
+    # HMAC signature over the raw body plus the server-side installation and
+    # repository binding — not an account session. Naming both sets here is what
+    # stops the count drifting onto an operation nobody adjudicated.
+    chief_pr_review_bearer_ops = {
+        ("get", "/api/lab/engineering/pr-review/status"),
+        ("post", "/api/lab/engineering/pr-review/request"),
+        ("get", "/api/lab/engineering/pr-review/jobs"),
+        ("get", "/api/lab/engineering/pr-review/jobs/{job_id}"),
+        ("post", "/api/lab/engineering/pr-review/jobs/{job_id}/run"),
+        ("post", "/api/lab/engineering/pr-review/jobs/{job_id}/grant"),
+        ("post", "/api/lab/engineering/pr-review/jobs/{job_id}/publish"),
+    }
+    for method, path in chief_pr_review_bearer_ops:
+        op = schema["paths"].get(path, {}).get(method, {})
+        assert op, f"the Chief PR-review operation {method.upper()} {path} is no longer served"
+        assert op.get("x-arkadia-auth-boundary", {}).get("classification") == "firebase_bearer", (
+            f"{method.upper()} {path} boundary drifted from 'firebase_bearer'"
+        )
+        assert op.get("security") == [{"FirebaseBearer": []}], (
+            f"{method.upper()} {path} must require the Firebase bearer"
+        )
+
+    # The webhook receiver must NOT be disclosed as a bearer route: it is exempt
+    # from `require_lab_auth` and authenticated by the signature instead. A
+    # bearer classification here would advertise a guard the route does not have.
+    webhook_op = schema["paths"]["/api/lab/engineering/pr-review/webhook"]["post"]
+    assert webhook_op["x-arkadia-auth-boundary"]["classification"] == "github_webhook_hmac"
+    assert webhook_op["security"] == [{"GitHubWebhookHMAC": []}]
+
+    assert len(operations) == 352, f"Expected captured 352-operation inventory; got {len(operations)}"
     assert "FirebaseBearer" in schema["components"]["securitySchemes"]
     assert "ExecutiveMachineBearer" in schema["components"]["securitySchemes"]
     assert "SovereignKeyHeader" in schema["components"]["securitySchemes"]
