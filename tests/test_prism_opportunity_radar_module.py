@@ -49,6 +49,7 @@ one, and the ownership pin is proven to fire for a non-owner.
 """
 from __future__ import annotations
 
+import re
 import time
 from pathlib import Path
 
@@ -445,5 +446,62 @@ def test_negative_control_the_mount_pins_are_not_vacuous():
     )
     assert _unmounted_page_violations(pre_mount) == list(MOUNT_MARKERS), (
         "a page that never mounts the section must report every mount marker"
+    )
+
+
+# ---------------------------------------------------------------------------
+# The console's claim about the write path is bound to a measurement of it
+# ---------------------------------------------------------------------------
+
+# The present-tense form of the claim the contract module used to make. It is
+# false since DEFECT 3 was repaired: `update_entry` normalises into a local
+# mapping, so validation and persistence agree.
+_LIVE_DEFECT_CLAIM = re.compile(r"the backend can persist one", re.IGNORECASE)
+
+
+def _claims_a_live_off_vocabulary_write(text: str) -> bool:
+    """Whether `text` asserts the backend *still* persists an off-vocabulary status."""
+    return bool(_LIVE_DEFECT_CLAIM.search(text))
+
+
+def test_off_vocabulary_counter_is_justified_by_the_measured_write_path(app):
+    """`offVocabulary`'s justification must match what the write path does.
+
+    The premise is measured here rather than scanned: a lower-case status sent to
+    the update route is persisted in the declared vocabulary, so the
+    present-tense claim that the backend can persist one is false. The counter
+    stays legitimate for rows written before DEFECT 3 was repaired and for
+    direct writes that bypass the manager — the module must say that instead.
+    """
+    project_id = _make_project("Off-vocabulary claim", OWNER["uid"])
+    client = _client(app, OWNER)
+    entries = f"/solspire/buyer-recon/projects/{project_id}/entries"
+    created = client.post(entries, json={"prospect": "Buyer A"}).json()["entry"]
+    response = client.patch(f"{entries}/{created['id']}", json={"status": "conversation"})
+    assert response.status_code == 200, response.text
+    stored = response.json()["entry"]["status"]
+    assert stored in buyer_recon.STATUSES, (
+        "the write path cannot persist an off-vocabulary status, so a comment "
+        "asserting that it can is stale"
+    )
+
+    text = CONTRACT_TS.read_text(encoding="utf-8")
+    assert not _claims_a_live_off_vocabulary_write(text), (
+        "the contract module still asserts a defect the write path no longer has; "
+        "name the residual cause (pre-repair rows, direct writes) instead"
+    )
+
+
+def test_negative_control_the_claim_detector_flags_the_pre_repair_wording():
+    """The detector is not vacuous: it flags the exact sentence it replaced."""
+    pre_repair = (
+        "   * The backend can persist one: `update_entry` validates `status.upper()` but\n"
+        "   * writes the value it was sent (`solspire/buyer_recon.py`, MEASURED DEFECT 3).\n"
+    )
+    assert _claims_a_live_off_vocabulary_write(pre_repair), (
+        "the detector must flag the pre-repair claim"
+    )
+    assert not _claims_a_live_off_vocabulary_write(CONTRACT_TS.read_text(encoding="utf-8")), (
+        "the repaired module must not be reported"
     )
 
