@@ -27,6 +27,25 @@ async def _optional_user_id(request: Request) -> Optional[str]:
         return None
 
 
+def _internal_failure(operation: str) -> HTTPException:
+    """Log an uncaught cause and return a 5xx carrying stable public copy.
+
+    An uncaught exception's own message can carry filesystem paths, SQL and
+    provider internals. Measured on this router: a failing pipeline call put
+    ``sqlite3.OperationalError: unable to open database file /srv/...`` verbatim
+    in the response body of an anonymously reachable route. The cause is logged
+    here (with its traceback) and never returned.
+
+    Call this only from inside an ``except`` block: ``logger.exception`` reads
+    the active exception.
+    """
+    logger.exception("%s failed", operation)
+    return HTTPException(
+        status_code=500,
+        detail=f"{operation} failed; inspect server logs for internal details.",
+    )
+
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Schemas
@@ -124,8 +143,8 @@ async def ingest_note(req: IngestRequest, request: Request):
             auto_link=req.auto_link,
         )
         return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        raise _internal_failure("Knowledge ingest")
 
 
 @router.post("/ingest/conversation")
@@ -143,8 +162,8 @@ async def ingest_conversation(req: ConversationIngestRequest, request: Request):
             user_id=await _optional_user_id(request),
         )
         return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        raise _internal_failure("Knowledge conversation ingest")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -226,8 +245,8 @@ async def search(req: SearchRequest, request: Request):
             top_k=req.top_k,
             user_id=await _optional_user_id(request),
         )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        raise _internal_failure("Knowledge search")
 
 
 @router.get("/search/semantic")
@@ -270,8 +289,8 @@ async def assemble_context(req: ContextRequest, request: Request):
             "package": package,
             "formatted": format_context_for_provider(package),
         }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        raise _internal_failure("Knowledge context assembly")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -442,9 +461,12 @@ async def send_with_context(req: SendRequest, request: Request):
         return response.to_dict()
 
     except RuntimeError as e:
+        # curated-diagnostic: the provider layer raises configuration copy
+        # ("OPENAI_API_KEY not configured") that the caller needs. An unexpected
+        # cause takes the generic branch below instead, and is never returned.
         raise HTTPException(status_code=503, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        raise _internal_failure("Knowledge provider send")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -716,8 +738,8 @@ async def graph_relationships():
             "relationship_distribution": rel_distribution,
             "top_connected_nodes": top_nodes,
         }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        raise _internal_failure("Knowledge graph relationship read")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -730,8 +752,8 @@ async def graph_health():
     try:
         from knowledge.graph_health import evaluate_graph_health
         return evaluate_graph_health()
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        raise _internal_failure("Knowledge graph health read")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -800,8 +822,8 @@ async def get_neighbors(
             "nodes": result["nodes"], "edges": result["edges"],
             "node_count": len(result["nodes"]), "edge_count": len(result["edges"]),
         }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        raise _internal_failure("Knowledge graph neighbour read")
 
 
 @router.get("/path")
@@ -829,8 +851,8 @@ async def graph_path(
             "hops":      max(0, len(path) - 1),
             "found":     len(path) > 0,
         }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        raise _internal_failure("Knowledge graph path read")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -847,8 +869,8 @@ async def enrich_note(note_id: int):
         from knowledge.enrichment import enrich_note as _enrich
         result = _enrich(note_id)
         return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        raise _internal_failure("Knowledge note enrichment")
 
 
 @router.post("/enrich/orphans")
@@ -860,8 +882,8 @@ async def enrich_orphans():
     try:
         from knowledge.enrichment import enrich_all_orphans
         return enrich_all_orphans(limit=200)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        raise _internal_failure("Knowledge orphan enrichment")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -877,8 +899,8 @@ async def migration_report():
     try:
         from knowledge.edge_migration import build_migration_report
         return build_migration_report()
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        raise _internal_failure("Knowledge edge-migration report")
 
 
 @router.post("/migrate/edges/apply")
@@ -891,8 +913,8 @@ async def migration_apply(dry_run: bool = True):
     try:
         from knowledge.edge_migration import apply_migration
         return apply_migration(dry_run=dry_run)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        raise _internal_failure("Knowledge edge-migration apply")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -905,8 +927,8 @@ async def embedding_status():
     try:
         from knowledge.embedding_queue import get_embedding_status
         return get_embedding_status()
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        raise _internal_failure("Knowledge embedding status read")
 
 
 @router.post("/embeddings/process")
@@ -915,5 +937,5 @@ async def process_embeddings(batch_size: int = Query(50, ge=1, le=200)):
     try:
         from knowledge.embedding_queue import process_pending_batch
         return process_pending_batch(batch_size=batch_size)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        raise _internal_failure("Knowledge embedding processing")

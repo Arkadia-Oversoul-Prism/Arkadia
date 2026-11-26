@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Request
 from api.auth import require_auth, require_sovereign
 from economic_seams.engine import get_status, list_opportunities, scan_once
 from economic_seams.correlation import Evidence, TransactionFacts, assess_seam, cap_public_assessment, persist_assessment
+
+logger = logging.getLogger("arkadia.economic_seam_routes")
 
 router = APIRouter(prefix="/api/economic-seams", tags=["economic-seams"])
 
@@ -24,6 +27,7 @@ async def scan(user: dict = Depends(require_sovereign)):
     try:
         return scan_once()
     except Exception:
+        logger.exception("economic seam scan failed")
         raise HTTPException(status_code=502, detail="Economic seam scan failed; inspect server logs for source-level details.")
 
 
@@ -68,4 +72,5 @@ async def assess(request: Request, user: dict = Depends(require_sovereign)):
     except (TypeError, ValueError) as exc:
         raise HTTPException(status_code=400, detail=f"Invalid seam assessment: {exc}")
     except Exception:
+        logger.exception("economic seam assessment failed")
         raise HTTPException(status_code=500, detail="Seam assessment failed; inspect server logs for internal details.")
