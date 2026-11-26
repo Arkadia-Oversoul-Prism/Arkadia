@@ -163,6 +163,38 @@ The other 22 nodes are unchanged from `main` and none is in
 
 ## 6. What this does not establish
 
+### 6.1 Hosted automation linkage — inspected, and partially VERIFIED
+
+The directive makes linkage verification a required bootstrap gate and says not to
+assume the repository file is wired into the hosted automation. It was inspected
+read-only (`GET /api/automation/v1` and `/{id}`), and the result is mixed:
+
+| property | observed | state |
+|---|---|---|
+| automation exists | `6bc8f514-537d-4ddb-bb3a-758a0a96cad7`, "OpenHands Hourly Weaver — Multi-Repository Bootstrap" | VERIFIED |
+| cadence / ceiling | cron `5 * * * *` UTC, `timeout: 1800`, `enabled: true` | VERIFIED |
+| prompt | the `ARK-OPS-CONTINUOUS-001` contract text, verbatim | VERIFIED |
+| prompt names the portfolio | **no** — no `sonata`, no `family-safety-network`, no `portfolio`, no reference to the 2026-11-21 directive | **NOT LINKED** |
+
+So the *contract* is wired and the *portfolio* is not. The automation is
+Arkadia-only by prompt: `REPOSITORY := https://github.com/Arkadia-Oversoul-Prism/Arkadia`.
+The three-repository routing and the fairness rule the directive mandates cannot
+take effect until the prompt names them — which is a concrete explanation for
+why `family-safety-network` has had no activity for 19 days.
+
+**Not modified.** Changing a hosted automation's prompt is a runtime
+configuration change; `DEPLOY_AUTHORITY := NONE` and GOV-04 reserve
+deployment/provider/configuration decisions to a human. The exact change for the
+owner is: append the directive's "Multi-repository portfolio routing" section to
+the automation prompt (or a pointer to
+`docs/control-plane/openhands/hourly-weaver/2026-11-21-weekly-closure-directive.md`),
+and read the next repository from
+`python scripts/portfolio_state.py --select` instead of the single `REPOSITORY`
+line. Until then this ledger records the correct next repository and nothing acts
+on it.
+
+### 6.2 Other limits
+
 - **The live oracle is not wired into CI.** `scripts/portfolio_state_refresh.py`
   needs a token that can read all three repositories; a repository-scoped
   `GITHUB_TOKEN` cannot, so a CI step would be permanently red and would prove
