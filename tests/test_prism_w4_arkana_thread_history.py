@@ -254,8 +254,12 @@ def test_backend_declares_get_list_and_messages_routes():
 def test_backend_reads_require_an_identity():
     handler = _read(HANDLER)
     assert 'raise HTTPException(status_code=401, detail="Authentication required")' in handler
-    # `_user_id` is called by every read route.
-    assert handler.count("await _user_id(request)") >= 3
+    # Every route declares the identity it enforces, so the served OpenAPI
+    # document advertises the bearer instead of an anonymous surface, and the
+    # subject is read from that verified profile rather than resolved twice.
+    assert handler.count("Depends(require_auth)") >= 5
+    assert handler.count("_user_id(user)") >= 5
+    assert "_user_id(request)" not in handler
 
 
 def test_backend_empty_list_is_a_success_not_a_404():
