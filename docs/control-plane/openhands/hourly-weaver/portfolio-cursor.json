@@ -1,28 +1,29 @@
 {
   "schema": "arkadia.portfolio-cursor/1.0",
-  "updated_at": "2026-11-26T02:30:00Z",
+  "updated_at": "2026-11-26T13:40:00Z",
   "authority": "authored judgements. The directive is the source of each phase label; this file records no measurement -- portfolio-state.json does.",
   "repositories": [
     {
       "repository": "Arkadia-Oversoul-Prism/sonata",
       "phase": "S1 — playback state and connectivity truth",
-      "active_issue_or_pr": "#7 (P0/P1: retry transient synthesis failures, truthful notification)",
+      "active_issue_or_pr": "#7 (P0/P1 retry, truthful notification, number normalisation) and #8 (platform speech engine)",
       "blocked": false,
       "blockers": [
-        "physical-device acceptance needs the household Samsung A23 and OPPO; CI is not device evidence"
+        "physical-device acceptance needs the household Samsung A23 and OPPO; CI is not device evidence",
+        "two open drafts (#7, #8) touch the same ledger/limitation docs; they merge cleanly (measured) but merging both is a human ordering decision"
       ],
-      "next_legal_task": "Continue the existing PR #7 branch: reconcile the S1 state contract across reader, service, notification and overlay, and record the state-contract evidence against the current head.",
-      "last_pulse_at": null
+      "next_legal_task": "Continue PR #7: wire EngineFactory into the UI so a saved narration can actually be produced — named as the next slice in #8 and still unimplemented.",
+      "last_pulse_at": "2026-11-26T13:40:00Z"
     },
     {
       "repository": "Arkadia-Oversoul-Prism/family-safety-network",
       "phase": "F0 — integrate and recover CI",
-      "active_issue_or_pr": "#8 (Fsn/integration)",
+      "active_issue_or_pr": "#12 (audit append-only) and #10 (signing-key rotation)",
       "blocked": false,
       "blockers": [
-        "no repository-visible activity since 2026-11-07; the open PR is the only carrier of the integration work"
+        "F0 integration/CI recovery is not evidenced since 2026-11-07 on the integration branch; the two open drafts are security slices"
       ],
-      "next_legal_task": "Continue PR #8: reproduce the build, repair the missing Gradle wrapper/build prerequisites, and get a reproducible CI green on the candidate tree before any F1 work.",
+      "next_legal_task": "Reproduce the Gradle build and a green CI on the candidate tree before opening any further F-series slice.",
       "last_pulse_at": null
     },
     {
