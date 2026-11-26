@@ -183,6 +183,25 @@ Mutation boundary PASS (M02A legitimate-surface + constitutional denylist)
 `tests/test_console_stellar_cartography_contract.py` (the console half of the readout,
 already executed by `prism-console-contract.yml`) is untouched and still `13 passed`.
 
+### 3.6 The wiring is runtime-proven, not source-asserted
+
+The judge asserts the gate *executes* the domain; the run proves it. On PR #746 head
+`19de1804`, run **`45768508248`** (`event=pull_request`, `conclusion=success`) carries
+the new check-run `stellar-contract`, and its step log reads:
+
+```
+Run the derived stellar contract
+32 passed in 2.44s
+```
+
+Read from the step log rather than the job conclusion: a job can be green while its
+step executed nothing, which is a recorded failure mode in this repository. The count
+matches the local derivation exactly (3 guards, 32 nodes).
+
+All **12** checks on that head are `completed/success` (plus the `skipping` Arkadia
+Genesis Agent), and the PR is `MERGEABLE` / `CLEAN`. It stays a **draft**: this
+contract authorizes no merge, and a green branch is not a merge.
+
 ---
 
 ## 4. What this cycle did not do, and why
