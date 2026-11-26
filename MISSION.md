@@ -7,7 +7,7 @@
 
 | Item | State |
 |---|---|
-| Backend | **LIVE** — https://arkadia-kw64.onrender.com |
+| Backend | **LIVE** — https://arkadia-qzu4.onrender.com (canonical; ADR-016) |
 | Phase 0 — Endpoint migration | **COMPLETE** |
 | Workstream B | **COMPLETE** — SQLite durability in production |
 | Gate B | **CLOSED** |
@@ -21,15 +21,19 @@
 
 ---
 
-## ⚠ One Manual Action Required Before Deploying Frontend
+## Deployment target
 
-`web/public_prism/.env.production` could not be updated by the agent (env file protection).
+The canonical production origin is `https://arkadia-qzu4.onrender.com` under ADR-016,
+recorded in `architecture/runtime_manifest.yaml`. The host named here before
+2026-11-24 was `arkadia-kw64.onrender.com`, which that manifest marks
+`legacy_noncanonical`; the change is a correction of a retired target, not a new
+deployment.
 
-**Before the next Vercel frontend deploy, set:**
-```
-VITE_API_URL=https://arkadia-kw64.onrender.com
-```
-Either in the Vercel dashboard under Environment Variables, or by updating `.env.production` manually.
+The manual frontend step recorded here previously (set `VITE_API_URL` in the Vercel
+dashboard for `web/public_prism/.env.production`) is **obsolete and cannot be
+performed**: the Prism tree was archived by `c081d200` and Vercel was disconnected
+from this repository. The active application is `web/arkadia_console`, served by the
+canonical origin above.
 
 ---
 
@@ -90,7 +94,7 @@ Assume these are facts. Do not re-verify them.
 - `knowledge/pipeline.py` — `ingest()` is the entry point; duplicate-detection makes it idempotent.
 - `knowledge/context_engine.py` — `assemble_context()` is the retrieval entry point.
 - Semantic search, knowledge graph, timeline, and embeddings all exist.
-- All production references point to `https://arkadia-kw64.onrender.com`.
+- Canonical production origin: `https://arkadia-qzu4.onrender.com` (ADR-016; recorded in `architecture/runtime_manifest.yaml`). Retired hosts (`arkadia-kw64.onrender.com`, `arkadia-n26k.onrender.com`) survive only as historical mentions; the native console's pinned build default still names the retired host and is tracked as a separate proposed change.
 
 Do not rebuild any of these.
 

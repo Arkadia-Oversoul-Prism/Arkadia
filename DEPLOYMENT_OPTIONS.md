@@ -143,7 +143,8 @@ Once a target is selected, the migration checklist is identical regardless of pl
 2. Mount volume at `/arkadia-data` and set `ARKADIA_DB_PATH`/`SOLSPIRE_DATA_DIR`
 3. Update `CORS_ALLOWED_ORIGINS` on the backend to include the Prism frontend URL
 4. Update `ORACLE_URL` environment variable in `bot/discord-bot.mjs` and `bot/telegram-bot.mjs` to the new backend URL
-5. Update any frontend config that still references `https://arkadia-n26k.onrender.com`
+5. Update any frontend config that still references the historical host
+   `https://arkadia-n26k.onrender.com` (canonical origin: `https://arkadia-qzu4.onrender.com`)
 6. Verify `GET /api/heartbeat` returns 200 before switching frontend traffic
 
 ---

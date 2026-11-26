@@ -69,7 +69,9 @@ which surface initiated it.
 **Production configuration:**
 - Corrected stale active Render endpoint references:
   `.replit` (bot `ORACLE_URL`) and `web/public_prism/.env.production`
-  (`VITE_API_URL`) now point to `https://arkadia-kw64.onrender.com`.
+  (`VITE_API_URL`) now point to `https://arkadia-kw64.onrender.com`
+  (historical: the canonical origin is `https://arkadia-qzu4.onrender.com` under
+  ADR-016, and this archive predates that reconciliation).
 - `web/public_prism/src/lib/apiConfig.ts` already pinned the canonical
   endpoint as the production fallback and explicitly excludes the stale
   `VITE_API_URL` at runtime.

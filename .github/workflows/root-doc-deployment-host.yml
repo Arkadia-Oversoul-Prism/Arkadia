@@ -1,0 +1,61 @@
+name: Root Doc Deployment Host Currency
+
+# `tests/test_root_doc_deployment_host_currency.py` judges the operational documents
+# against `architecture/runtime_manifest.yaml`: a paragraph (or table row) may not
+# present a retired deployment host as the target without naming the canonical
+# origin. Until this workflow existed, no gate executed it.
+#
+# The filter names every input the guard reads — the manifest it parses and the
+# `*.md` corpus it enumerates — so a document edit re-runs the guard instead of
+# silently landing. `tests/test_root_doc_deployment_host_ci_wiring.py` derives those
+# inputs from the guard's own source and fails when this filter omits any of them, so
+# a narrowed filter reddens CI rather than quietly reducing coverage.
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/root-doc-deployment-host.yml"
+      - "tests/test_root_doc_deployment_host_currency.py"
+      - "tests/test_root_doc_deployment_host_ci_wiring.py"
+      - "architecture/runtime_manifest.yaml"
+      - "**/*.md"
+      - "*.md"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/root-doc-deployment-host.yml"
+      - "tests/test_root_doc_deployment_host_currency.py"
+      - "tests/test_root_doc_deployment_host_ci_wiring.py"
+      - "architecture/runtime_manifest.yaml"
+      - "**/*.md"
+      - "*.md"
+  # Path-filtered, so a revision touching none of the above never runs it.
+  # `workflow_dispatch` lets the guard be executed against an exact revision on
+  # demand (`ref=main` yields an execution at the current main SHA).
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  root-doc-deployment-host:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      # The guard parses YAML and enumerates the tracked tree with `git ls-files`.
+      # It imports nothing from the application, so the full requirement set is not
+      # needed here — a dependency gap must not be misread as a document defect.
+      - run: python -m pip install pytest pyyaml
+      - name: Root document deployment-host currency
+        run: python -m pytest tests/test_root_doc_deployment_host_currency.py -q
+      - name: Deployment-host currency CI-wiring guard
+        # Judges this workflow's own trigger: every input the guard reads must be
+        # selected, and every executing step must be able to fail. A rewrite of this
+        # file is judged by itself, or the gate is self-exempt.
+        run: python -m pytest tests/test_root_doc_deployment_host_ci_wiring.py -q

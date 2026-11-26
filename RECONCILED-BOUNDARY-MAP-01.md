@@ -37,8 +37,10 @@ architecture is complete.
 
 **Explicit non-claims:**
 
-- **Render — UNVERIFIED.** The live host `https://arkadia-kw64.onrender.com` runs
-  pre-hardening code. It was last probed anonymously and answered `200` on
+- **Render — UNVERIFIED.** The historical host `https://arkadia-kw64.onrender.com` runs
+  pre-hardening code. (The canonical origin is `https://arkadia-qzu4.onrender.com` under
+  ADR-016; this finding predates that reconciliation and is retained as the record of
+  what was observed.) It was last probed anonymously and answered `200` on
   `/api/tools`, `/api/approvals`, `/api/goals`, `/api/jobs` (AB-1: anonymous
   `execute_shell/run {"command":"whoami"}` → `200 root`). This branch changes no
   host. **Render posture is UNVERIFIED.**
@@ -296,7 +298,8 @@ workstream; `tests/test_execution_workevent_boundary.py` collects and passes.
 
 ## 6. Open items (recorded, not resolved)
 
-1. **Live host runs pre-hardening code.** `https://arkadia-kw64.onrender.com`
+1. **Historical host runs pre-hardening code.** `https://arkadia-kw64.onrender.com`
+   (canonical origin today: `https://arkadia-qzu4.onrender.com`, ADR-016)
    answered anonymous `200` on `/api/tools`, `/api/approvals`, `/api/goals`,
    `/api/jobs`; the AB-1 vector returned `200 root` for an anonymous
    `execute_shell/run {"command":"whoami"}`. These are code-level boundary

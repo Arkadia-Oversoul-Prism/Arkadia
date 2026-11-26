@@ -45,7 +45,9 @@ No step invents the next step's evidence.
 
 ## Backend
 
-The native Console is pinned to the live Oracle endpoint `https://arkadia-kw64.onrender.com`. There is no backend URL prompt and no silent fallback. Changing the endpoint is a code-level deployment change, not a per-device setting.
+The native Console's endpoint is `BuildConfig.ORACLE_BASE_URL`, defaulted in `app/build.gradle.kts` and overridable at build time with `-PoracleBaseUrl` / `ORACLE_BASE_URL`. There is no backend URL prompt and no silent fallback. Changing the endpoint is a code-level deployment change, not a per-device setting.
+
+That default still names the legacy host `https://arkadia-kw64.onrender.com`, which `architecture/runtime_manifest.yaml` records as `legacy_noncanonical`. The canonical origin is `https://arkadia-qzu4.onrender.com` (ADR-016). Re-pointing the build default is a separate change awaiting a decision; it is recorded here rather than left implicit.
 
 The Android app owns device interaction, Firebase session handling, touch/capture surfaces and transport. Canonical identity, authority, execution records, evidence and verification remain server-side.
 

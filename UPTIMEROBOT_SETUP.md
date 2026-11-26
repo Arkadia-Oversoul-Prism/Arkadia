@@ -12,7 +12,9 @@ A free UptimeRobot monitor pings the Oracle every 10 minutes, preventing sleep.
 3. Configure the monitor:
    - **Monitor Type**: HTTP(s)
    - **Friendly Name**: `Arkadia Oracle`
-   - **URL**: `https://arkadia-kw64.onrender.com`
+   - **URL**: `https://arkadia-qzu4.onrender.com` (the canonical origin under ADR-016;
+     the host this document named before 2026-11-24, `arkadia-kw64.onrender.com`, is
+     recorded as `legacy_noncanonical` in `architecture/runtime_manifest.yaml`)
    - **Monitoring Interval**: 10 minutes
    - **Alert Contacts**: your email
 

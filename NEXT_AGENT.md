@@ -15,7 +15,7 @@
 | Workstream K | **COMPLETE** — no K6 exists in the design doc |
 | Architecture tests | **11/11 PASSING** (re-measured 2026-10-02) |
 | Spine continuity tests | **7/7 PASSING** (`tests/test_oracle_spine.py`) |
-| Production proof (Gate A) | **PASSING** — thread jump verified on arkadia-kw64.onrender.com |
+| Production proof (Gate A) | **PASSING** — thread jump verified on the historical host `arkadia-kw64.onrender.com`; the canonical origin is `arkadia-qzu4.onrender.com` |
 | Frontend typecheck | **PASSING** (changed files, zero errors) |
 | Ontology | **FROZEN** — do not modify `node_types.py` or `relationship_types.py` |
 | api/main.py | **AT BUDGET** — 2600 lines; do not add inline logic; use router modules |

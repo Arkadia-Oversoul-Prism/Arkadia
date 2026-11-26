@@ -38,7 +38,7 @@ K — Knowledge OS Integration (active)
 - ✅ Phase 0 — Endpoint migration complete (arkadia-n26k → arkadia-kw64 across 12 files)
 - ✅ Infrastructure: `railway.json`, `docs/deployment/RAILWAY.md`, `DEPLOYMENT_OPTIONS.md`
 - ✅ Knowledge Recon: all 21 `docs/recon/` documents + `KNOWLEDGE_OS_EVOLUTION.md`
-- ✅ Backend LIVE: https://arkadia-kw64.onrender.com
+- ✅ Backend LIVE: https://arkadia-qzu4.onrender.com (canonical; ADR-016)
 - ✅ Session infrastructure: `.bootstrap/`, `PARKING_LOT.md`, `REPOSITORY_SNAPSHOT.md`
 - ✅ K2 — Oracle Conversation Archival: daemon thread archives every Oracle turn into the Knowledge Layer
 - ✅ K1 — Corpus Document Ingestion: all three corpus entry points wired to _ingest_to_knowledge_os()
@@ -52,7 +52,10 @@ K — Knowledge OS Integration (active)
   (K3-C "Context Engine Wiring" is satisfied at the spine)
 
 ### Pending (manual — user action)
-- 🟡 `web/public_prism/.env.production` — `VITE_API_URL` must be updated to `https://arkadia-kw64.onrender.com` in Vercel dashboard before next frontend deploy
+- ✅ Resolved 2026-11-24 — the `VITE_API_URL` action recorded here named the retired
+  host `arkadia-kw64.onrender.com` and the retired `web/public_prism` tree, and cannot be
+  performed. The canonical production origin is `https://arkadia-qzu4.onrender.com`
+  (ADR-016; `architecture/runtime_manifest.yaml`).
 
 ### Active bounded PR (Phase 1 — Runtime Stabilization)
 > **Reconciled 2026-10-05** (Weaver pass `gate-hygiene/ci-gate-trigger-coverage-01`, main
@@ -229,7 +232,7 @@ Spiral Grove registry declaration-order vs topological-order contract; baseline 
 - Registered layer violations: 10 (LAYER_MAP.py — do not touch)
 - Registered circular imports: 3 (LAYER_MAP.py — do not touch)
 - Workflows (local Replit): failing (pre-existing — missing secrets)
-- Production: LIVE at https://arkadia-kw64.onrender.com
+- Production: LIVE at https://arkadia-qzu4.onrender.com (canonical; ADR-016)
 
 ## Blocked By
 Nothing blocking repository work. (The Vercel env var is cosmetic.)
