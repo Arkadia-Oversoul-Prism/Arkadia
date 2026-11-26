@@ -42,9 +42,12 @@ def test_update_file_supports_rename(tmp_path, monkeypatch):
     if hasattr(ps, "_DB_PATH"):
         monkeypatch.setattr(ps, "_DB_PATH", str(db))
     f = ps.create_file("p2", "a.txt", "x")
-    ps.update_file(f["id"], "x", name="b.txt")
+    ps.update_file("p2", f["id"], "x", name="b.txt")
     got = ps.get_file(f["id"])
     assert got and got["name"] == "b.txt"
+    # `update_file` is project-scoped: the wrong project id must not rename it.
+    assert ps.update_file("other", f["id"], "x", name="c.txt") == {"ok": False, "error": "File not found"}
+    assert ps.get_file(f["id"])["name"] == "b.txt"
 
 
 def test_frontend_files_use_project_api():
