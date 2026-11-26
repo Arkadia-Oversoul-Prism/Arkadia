@@ -1,0 +1,80 @@
+name: Stellar Cartography Contract
+
+# `kernel/stellar.py` computes the readout served at `GET /api/stellar-cartography`
+# and rendered as the console's star-date header. It is also a second implementation
+# of the Ark Date: `api/main.py::_ark_date` computes the same coordinate for the rest
+# of the API, and `kernel/stellar.py` states the invariant in its own docstring
+# ("Mirrors api.main._ark_date exactly").
+#
+# Measured on `main` @ `cb284195`, nothing executed that contract. No workflow named
+# `kernel/stellar.py` at all — `grep -rn "kernel" .github/workflows/` matched only
+# `kernel/jobs.py` and `kernel/worker.py` — so the engine, its ten tests, and the
+# stated parity invariant could all be rewritten with no gate observing it. A guard no
+# workflow executes is decoration; this gate is the executable surface.
+#
+# The executed inventory is DERIVED, not restated:
+#
+#     python -m pytest -q $(python scripts/stellar_contract_domain.py)
+#
+# `scripts/stellar_contract_domain.py` is the single source of truth, and the wiring
+# judge (`tests/test_stellar_contract_ci_wiring.py`) imports `derive_domain` from that
+# same file. A guard added to the domain is executed without editing this file, and a
+# guard removed from the corpus drops out of both. The `paths` filter selects
+# `tests/**` rather than an enumerated guard list so a guard *added* to the corpus also
+# triggers the judge that would otherwise never run to report it unexecuted; the judge
+# asserts every derived guard is selected, so narrowing this filter reddens it.
+on:
+  pull_request:
+    paths:
+      - "kernel/stellar.py"
+      - "api/main.py"
+      - "scripts/stellar_contract_domain.py"
+      - "tests/**"
+      - ".github/workflows/stellar-cartography-contract.yml"
+  push:
+    branches: ["main"]
+    paths:
+      - "kernel/stellar.py"
+      - "api/main.py"
+      - "scripts/stellar_contract_domain.py"
+      - "tests/**"
+      - ".github/workflows/stellar-cartography-contract.yml"
+  # The gate is path-filtered, so a revision touching none of the above never runs it.
+  # `workflow_dispatch` lets the contract be executed against an exact revision on
+  # demand (the workflow file is taken from the dispatched ref, so `ref=main` yields an
+  # execution at the current main SHA).
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  stellar-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The domain is DERIVED from the corpus, so it grows when a guard joins it,
+          # and a guard may resolve a revision with `git cat-file -e`. A depth-1
+          # checkout would then fail inside a guard as a *wiring* defect that reads as
+          # a stellar defect. Full history removes that class at the cost of a clone.
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install backend and contract-test dependencies
+        # `api/main.py` is half of the parity invariant, so the guard imports the real
+        # FastAPI application; the backend dependencies are therefore required, not
+        # optional. `pyyaml` is required by the wiring judge.
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install pytest pyyaml
+      - name: Derive the stellar contract domain
+        run: python scripts/stellar_contract_domain.py --json
+      - name: Run the derived stellar contract
+        # No `continue-on-error`: a red guard must redden the gate.
+        run: python -m pytest -q $(python scripts/stellar_contract_domain.py)
