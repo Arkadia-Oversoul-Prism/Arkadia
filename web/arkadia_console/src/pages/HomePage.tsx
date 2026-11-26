@@ -7,14 +7,23 @@ import { SURFACES, type SurfaceId } from "../lib/surfaces";
 import type { ProjectList, VersionInfo } from "../lib/types";
 
 function Portal({ surface, onNavigate }: { surface: (typeof SURFACES)[number]; onNavigate: (id: SurfaceId) => void }) {
+  // The eyebrow names the product boundary the surface belongs to. Five surfaces
+  // *are* their own boundary, so an unconditional eyebrow renders the same word
+  // twice (measured on the canonical origin: NovaNet, Arkana, Solariun, SolSpire,
+  // Weaver).
+  const boundary =
+    surface.boundary.trim().toLowerCase() === surface.name.trim().toLowerCase() ? null : surface.boundary;
+
   return (
     <button
       onClick={() => onNavigate(surface.id)}
       data-testid={`portal-${surface.id}`}
       className="rounded-xl border border-line bg-panel/60 p-4 text-left transition hover:border-emerald/40"
     >
-      <p className={`font-mono text-[11px] uppercase tracking-[0.18em] ${surface.accent}`}>{surface.boundary}</p>
-      <p className="mt-1 font-display text-lg text-white/90">{surface.name}</p>
+      {boundary && (
+        <p className={`font-mono text-[11px] uppercase tracking-[0.18em] ${surface.accent}`}>{boundary}</p>
+      )}
+      <p className={`${boundary ? "mt-1 " : ""}font-display text-lg text-white/90`}>{surface.name}</p>
       <p className="mt-1 text-sm text-white/50">{surface.summary}</p>
     </button>
   );
