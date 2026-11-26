@@ -1,8 +1,8 @@
 {
  "schema": "arkadia.pr_backlog_reconciliation/1",
  "observed_at": "2026-11-26",
- "main_sha": "68db6619ee438ade7d8c32786076aab877e308a5",
- "open_pr_count": 65,
+ "main_sha": "e4cc45c4ddbcb63121d767106d8fb867033e4f75",
+ "open_pr_count": 64,
  "prs": [
   {
    "number": 680,
@@ -1892,10 +1892,7 @@
   703
  ],
  "merge_batch_a_order": [
-  727,
   705,
-  741,
-  703,
   680,
   698,
   738,
@@ -1907,5 +1904,15 @@
   "m6_exemption": "none: the failures on #741/#703 are external but M6 admits no exemption (they stay out of the batch)",
   "m5_for_727": "PASS: no required reviews are configured, so reviewDecision='' is not a deficiency",
   "human_authorization": "REQUIRED: no merge authorized; the sovereign withheld option (b) pending platform-state verification"
- }
+ },
+ "merged": [
+  {
+   "number": 727,
+   "head_sha": "f3d10739644ddc173514c9435bbb3c4b172224b1",
+   "merge_commit": "e4cc45c4ddbcb63121d767106d8fb867033e4f75",
+   "merged_at": "2026-11-26T23:38:27Z",
+   "merge_method": "squash",
+   "post_merge_baseline_nodes_sha256": "4118e2ff698f90bb018a8f396c7c729be8cb55cb6d816683a2cd1feb4c8ee916"
+  }
+ ]
 }

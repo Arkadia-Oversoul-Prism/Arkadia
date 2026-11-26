@@ -514,3 +514,72 @@ document.
 
 No draft conversion and no merge were performed. The repository state is
 unchanged by this section.
+
+---
+
+## 12. Merge record — #727 (first in the batch), executed 2026-11-26
+
+**Authorization:** explicit human instruction — *"mark #727 ready and merge at head
+`f3d10739644ddc173514c9435bbb3c4b172224b1`"*. Scoped to #727 only; no standing
+merge authority was granted for the remaining PRs.
+
+### 12.1 Pre-write verification (immediately before the write)
+
+| Check | Observed |
+|---|---|
+| head SHA | `f3d10739644ddc173514c9435bbb3c4b172224b1` — **equals the authorized head** |
+| state / base | `OPEN`, `base=main` |
+| mergeability | `MERGEABLE`, `mergeStateStatus: CLEAN` |
+| checks on that head | 6/6 `completed/success`; **0** red, **0** pending |
+| `main` before merge | `68db6619ee438ade7d8c32786076aab877e308a5` — unchanged since §11 |
+
+### 12.2 Actions
+
+1. `gh pr ready 727` → `draft: true → false`; head re-read and **unchanged**.
+2. `PUT /pulls/727/merge` with `merge_method=squash` and
+   `sha=f3d10739644ddc173514c9435bbb3c4b172224b1` (expected-head guard).
+
+### 12.3 Result (GitHub-confirmed)
+
+| Fact | Value |
+|---|---|
+| PR state | `MERGED` at `2026-11-26T23:38:27Z`, merged by `Arkadia-Oversoul-Prism` |
+| Merge commit = new `main` | **`e4cc45c4ddbcb63121d767106d8fb867033e4f75`** |
+| Intended diff landed | 1 file, **+144/−0**: `docs/control-plane/evidence/gate-hygiene-repair-wave-composition-01/EVIDENCE.md` present on `main` at 144 lines |
+| Merge method | squash (repository convention: single-commit PRs land as `… (#N)`) |
+
+### 12.4 Post-merge re-measurement of `main`
+
+Full suite on `e4cc45c4`:
+
+```
+20 failed, 4325 passed, 22 skipped, 6 warnings, 1 error in 297.00s
+21 failing/error nodes — sha256 4118e2ff698f90bb018a8f396c7c729be8cb55cb6d816683a2cd1feb4c8ee916
+```
+
+That hash is **identical to the pre-merge baseline at `68db6619`** — same node
+set, zero regression, no node added or removed. (The sandbox was re-provisioned
+between the merge and this run, losing `pytest`; dependencies were reinstalled and
+the suite re-executed, and it reproduced the pre-merge fingerprint exactly.)
+
+### 12.5 Remaining executable batch, reconciled against the new `main`
+
+Re-checked at `e4cc45c4` — heads unchanged, all still drafts, all clean:
+
+| Order | PR | Head | Behind | Checks | `merge-tree` vs `e4cc45c4` |
+|---|---|---|---|---|---|
+| **2 (next)** | **#705** | `2732b81a05d2cb8bc25ce93841f6d97ff4264f51` | 7 | 6/6 | clean |
+| 3 | #680 | `0023c7813eda7aa90221c176ace9e8f3d7df2a76` | 10 | 10/10 | clean |
+| 4 | #698 | `91e73dfd8deabf9becd243e733c52b236e8ad325` | 7 | 10/10 | clean |
+| 5 | #738 | `4ede192898f535f8090681ff4ec453941c423ab3` | 6 | 10/10 | clean |
+| 6 | #683 | `4c9261cf7f28d612ca59f77c551a39cf90d9bbf5` | 9 | 10/10 | clean |
+
+The §5 composition measurement was made at `68db6619`; #727 has now landed, so
+**the composed-tree evidence for these five is superseded** and must be re-run
+against `e4cc45c4` before the last of them merges. Each PR's own `merge-tree`
+against the new `main` is clean, and the remaining five touch disjoint paths
+(#705 is docs-only; the other four are docs + one guard each), so the risk of
+interaction is unchanged — but "unchanged" is an expectation, not a measurement.
+
+**Next authorized action required:** authorization for #705 at
+`2732b81a05d2cb8bc25ce93841f6d97ff4264f51`.
