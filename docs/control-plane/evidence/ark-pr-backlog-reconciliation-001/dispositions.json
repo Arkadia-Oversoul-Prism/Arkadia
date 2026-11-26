@@ -1902,8 +1902,10 @@
   683
  ],
  "execution_blockers": {
-  "draft_state": "all 8 are drafts authored by Arkadia-Oversoul-Prism; GOV-04 forbids silent draft conversion",
-  "branch_protection": "GET /branches/main/protection -> 403 Resource not accessible by integration; /rulesets -> 0; UNKNOWN, not PASS",
-  "m6_exemption": "none: the failures on #741/#703 are external but M6 admits no exemption"
+  "draft_state": "all six eligible PRs are drafts authored by Arkadia-Oversoul-Prism; GOV-04 forbids silent draft conversion (BLOCKING)",
+  "branch_protection": "RESOLVED: /branches/main -> protected=false, enforcement_level=off, required_status_checks=[]; /rulesets -> [] (and []= with includes_parents); mergeStateStatus CLEAN; allow_auto_merge=false. main is unprotected; the gate is procedural.",
+  "m6_exemption": "none: the failures on #741/#703 are external but M6 admits no exemption (they stay out of the batch)",
+  "m5_for_727": "PASS: no required reviews are configured, so reviewDecision='' is not a deficiency",
+  "human_authorization": "REQUIRED: no merge authorized; the sovereign withheld option (b) pending platform-state verification"
  }
 }

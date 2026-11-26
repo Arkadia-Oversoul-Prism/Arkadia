@@ -457,3 +457,60 @@ For PR *n* in the order:
 5. merge through the protected merge API with `sha=<recorded head>`;
 6. after the merge, verify the resulting `main` SHA and that the intended diff landed;
 7. reconcile PR *n+1* against the new `main` — the earlier composition is no longer proof.
+
+### 11.6 Platform-state blocker resolved — `main` is unprotected (effective state, two oracles)
+
+§11.3 recorded branch protection as `UNKNOWN` because
+`GET /branches/main/protection` and the GraphQL `branchProtectionRules` field are
+both refused to this integration (`403 / FORBIDDEN`). That was the wrong place to
+stop: the **read-scoped branch endpoint reports the effective state**, and it
+answers the question.
+
+| Probe | Result |
+|---|---|
+| `GET /repos/…/branches/main` | `{"protected": false, "protection": {"enabled": false, "required_status_checks": {"checks": [], "contexts": [], "enforcement_level": "off"}}}` |
+| `GET /repos/…/rulesets` | `[]` |
+| `GET /repos/…/rulesets?includes_parents=true` | `[]` (no organization-level ruleset applies either) |
+| `GET /repos/…/pulls/727` | `mergeable: MERGEABLE`, `mergeStateStatus: **CLEAN**` |
+| `GET /repos/…/pulls/727` reviews | `reviewDecision: ""`, 0 reviews |
+| `GET /repos/…` | `allow_auto_merge: false`; `permissions.admin: true` for this identity |
+| `GET /branches/main/protection`, GraphQL `branchProtectionRules` | `403 / FORBIDDEN` — refused to this integration |
+
+**Conclusion (VERIFIED, not inferred):** `main` carries **no branch protection,
+no required status checks, no required reviews, no rulesets (repo or org) and no
+merge queue**. `enforcement_level: "off"` is the field that decides it, and
+GitHub's own `mergeStateStatus: CLEAN` independently confirms that nothing would
+block the merge of #727's head.
+
+Two consequences, stated plainly:
+
+1. **GOV-04 condition 2 is satisfied vacuously and the M5 blocker is cleared.**
+   There is no required check to pass and no required review to obtain because
+   the repository configures none. `reviewDecision: ""` is therefore *not* a
+   deficiency for #727.
+2. **The gate here is procedural, not platform-enforced.** With no protection and
+   `allow_auto_merge: false`, the only things standing between an agent
+   credential and `main` are the written rules. That is a repository-level risk
+   the sovereign should weigh — it is **not** repaired here, because changing
+   protection is a reserved decision and out of this cycle's scope.
+
+**M5 for #727 therefore moves `UNKNOWN → PASS`.** The only remaining blockers are
+**M12 (explicit human merge authorization)** and the **owner action clearing
+`draft: true`**. Neither is a platform state, and neither is cleared by this
+document.
+
+### 11.7 GOV-04 condition check for #727, as of this measurement
+
+| GOV-04 condition | State | Evidence |
+|---|---|---|
+| 1. open, non-draft, targets main, exact head unchanged | **BLOCKED (owner action)** | `state=OPEN`, `draft=true`, `base=main`, head `f3d10739` unchanged |
+| 2. required checks/reviews/protections/merge queue satisfied | **PASS (vacuous)** | no required checks (`enforcement_level: off`), no protection, no rulesets, no merge queue; `mergeStateStatus: CLEAN` |
+| 3. M1–M13 complete with exact-head evidence | PASS except M12 | §11.4, M5 now PASS |
+| 4. no secret/security/migration/authority/scope/reserved issue | PASS | docs-only evidence record; CP10 admits the path; 0 credential-shaped additions |
+| 5. dependencies and open-PR composition freshly checked | PASS | `main` unchanged since §5; `merge-tree` clean; batch-A composed suite |
+| 6. no contradictory instruction or stop | PASS | no stop recorded |
+| 7. protected merge API with expected head SHA | PASS (would be) | `PUT /pulls/727/merge` with `sha=f3d10739…` |
+| 8. GitHub confirms; record and reconcile `main` | NOT REACHED | — |
+
+No draft conversion and no merge were performed. The repository state is
+unchanged by this section.
