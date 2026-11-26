@@ -34,6 +34,24 @@ UPLOAD_DIR      = "static/releases"
 AGGREGATOR_MODE = os.environ.get("AGGREGATOR", "placeholder")
 AGGREGATOR_KEY  = os.environ.get("AGGREGATOR_API_KEY", "")
 
+# The stored filename is derived from the validated content type, never from the
+# client's filename. `UPLOAD_DIR` lives under the tree the `/static` mount serves,
+# so the extension a client chooses decides the Content-Type the origin will serve
+# those bytes with — a client-chosen `.html` would be stored XSS on this origin.
+AUDIO_EXTENSION_BY_TYPE = {
+    "audio/mpeg": "mp3",
+    "audio/mp3":  "mp3",
+    "audio/wav":  "wav",
+    "audio/x-wav": "wav",
+    "audio/flac": "flac",
+    "audio/x-flac": "flac",
+}
+ARTWORK_EXTENSION_BY_TYPE = {
+    "image/jpeg": "jpg",
+    "image/jpg":  "jpg",
+    "image/png":  "png",
+}
+
 
 # ── Persistence helpers ───────────────────────────────────────────────────────
 
@@ -172,29 +190,26 @@ async def upload_release(
     """
     _ensure_dirs()
 
-    # Validate file types
+    # Validate file types. The allowlist is also the extension source, so the
+    # accepted types and the stored extensions cannot drift apart.
     audio_ct = audio.content_type or ""
     artwork_ct = artwork.content_type or ""
-    allowed_audio    = {"audio/mpeg", "audio/wav", "audio/flac", "audio/x-flac", "audio/mp3", "audio/x-wav"}
-    allowed_artwork  = {"image/jpeg", "image/png", "image/jpg"}
 
-    if audio_ct not in allowed_audio:
+    if audio_ct not in AUDIO_EXTENSION_BY_TYPE:
         raise HTTPException(400, f"Audio must be MP3, WAV, or FLAC. Got: {audio_ct}")
-    if artwork_ct not in allowed_artwork:
+    if artwork_ct not in ARTWORK_EXTENSION_BY_TYPE:
         raise HTTPException(400, f"Artwork must be JPEG or PNG. Got: {artwork_ct}")
 
     release_id = str(uuid.uuid4())
 
     # Save audio file
-    audio_ext  = audio.filename.rsplit(".", 1)[-1] if audio.filename and "." in audio.filename else "mp3"
-    audio_fn   = f"{release_id}_audio.{audio_ext}"
+    audio_fn   = f"{release_id}_audio.{AUDIO_EXTENSION_BY_TYPE[audio_ct]}"
     audio_path = os.path.join(UPLOAD_DIR, audio_fn)
     with open(audio_path, "wb") as out:
         out.write(await audio.read())
 
     # Save artwork file
-    art_ext    = artwork.filename.rsplit(".", 1)[-1] if artwork.filename and "." in artwork.filename else "jpg"
-    art_fn     = f"{release_id}_artwork.{art_ext}"
+    art_fn     = f"{release_id}_artwork.{ARTWORK_EXTENSION_BY_TYPE[artwork_ct]}"
     art_path   = os.path.join(UPLOAD_DIR, art_fn)
     with open(art_path, "wb") as out:
         out.write(await artwork.read())

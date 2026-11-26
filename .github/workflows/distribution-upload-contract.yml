@@ -1,0 +1,50 @@
+name: Distribution Upload Contract
+
+# `POST /api/distribution/upload` writes into `static/releases`, and `api.main` mounts
+# `/static` from that tree, so the extension of a stored file decides the Content-Type the
+# canonical origin serves those bytes with. Measured at `main` `cb284195`: the stored name
+# took its extension from the client's filename while only the client's `content_type` was
+# validated, so `filename="track.html"` with `content_type="audio/mpeg"` was stored as
+# `<uuid>_audio.html` and served as `text/html` — anonymous stored content injection on the
+# production origin. The route declares no `security` requirement in the deployed
+# `/openapi.json`.
+#
+# The guard is `tests/test_distribution_upload_extension_contract.py`. No other workflow
+# selects it: the CP10 gate is filtered to `web/arkadia_console/**`, `spiral_grove/**`,
+# `lab/**` and `api/lab_routes.py`, and `provider-routing.yml` is filtered to
+# `weaver/**`/`providers/**`. A guard no workflow executes is decoration, so this is its
+# executable surface. It is a file-targeted run, so an unrelated collection error cannot
+# suppress it.
+on:
+  pull_request:
+    paths:
+      - "api/distribution.py"
+      - "tests/test_distribution_upload_extension_contract.py"
+      - ".github/workflows/distribution-upload-contract.yml"
+  push:
+    branches: [main]
+    paths:
+      - "api/distribution.py"
+      - "tests/test_distribution_upload_extension_contract.py"
+      - ".github/workflows/distribution-upload-contract.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  distribution-upload-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -r requirements.txt
+      - run: python -m pip install pytest
+      - name: Execute the upload extension contract
+        run: python -m pytest -q tests/test_distribution_upload_extension_contract.py
