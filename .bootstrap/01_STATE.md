@@ -170,11 +170,22 @@ Spiral Grove registry declaration-order vs topological-order contract; baseline 
   `python scripts/baseline_fingerprint.py <pytest log>` prints both values below and is
   covered by `tests/test_baseline_fingerprint.py`.
   - outcomes (canonical): `sha256("\n".join(sorted("FAILED|ERROR <nodeid>")) + "\n")` =
-    `9a54f5b478d1135f27ab9e54d95706f03eae1ceb5d4c1f3ae075bffc4208ab38`
+    `9222b226f3b09a285781472bafbb10463a4b79d3bc5a5a4c04d04ffea66bbd72`
   - node set: `sha256("\n".join(sorted("<nodeid>")) + "\n")` =
-    `124bfdfd078fe878fe7c9de358ba271e977c4f7b73909b9d7d016b9ae9c1e87f`
-  - The recorded node set is `tests/fixtures/baseline_node_set.txt` (10 nodes); the two
+    `1063cf1f09c39509af5b5af2a097e463343a63545f9219e965a67734264b4c07`
+  - The recorded node set is `tests/fixtures/baseline_node_set.txt` (5 nodes); the two
     values above are what the script prints for it.
+  > **Superseded 2026-11-22** (`test-hygiene/solspire-r1-governance-pins-01`): the recorded
+  > set was 10 nodes and the pair was `9a54f5b4…` / `124bfdfd…`. Five of those ten entries
+  > described debt that later merges had already repaired, so they were removed. Two were
+  > test-side pins, not product debt — `execute_patch` was asserted inside
+  > `weaver.governance` after `36bdcf01` moved it to `weaver.execution`, and the delegation
+  > comparison passed mismatched builder parameters. The other three
+  > (`tests/test_steward_filter.py::test_allows_mythic_with_action`,
+  > `::test_blocks_identity_claims`, `::test_compress_to_choices`) were repaired on
+  > 2026-10-09 by `d8679b49`, whose stated objective was to clear exactly those three
+  > failures, and the file is 12 passed on `bb19aabd`. The prior pairs are retained as
+  > superseded in `tests/test_baseline_fingerprint.py`.
   > **Correction 2026-10-02** (`gate-hygiene/baseline-fingerprint-reconciliation-01`).
   > `gate-hygiene/baseline-fingerprint-reproducibility-01` (PR #203) set out to make the
   > fingerprint reproducible and merged `scripts/baseline_fingerprint.py`, but the pair it

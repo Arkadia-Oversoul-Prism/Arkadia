@@ -1769,15 +1769,23 @@ or mutation-path surface was touched.
   > 20-node set.
 - Baseline fingerprint independently reproduced from the measured node list:
   `sha256("\n".join(sorted(FAILED/ERROR node ids)) + "\n")` =
-  `9a54f5b478d1135f27ab9e54d95706f03eae1ceb5d4c1f3ae075bffc4208ab38`
+  `9222b226f3b09a285781472bafbb10463a4b79d3bc5a5a4c04d04ffea66bbd72`
   > **Superseded 2026-10-04** (`gate-hygiene/baseline-node-set-live-reconciliation-01`):
   > a live full-suite run on `main` `1b7c089` reported 9 failed / 1414 passed / 20 skipped /
   > 1 error (10 failing/error nodes). Eight of the 18 recorded entries now pass — repaired by
   > later merges while the fixture kept them as debt — so the recorded set is now the 10 live
-  > nodes and the canonical pair is `9a54f5b4…` / `124bfdfd…`. The prior 18-node pair
+  > nodes and the canonical pair is `0ec3c110…` / `e7405d23…`. The prior 18-node pair
   > (`6c7bf821…` / `2bc35996…`) is superseded and retained in
   > `tests/fixtures/superseded_baseline_node_set_18.txt`. Evidence:
   > `docs/control-plane/evidence/gate-hygiene-baseline-node-set-live-reconciliation-01/`.
+  > **Superseded 2026-11-22** (`test-hygiene/solspire-r1-governance-pins-01`): the two
+  > `tests/test_solspire_r1_governance_convergence.py` nodes were test-side pins, not product
+  > debt — `execute_patch` was asserted inside `weaver.governance` after `36bdcf01` moved it
+  > to `weaver.execution`, and the delegation comparison passed mismatched builder
+  > parameters. Repaired, and three `tests/test_steward_filter.py` entries that `d8679b49`
+  > repaired on 2026-10-09 were removed in the same change, so the recorded set is now 5
+  > nodes and the canonical pair is `9222b226…` / `1063cf1f…`. The 10-node and 8-node pairs
+  > are retained as superseded in `tests/test_baseline_fingerprint.py`.
   > **Correction 2026-10-02**: the `a59453b8…` recorded here was **not reproducible** —
   > neither by the derivation printed beside it nor by `scripts/baseline_fingerprint.py`.
   > The first reconciliation pass published `4d84e7eb…`, which reproduced only in a clone
