@@ -23,6 +23,10 @@ pytest:
    them identical — an asymmetric filter is a masking hole.
 3. A workflow that runs the architecture fitness suite must be triggered by a
    change to the architecture tests themselves.
+4. A workflow that runs pytest on `pull_request` must also be dispatchable
+   (`workflow_dispatch`) — otherwise its evidence binds to whichever revisions
+   happened to touch its paths, and the gate cannot be re-run against an exact
+   revision when the question is asked.
 
 The detector is proven against the forms it is meant to catch (negative controls),
 so a rewrite of a workflow cannot silently disarm the boundary.
@@ -103,6 +107,30 @@ def _runs_architecture_suite(workflow: dict) -> bool:
     return any(_ARCHITECTURE_RUN.search(script) for script in _run_scripts(workflow))
 
 
+def _dispatch_defect(workflow: dict) -> str | None:
+    """Why a pull-request gate cannot be executed on demand, or None.
+
+    A path-filtered gate has no execution at a revision that touches none of its
+    paths, and `workflow_dispatch` is the only trigger that does not depend on a
+    change landing. Without it the gate's evidence binds to whatever revisions
+    happened to select it: the gate cannot be re-run against an exact revision
+    when a contract question is asked, and the absence of a run cannot be told
+    apart from a revision the filter excluded.
+    """
+    trigger_block = _trigger_block(workflow)
+    if "pull_request" not in trigger_block:
+        return None
+    if "workflow_dispatch" in trigger_block:
+        return None
+    if not _runs_pytest(workflow):
+        return None
+    return (
+        "declares a pull_request trigger and runs pytest but carries no "
+        "workflow_dispatch, so it has no execution at a revision that touches "
+        "none of its paths and cannot be re-run on demand"
+    )
+
+
 def _selects_path(path_filter: set[str], path: str) -> bool:
     """Whether a `paths` filter selects a literal path.
 
@@ -164,6 +192,39 @@ def test_runs_pytest_detector_distinguishes_the_forms():
     assert not _runs_pytest({"jobs": {"j": {"steps": [{"run": "python -m py_compile api/main.py"}]}}})
 
 
+def test_dispatch_detector_flags_a_gate_that_cannot_be_run_on_demand():
+    gate = {"jobs": {"j": {"steps": [{"run": "python -m pytest tests/test_x.py -q"}]}}}
+    defect = _dispatch_defect({**gate, "on": {"pull_request": {"paths": ["a/**"]}}})
+    assert defect is not None
+    assert "workflow_dispatch" in defect
+
+
+def test_dispatch_detector_stays_silent_outside_its_domain():
+    # Positive control: the same gate with dispatch is not a defect.
+    gate = {"jobs": {"j": {"steps": [{"run": "python -m pytest tests/test_x.py -q"}]}}}
+    assert (
+        _dispatch_defect(
+            {**gate, "on": {"pull_request": {"paths": ["a/**"]}, "workflow_dispatch": None}}
+        )
+        is None
+    )
+    # A workflow that runs no pytest is a pipeline, not a judging gate.
+    build = {
+        "on": {"pull_request": {"paths": ["a/**"]}},
+        "jobs": {"j": {"steps": [{"run": "gradle assembleDebug"}]}},
+    }
+    assert _dispatch_defect(build) is None
+    # A workflow with no pull_request trigger is outside the domain entirely.
+    assert _dispatch_defect({**gate, "on": {"push": {"branches": ["main"]}}}) is None
+
+
+def test_trigger_block_reads_the_yaml_boolean_on_key():
+    # PyYAML parses the bare `on` key as boolean True. A detector reading only the
+    # string key would see no trigger at all and pass every live workflow.
+    parsed = yaml.safe_load("on:\n  workflow_dispatch:\n")
+    assert _trigger_block(parsed) == {"workflow_dispatch": None}
+
+
 # ---------------------------------------------------------------------------
 # The invariants, over every workflow that runs pytest
 # ---------------------------------------------------------------------------
@@ -213,3 +274,18 @@ def test_architecture_fitness_is_selected_by_the_surfaces_it_judges(name: str):
         "trigger on tests/architecture/**; the assertions themselves can be "
         "changed without the gate that executes them running"
     )
+
+
+@pytest.mark.parametrize("name", _pytest_workflows())
+def test_pr_pytest_workflow_is_dispatchable(name: str):
+    """A PR gate must be executable on demand, not only when its paths change."""
+    defect = _dispatch_defect(_load(name))
+    assert defect is None, f"{name} {defect}"
+
+
+def test_the_pytest_workflow_domain_is_not_empty():
+    # A domain that resolved to nothing would make the parametrised invariants
+    # above vacuously green.
+    names = _pytest_workflows()
+    assert "ci-gate-trigger-coverage.yml" in names
+    assert len(names) > 10

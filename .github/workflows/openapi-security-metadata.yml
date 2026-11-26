@@ -1,6 +1,7 @@
 name: OpenAPI Security Metadata Contract
 
 on:
+  workflow_dispatch:
   pull_request:
     branches: [main]
     paths:
