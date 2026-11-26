@@ -774,12 +774,7 @@ async def _push_image_to_github(image_b64: str, filename: str) -> str:
 
 # ── Gemini call ───────────────────────────────────────────────────────────────
 
-GEMINI_MODELS = [
-    "gemini-2.5-flash",
-    "gemini-flash-latest",
-    "gemini-2.0-flash-lite",
-    "gemini-2.0-flash",
-]
+from kernel.gemini_models import GEMINI_MODELS
 
 
 async def _gemini_chat(messages: list[dict], system: str, api_key: str | None = None) -> str:

@@ -16,17 +16,17 @@ approval to its operation is always recorded:
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
+import re
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from api.approval_routes import queue_approval
-from api.auth import (
-    get_current_user as _get_current_user,
-    require_auth as _require_auth,
-)
+from api.auth import require_auth as _require_auth
+from kernel.gemini_models import GEMINI_MODELS
 
 logger = logging.getLogger("arkadia")
 
@@ -52,8 +52,8 @@ async def ceo_chat(request: Request, user: dict = Depends(_require_auth)):
 
     from kernel.tools import list_tools
 
-    # Try user's personal key first, then fall back to global key manager
-    user = await _get_current_user(request)
+    # ``user`` is the profile ``require_auth`` already resolved for this request;
+    # resolving it again here would verify the token twice.
     user_id = user.get("uid") if user else None
     active_key = None
 
@@ -108,33 +108,59 @@ Always speak directly, intelligently and sovereignly. You remember context from 
 
     full_prompt = f"{system_prompt}\n\n{conv_context}\nHuman: {message}\nArkana:"
 
-    import httpx, re, json as _json
+    payload = {
+        "contents": [{"role": "user", "parts": [{"text": full_prompt}]}],
+        "generationConfig": {"temperature": 0.75, "maxOutputTokens": 2048},
+    }
 
-    model = "gemini-2.0-flash-exp"
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={active_key}"
+    model = ""
+    resp = None
+    last_err = None
 
     try:
         async with httpx.AsyncClient(timeout=45) as client:
-            resp = await client.post(url, json={
-                "contents": [{"role": "user", "parts": [{"text": full_prompt}]}],
-                "generationConfig": {"temperature": 0.75, "maxOutputTokens": 2048},
-            })
+            for candidate in GEMINI_MODELS:
+                url = (
+                    "https://generativelanguage.googleapis.com/v1beta/models/"
+                    f"{candidate}:generateContent?key={active_key}"
+                )
+                try:
+                    attempt = await client.post(url, json=payload)
+                except httpx.HTTPError as e:
+                    last_err = f"{candidate}: {e}"
+                    logger.warning(f"[CEO_CHAT] Gemini {candidate} transport error: {e}")
+                    continue
 
-        if resp.status_code == 429:
-            # Rotate the appropriate key store
-            if user_id:
-                try:
-                    from api.user_key_store import rotate_user_key
-                    rotate_user_key(user_id, active_key)
-                except Exception:
-                    pass
-            else:
-                try:
-                    from api.provider_key_store import mark_quota_hit
-                    mark_quota_hit("gemini")
-                except Exception:
-                    pass
-            raise HTTPException(status_code=429, detail="Quota hit — key marked. Please retry.")
+                if attempt.status_code == 429:
+                    # Rotate the appropriate key store
+                    if user_id:
+                        try:
+                            from api.user_key_store import rotate_user_key
+                            rotate_user_key(user_id, active_key)
+                        except Exception:
+                            pass
+                    else:
+                        try:
+                            from api.provider_key_store import mark_quota_hit
+                            mark_quota_hit("gemini")
+                        except Exception:
+                            pass
+                    raise HTTPException(status_code=429, detail="Quota hit — key marked. Please retry.")
+
+                if attempt.status_code in (403, 404) or attempt.status_code >= 500:
+                    last_err = f"{candidate}: HTTP {attempt.status_code}"
+                    logger.warning(f"[CEO_CHAT] Gemini {candidate}: {attempt.status_code}")
+                    continue
+
+                model = candidate
+                resp = attempt
+                break
+
+        if resp is None:
+            raise HTTPException(
+                status_code=503,
+                detail=f"No Gemini model available ({last_err})",
+            )
 
         resp.raise_for_status()
         data = resp.json()
@@ -149,7 +175,7 @@ Always speak directly, intelligently and sovereignly. You remember context from 
         pattern = re.compile(r"<tool_call>(.*?)</tool_call>", re.DOTALL)
         for match in pattern.finditer(reply):
             try:
-                tc = _json.loads(match.group(1).strip())
+                tc = json.loads(match.group(1).strip())
                 tool_calls.append(tc)
             except Exception:
                 pass

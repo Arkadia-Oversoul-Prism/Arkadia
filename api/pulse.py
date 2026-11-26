@@ -25,11 +25,7 @@ def _get_api_key() -> str:
     except Exception:
         return _GOOGLE_API_KEY_ENV
 
-GEMINI_MODELS = [
-    "gemini-2.5-flash",
-    "gemini-2.0-flash",
-    "gemini-2.0-flash-lite",
-]
+from kernel.gemini_models import GEMINI_MODELS
 
 # ── Node definitions ──────────────────────────────────────────────────────────
 

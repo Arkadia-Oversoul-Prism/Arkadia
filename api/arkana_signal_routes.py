@@ -18,6 +18,8 @@ from datetime import datetime, timezone
 import httpx
 from fastapi import APIRouter, HTTPException, Request
 
+from kernel.gemini_models import GEMINI_MODELS
+
 logger = logging.getLogger("arkadia")
 
 try:
@@ -29,6 +31,12 @@ except Exception:
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 
 router = APIRouter(tags=["Arkana Signal"])
+
+# Gate 01 asks for multimodal audio reasoning, which not every ladder entry
+# serves, so the gate's own model is tried first and the canonical ladder is the
+# degradation path. A single pinned model with no fallback turned one unavailable
+# model into a 502 for the whole gate.
+_SIGNAL_MODELS: tuple[str, ...] = ("gemini-3.8-flash", *GEMINI_MODELS)
 
 
 def _now_iso() -> str:
@@ -207,8 +215,6 @@ pauses, emphasis, pitch_contour, energy_contour and mark confidence/status.
 For acoustic, report observable properties such as duration_ms, energy_rms,
 peak_amplitude when available. Do not claim emotion as fact."""
 
-    model = "gemini-3.8-flash"
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={active_key}"
     payload = {
         "contents": [{
             "role": "user",
@@ -223,13 +229,43 @@ peak_amplitude when available. Do not claim emotion as fact."""
             "maxOutputTokens": 1800,
         },
     }
+
+    model = ""
+    resp = None
+    last_err = None
     try:
         async with httpx.AsyncClient(timeout=60) as client:
-            resp = await client.post(url, json=payload)
+            for candidate in _SIGNAL_MODELS:
+                url = (
+                    "https://generativelanguage.googleapis.com/v1beta/models/"
+                    f"{candidate}:generateContent?key={active_key}"
+                )
+                try:
+                    attempt = await client.post(url, json=payload)
+                except httpx.HTTPError as e:
+                    last_err = f"{candidate}: {e}"
+                    logger.warning(f"[ARKANA-SIGNAL] {candidate} transport error: {e}")
+                    continue
+                if attempt.status_code in (403, 404) or attempt.status_code >= 500:
+                    last_err = f"{candidate}: HTTP {attempt.status_code}"
+                    logger.warning(f"[ARKANA-SIGNAL] {candidate}: {attempt.status_code}")
+                    continue
+                model = candidate
+                resp = attempt
+                break
+
+        if resp is None:
+            raise HTTPException(
+                status_code=502,
+                detail=f"Signal interpretation failed: no Gemini model available ({last_err})",
+            )
+
         resp.raise_for_status()
         data = resp.json()
         text_out = data["candidates"][0]["content"]["parts"][0]["text"]
         derived = json.loads(text_out)
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception("[ARKANA-SIGNAL] multimodal derivation failed")
         raise HTTPException(status_code=502, detail=f"Signal interpretation failed: {e}")
@@ -291,8 +327,6 @@ Respond directly to the human. Do not mention internal model mechanics unless re
         "signal_object": signal,
         "instruction": "Respond to the captured utterance using the raw audio and structured evidence together."
     }, ensure_ascii=False)
-    model = "gemini-3.8-flash"
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={active_key}"
     payload = {
         "systemInstruction": {"parts": [{"text": system}]},
         "contents": [{
@@ -304,12 +338,42 @@ Respond directly to the human. Do not mention internal model mechanics unless re
         }],
         "generationConfig": {"temperature": 0.65, "maxOutputTokens": 1400},
     }
+
+    model = ""
+    resp = None
+    last_err = None
     try:
         async with httpx.AsyncClient(timeout=60) as client:
-            resp = await client.post(url, json=payload)
+            for candidate in _SIGNAL_MODELS:
+                url = (
+                    "https://generativelanguage.googleapis.com/v1beta/models/"
+                    f"{candidate}:generateContent?key={active_key}"
+                )
+                try:
+                    attempt = await client.post(url, json=payload)
+                except httpx.HTTPError as e:
+                    last_err = f"{candidate}: {e}"
+                    logger.warning(f"[ARKANA-SIGNAL] {candidate} transport error: {e}")
+                    continue
+                if attempt.status_code in (403, 404) or attempt.status_code >= 500:
+                    last_err = f"{candidate}: HTTP {attempt.status_code}"
+                    logger.warning(f"[ARKANA-SIGNAL] {candidate}: {attempt.status_code}")
+                    continue
+                model = candidate
+                resp = attempt
+                break
+
+        if resp is None:
+            raise HTTPException(
+                status_code=502,
+                detail=f"Signal response failed: no Gemini model available ({last_err})",
+            )
+
         resp.raise_for_status()
         data = resp.json()
         reply = data["candidates"][0]["content"]["parts"][0]["text"]
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception("[ARKANA-SIGNAL] multimodal response failed")
         raise HTTPException(status_code=502, detail=f"Signal response failed: {e}")

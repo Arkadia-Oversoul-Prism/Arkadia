@@ -22,6 +22,8 @@ import httpx
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 
+from kernel.gemini_models import GEMINI_MODELS
+
 logger = logging.getLogger("arkadia.ims_products")
 
 router = APIRouter()
@@ -83,7 +85,7 @@ def _fb_query(collection: str, field: str, value: str) -> list[dict]:
 
 # ── Oracle (Gemini) ───────────────────────────────────────────────────────────
 
-GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 
 COGNITIVE_STACKS: dict[str, str] = {
     "INTJ": "Ni → Te → Fi → Se",  "INTP": "Ti → Ne → Si → Fe",
@@ -115,18 +117,28 @@ PRODUCTS_CATALOGUE = [
 async def _gemini(prompt: str) -> str:
     if not GOOGLE_API_KEY:
         return "[Oracle offline — GOOGLE_API_KEY not configured]"
+    last_err: str | None = None
     try:
         async with httpx.AsyncClient(timeout=45) as client:
-            r = await client.post(
-                f"{GEMINI_URL}?key={GOOGLE_API_KEY}",
-                json={"contents": [{"parts": [{"text": prompt}]}],
-                      "generationConfig": {"temperature": 0.82, "maxOutputTokens": 2048}},
-            )
-            r.raise_for_status()
-            return r.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
+            for model in GEMINI_MODELS:
+                try:
+                    r = await client.post(
+                        f"{GEMINI_URL.format(model=model)}?key={GOOGLE_API_KEY}",
+                        json={"contents": [{"parts": [{"text": prompt}]}],
+                              "generationConfig": {"temperature": 0.82, "maxOutputTokens": 2048}},
+                    )
+                    if r.status_code in (403, 404) or r.status_code >= 500:
+                        last_err = f"{model}: HTTP {r.status_code}"
+                        logger.warning(f"[GEMINI] {model}: {r.status_code}")
+                        continue
+                    r.raise_for_status()
+                    return r.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
+                except Exception as e:
+                    last_err = f"{model}: {e}"
+                    logger.error(f"[GEMINI] {model} error: {e}")
     except Exception as e:
-        logger.error(f"[GEMINI] Error: {e}")
-        return f"[Oracle synthesis error: {e}]"
+        last_err = str(e)
+    return f"[Oracle synthesis error: {last_err}]"
 
 
 def _compute_morphic_code(mbti: str, archetypes: list[str], operator_state: str) -> str:
