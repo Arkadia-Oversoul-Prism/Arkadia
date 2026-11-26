@@ -1,0 +1,59 @@
+name: Architecture Budget
+
+# `tests/architecture/test_layer_boundaries.py::test_api_main_line_count_within_budget`
+# holds `api/main.py` to 2600 lines. Measured at `main` `bb19aabd`: **2597** lines --
+# three lines of headroom -- and no workflow that selects `api/**` executed the
+# architecture suite, so a change that grew the monolith past its budget reached
+# `main` with the assertion executed nowhere. `tests/test_ci_gate_trigger_coverage.py`
+# records that widening `provider-routing.yml` to `api/**` was deliberately deferred
+# because that gate also runs the full suite, which carries pre-existing `main` debt.
+#
+# This gate is the narrow alternative: it selects the API surface and executes the
+# whole architecture fitness suite (stdlib-only, ~2s) instead of one file, because any
+# architecture assertion -- layer direction, registered debt, circular imports -- can
+# be broken by an API change. It runs no broad-suite step, so it cannot inherit debt
+# it did not introduce.
+#
+# `tests/test_architecture_budget_ci_wiring.py` derives the executed domain from the
+# guards' own sources and fails when this filter stops selecting `api/**` or the
+# architecture assertions themselves.
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/architecture-budget.yml"
+      - "api/**"
+      - "tests/architecture/**"
+      - "tests/test_architecture_budget_ci_wiring.py"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/architecture-budget.yml"
+      - "api/**"
+      - "tests/architecture/**"
+      - "tests/test_architecture_budget_ci_wiring.py"
+  # Path-filtered, so a revision touching none of the above never runs it.
+  # `workflow_dispatch` lets the budget be checked against an exact revision on
+  # demand (`ref=main` yields an execution at the current main SHA).
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  architecture-budget:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      # The suite is stdlib-only (`ast`, `sys`, `pathlib`, `typing`, `LAYER_MAP`),
+      # so its job needs no application dependency: a dependency gap cannot be
+      # misreported as an architecture breach.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pytest
+        run: |
+          python -m pip install --upgrade pip
+          pip install -q pytest
+      - name: Architecture fitness suite (includes the api/main.py line budget)
+        run: python -m pytest tests/architecture -q -rEf

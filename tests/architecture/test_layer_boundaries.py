@@ -419,7 +419,9 @@ def test_api_main_line_count_within_budget():
     decomposition is pending. When Phase 2 decomposition is complete, this test
     is removed and replaced by tests for each extracted module.
 
-    Current size: ~2506 lines. Budget: 2600 (headroom for legitimate additions).
+    The budget is the only recorded figure: the current size is measured on every run
+    and is not restated here, because a hardcoded size goes stale and reads as
+    headroom that no longer exists (measured 2597 lines at `main` `bb19aabd`).
     """
     main_py = PROJECT_ROOT / "api" / "main.py"
     if not main_py.exists():
