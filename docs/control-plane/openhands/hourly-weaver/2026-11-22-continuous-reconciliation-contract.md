@@ -96,3 +96,10 @@ Every cycle ends with a deterministic next-action block — current state, evide
 authorized action, forbidden actions and the exact completion condition — recorded in
 `docs/control-plane/evidence/ark-ops-continuous-001-cycle-NN/EVIDENCE.md`. Per-cycle records
 are the resumption surface; this file is the stable contract those records cite.
+
+**Start here when resuming:**
+`docs/control-plane/evidence/ark-ops-continuous-001/LEDGER.md` indexes every cycle to the
+PR that carries its record, states the command that re-derives the index, and records the
+two-record convention (bare `…-cycle-NN` = reconciliation record, `…-cycle-NN-<slug>` = fix
+record). Do not assume this PR holds the whole ledger: as of cycle 24 the records are spread
+across 16 open PRs, and reading only this one shows a subset of the cycles.
