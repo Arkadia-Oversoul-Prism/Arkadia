@@ -180,7 +180,29 @@ open #698. The `+13 passed` is exactly the new guard's node count.
 - **Branch protection is UNKNOWN** at this revision (the credential cannot read it); `main` carries
   no rulesets. Neither fact is treated as a merge precondition here — merge execution is human-only.
 
-## 7. Next action block
+## 7. Runtime verification of the wiring (measured, not asserted)
+
+The gate is not only selected in source; it **executed and passed** on the code commit
+`0356fd79` before this paragraph was written:
+
+```
+check-run  distribution-upload-contract  -> success
+run        45735861111  (job 139628822486), 2026-11-26T01:27:14Z -> 01:27:43Z
+all 15 check-runs on 0356fd79             -> success
+  (Full-history secret scan, beta-beta-01-english, beta-beta-02-hausa, boot-syntax,
+   bundle-beta-evidence, console-contract, distribution-upload-contract,
+   native-arkadia-golden-workflow, posture-currency, production-read-only-probe,
+   provider-forensics, security-metadata, test, trigger-coverage, verdict-step-integrity)
+```
+
+`trigger-coverage` passing on the same commit is the second half of the invariant: the new
+workflow satisfies the repository's selector rules (self-selection, symmetric `push`/`pull_request`
+filters) rather than only existing. This paragraph is a docs-only amendment, so the run above is
+evidence about `0356fd79`; the amendment's own head is a different revision and carries its own
+checks.
+
+## 8. Next action block
+
 
 - **State:** `main` `cb284195`; production sha-identical; 60 open draft PRs, all human-merge-gated.
 - **Evidence:** this record; guard 13/13; 332 workflow+CP10 guards; architecture 11/11; zero
