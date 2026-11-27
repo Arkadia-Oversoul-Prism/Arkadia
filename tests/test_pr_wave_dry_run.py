@@ -123,6 +123,57 @@ def test_a_missing_head_sha_fails_closed(repo: Path) -> None:
         wave.dry_run(str(repo), "main", [{"number": 10, "head_sha": ""}])
 
 
+def test_a_head_that_conflicts_with_the_base_is_not_reported_as_a_wave_conflict(repo: Path) -> None:
+    """The base conflict and the wave conflict need opposite responses.
+
+    `stale` is cut from the base, then the base rewrites the same line, so `stale`
+    conflicts with the base and with nothing in the wave -- its edge list is empty,
+    exactly as a wave conflict's would be. `first`/`second` compose with the base and
+    conflict with each other. A packet that reports both as CONFLICT tells the reader
+    to adjudicate a rebase and to rebase an adjudication.
+    """
+    stale = _branch(repo, "pr-9", {"shared.txt": "one\nNINE\nthree\nfour\nfive\n"})
+    _write(repo, "shared.txt", "one\nBASE MOVED\nthree\nfour\nfive\n")
+    _commit_all(repo, "the base moves on the same line")
+    first = _branch(repo, "pr-10", {"other.txt": "base\nfirst\n"})
+    second = _branch(repo, "pr-11", {"other.txt": "base\nsecond\n"})
+    packet = wave.dry_run(str(repo), "main", [
+        {"number": 9, "head_sha": stale},
+        {"number": 10, "head_sha": first},
+        {"number": 11, "head_sha": second},
+    ])
+    assert [row["number"] for row in packet["base_conflicts"]] == [9]
+    base_conflict = packet["base_conflicts"][0]
+    assert base_conflict["conflicted_paths"] == ["shared.txt"]
+    assert base_conflict["conflicted_paths_at_base"] == ["shared.txt"]
+    assert base_conflict["edges"] == []
+    assert [row["number"] for row in packet["conflicts"]] == [11]
+    assert packet["conflicts"][0]["edges"] == [10]
+    assert packet["state_counts"] == {"CLEAN": 1, "CONFLICT": 1, "CONFLICT_BASE": 1}
+
+
+def test_the_base_probe_names_only_the_head_that_fails_against_the_base(repo: Path) -> None:
+    """Negative control: a probe that named every head, or none, would prove nothing."""
+    stale = _branch(repo, "pr-9", {"shared.txt": "one\nNINE\nthree\nfour\nfive\n"})
+    _write(repo, "shared.txt", "one\nBASE MOVED\nthree\nfour\nfive\n")
+    _commit_all(repo, "the base moves on the same line")
+    composes = _branch(repo, "pr-11", {"other.txt": "base\nsecond\n"})
+    at_base = wave.conflicts_at_base(
+        str(repo), _git(repo, "rev-parse", "main").strip(), [(9, stale), (11, composes)])
+    assert sorted(at_base) == [9]
+    assert at_base[9] == ["shared.txt"]
+
+
+def test_an_unmeasurable_conflict_edge_fails_closed(repo: Path) -> None:
+    """No merge base means the edge set cannot be measured, not that it is empty."""
+    _git(repo, "checkout", "-q", "--orphan", "orphan")
+    _write(repo, "orphan.txt", "unrelated\n")
+    orphan = _commit_all(repo, "orphan")
+    _git(repo, "checkout", "-q", "main")
+    with pytest.raises(wave.DryRunError):
+        wave.changed_paths(str(repo), _git(repo, "rev-parse", "main").strip(), orphan)
+
+
 def test_every_pull_request_is_accounted_for_exactly_once(repo: Path) -> None:
     first = _branch(repo, "pr-10", {"shared.txt": "one\nTEN\nthree\nfour\nfive\n"})
     second = _branch(repo, "pr-11", {"shared.txt": "one\nELEVEN\nthree\nfour\nfive\n"})
@@ -133,7 +184,8 @@ def test_every_pull_request_is_accounted_for_exactly_once(repo: Path) -> None:
         {"number": 12, "head_sha": third},
     ])
     reported = packet["clean"] + packet["already_contained"] + [
-        row["number"] for row in packet["conflicts"]]
+        row["number"] for row in packet["conflicts"]] + [
+        row["number"] for row in packet["base_conflicts"]]
     assert sorted(reported) == [10, 11, 12]
     assert packet["accounted"] == 3
     assert sum(packet["state_counts"].values()) == 3
