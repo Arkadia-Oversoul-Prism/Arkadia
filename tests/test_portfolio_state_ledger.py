@@ -130,14 +130,30 @@ def test_a_recorded_selection_that_disagrees_with_arithmetic_is_reported(state, 
 
 
 def test_blocked_repository_does_not_consume_the_slot(state, cursor):
-    """The directive: a blocked repository rotates out, it does not idle forever."""
+    """The directive: a blocked repository rotates out, it does not idle forever.
+
+    The clock is pinned here on purpose. This rule is about *rotation*, and the
+    committed snapshot is re-derived from live activity on every refresh, so an
+    expectation read off the recorded timestamps drifts the moment two
+    repositories swap order. It did: the first cut asserted the next-oldest was
+    Sonata, which held until a refresh left Arkadia 8 seconds older. Live-data
+    consistency is `test_committed_artefacts_support_their_own_selection`'s job;
+    this one decides the rule.
+    """
+    pinned = copy.deepcopy(state)
+    _row(pinned, SONATA)["last_progress_at"] = "2026-11-26T13:00:00Z"
+    _row(pinned, FSN)["last_progress_at"] = "2026-11-26T11:00:00Z"
+    _row(pinned, ARKADIA)["last_progress_at"] = "2026-11-26T12:00:00Z"
+
     # FSN is the oldest, so it is selected while unblocked.
-    assert portfolio_state.select_next(state, cursor)["repository"] == FSN
+    assert portfolio_state.select_next(pinned, cursor)["repository"] == FSN
 
     blocked = copy.deepcopy(cursor)
     _cursor_row(blocked, FSN)["blocked"] = True
-    selection = portfolio_state.select_next(state, blocked)
-    assert selection["repository"] == SONATA
+    selection = portfolio_state.select_next(pinned, blocked)
+    # The slot rotates to the next-oldest unblocked repository, not to the
+    # tie-break order's first entry: Arkadia (12:00) precedes Sonata (13:00).
+    assert selection["repository"] == ARKADIA
     assert any(FSN in line and "blocked" in line for line in selection["skipped"])
 
 

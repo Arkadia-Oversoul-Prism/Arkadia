@@ -228,3 +228,30 @@ python scripts/portfolio_state.py --check                          # offline gua
 python -m pytest tests/test_portfolio_state_ledger.py -q
 curl -s https://api.github.com/repos/Arkadia-Oversoul-Prism/sonata | jq .default_branch
 ```
+
+## 9. Post-review repair — cycle 25 (fairness clock pin)
+
+The `portfolio-state` check on this PR's head `45c18566` was **`failure`**: the guard this
+PR adds could not pass on its own branch.
+
+```
+FAILED tests/test_portfolio_state_ledger.py::test_blocked_repository_does_not_consume_the_slot
+AssertionError: assert 'Arkadia-Oversoul-Prism/Arkadia' == 'Arkadia-Oversoul-Prism/sonata'
+```
+
+The module was correct; the assertion was not. It pinned `SONATA` as the next-oldest
+repository, which held only until the `chore(weaver): refresh …` commit replaced the
+recorded timestamps with freshly measured ones and left Arkadia **8 seconds** older than
+Sonata. A fairness rule cannot be guarded by an expectation read off live, refreshed data.
+
+Repaired by pinning the clock inside that one node, so it decides the rotation rule while
+`test_committed_artefacts_support_their_own_selection` keeps deciding live-data
+consistency. `scripts/portfolio_state.py` is unchanged.
+
+Measured: `1 failed, 16 passed` → **`17 passed`**; adjacent suites
+(`test_ci_gate_trigger_coverage.py`, `test_workflow_injection_boundary.py`,
+`tests/architecture`) **`164 passed`**; live negative control on the real module
+(`if entry.get("blocked"):` → `if False:`) reddens exactly the repaired node and restores
+byte-identically.
+
+Full record: `docs/control-plane/evidence/ark-ops-continuous-001-cycle-25-portfolio-fairness-clock-pin-01/EVIDENCE.md`.
