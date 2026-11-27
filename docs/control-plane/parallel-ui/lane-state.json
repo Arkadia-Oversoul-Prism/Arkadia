@@ -149,16 +149,7 @@
    668
   ]
  },
- "unassigned_open_prs": [
-  {
-   "number": 669,
-   "branch": "gate-hygiene/lane-snapshot-post-integration-refresh-01",
-   "head_sha": "32c7b5f991f9b3093197fde1d1db6d73e9ce70de",
-   "draft": true,
-   "updated_at": "2026-11-20T04:22:44Z",
-   "title": "fix(lane-currency): re-derive the lane snapshot after the #664-#667 merge wave"
-  }
- ],
+ "unassigned_open_prs": [],
  "closed_unmerged": [
   {
    "number": 499,
