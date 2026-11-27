@@ -1,6 +1,6 @@
 {
   "schema": "arkadia.portfolio-cursor/1.0",
-  "updated_at": "2026-11-27T12:12:32Z",
+  "updated_at": "2026-11-27T15:20:00Z",
   "authority": "authored judgements. The directive is the source of each phase label; this file records no measurement -- portfolio-state.json does.",
   "repositories": [
     {
@@ -11,33 +11,33 @@
       "blockers": [
         "physical-device acceptance needs the household Samsung A23 and OPPO; CI is not device evidence"
       ],
-      "next_legal_task": "Continue PR #9: make the speech tier follow the build's measured capability instead of a stored preference. Selected next by the ledger derivation (last_progress_at 2026-11-27T10:25:30Z is the oldest of the three).",
-      "last_pulse_at": "2026-11-26T13:40:00Z"
+      "next_legal_task": "Continue PR #9 (the speech tier must follow the build's measured capability, not a stored preference). This row is the derivation's next selection as of 2026-11-27T15:12Z: Arkadia's push in cycle 30 advanced its own clock to 15:12:27Z, leaving Sonata's 13:18:49Z oldest. Do not start S2/S3 until #9 and #10 are reviewed -- two open drafts already own the S1 and S4 slices.",
+      "last_pulse_at": "2026-11-27T13:19:00Z"
     },
     {
       "repository": "Arkadia-Oversoul-Prism/family-safety-network",
       "phase": "F2 \u2014 privacy and data lifecycle (retention)",
-      "active_issue_or_pr": "#18 (F0 integration-closure record + README status correction), #17 (F4 scheduled retention purge runner), #16 (F2 rate-limit coverage), #15 (authz resource-existence oracle), #14 (F2 rate-limit table bound), #12 (F5 audit append-only), #10 (F6 signing-key rotation)",
+      "active_issue_or_pr": "#19 (F3 permission and transport boundary guard), #18 (F0 integration-closure record + README status correction), #17 (F4 scheduled retention purge runner), #16 (F2 rate-limit coverage), #15 (authz resource-existence oracle), #14 (F2 rate-limit table bound), #12 (F5 audit append-only), #10 (F6 signing-key rotation). Eight open drafts, measured 2026-11-27T15:12Z.",
       "blocked": false,
       "blockers": [
         "physical-device acceptance needs real hardware; CI is not device evidence",
         "the purge runner is implemented but no scheduler is deployed (human-authorised)",
         "F8 process-local rate limiter still needs a shared store before scaling"
       ],
-      "next_legal_task": "Await human review: seven open drafts, all green and pairwise non-conflicting (measured 2026-11-27, 15/15 merge-tree pairs clean). Do not open a parallel PR for a task an open draft already owns. The next unowned F-series gap is F10 (no invitation endpoint), which needs a consent/authorisation decision first.",
-      "last_pulse_at": "2026-11-27T09:12:00Z"
+      "next_legal_task": "Await human review of eight open drafts; do not open a parallel PR for a task an open draft already owns. The next unowned F-series gap is F10 (no invitation endpoint), which needs a consent/authorisation decision first. #19 (F3) was opened after the previous pulse and is the newest unowned-by-review item.",
+      "last_pulse_at": "2026-11-27T14:15:00Z"
     },
     {
       "repository": "Arkadia-Oversoul-Prism/Arkadia",
       "phase": "ARK-OPS-CONTINUOUS-001 \u2014 continuous reconciliation and gap closure",
-      "active_issue_or_pr": "#750 (cycle 29: the open-PR integration oracle) plus the 63 drafts it measured. #744 carries this ledger.",
+      "active_issue_or_pr": "#736 (cycle 30: the wave dry-run now separates a base conflict from a wave conflict) plus the 64 drafts it measured; #744 carries this ledger. #686 is CONFLICTING/DIRTY against main on its own -- a rebase task for that branch, not a wave adjudication.",
       "blocked": false,
       "blockers": [
         "merge execution is human-only under GOV-04; a draft PR also needs its owner to mark it ready",
         "63 draft PRs accumulate faster than human review can absorb them"
       ],
-      "next_legal_task": "Continue #736 (pr_wave_dry_run) for consolidation: measured 2026-11-27 at main 8f746f9eab6d, all 63 open drafts read CONTRIBUTES, so closure-as-obsolete is not available for any of them and reduction must come from composing related drafts. Do not open a parallel PR for a task #733/#736 already owns.",
-      "last_pulse_at": "2026-11-27T12:12:00Z"
+      "next_legal_task": "Continue #750 (pr_integration_oracle) or #733 (batch evidence packet) for consolidation. Measured 2026-11-27 at main 8f746f9e: 64 open drafts, 60 compose cleanly, 3 are genuine wave conflicts (#681/#687, #689/#728, #684/#747) and 1 (#686) does not merge into the base at all. Closure-as-obsolete is not available for any of them, so reduction must come from composing related drafts. Do not open a parallel PR for a task #733/#736/#750 already owns.",
+      "last_pulse_at": "2026-11-27T15:20:00Z"
     }
   ]
 }
