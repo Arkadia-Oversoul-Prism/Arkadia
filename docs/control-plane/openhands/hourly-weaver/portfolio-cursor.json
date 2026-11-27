@@ -1,22 +1,23 @@
 {
   "schema": "arkadia.portfolio-cursor/1.0",
-  "updated_at": "2026-11-27T15:20:00Z",
+  "updated_at": "2026-11-27T16:22:00Z",
   "authority": "authored judgements. The directive is the source of each phase label; this file records no measurement -- portfolio-state.json does.",
   "repositories": [
     {
       "repository": "Arkadia-Oversoul-Prism/sonata",
-      "phase": "S1 \u2014 playback state and connectivity truth",
-      "active_issue_or_pr": "#9 (S1: decide the speech tier from the build's capability, not the preference). #7 and #8 are MERGED, measured 2026-11-27 at main 7c4e6a64 \u2014 the previous cursor named them as active.",
+      "phase": "S1 — playback state and connectivity truth",
+      "active_issue_or_pr": "#9 (S1: speech tier from measured capability, then S1b the progressive-read gate, S1c completed/failed states, S1d the terminal outcome survives the screen). #10 owns the S4 slice (screen reaches the engine). Both open drafts, measured 2026-11-27 at head 3e034ca / e1f952a.",
       "blocked": false,
       "blockers": [
-        "physical-device acceptance needs the household Samsung A23 and OPPO; CI is not device evidence"
+        "physical-device acceptance needs the household Samsung A23 and OPPO; CI is not device evidence",
+        "the service still stops itself on completion, so a finished read is not resumable in place"
       ],
-      "next_legal_task": "Continue PR #9 (the speech tier must follow the build's measured capability, not a stored preference). This row is the derivation's next selection as of 2026-11-27T15:12Z: Arkadia's push in cycle 30 advanced its own clock to 15:12:27Z, leaving Sonata's 13:18:49Z oldest. Do not start S2/S3 until #9 and #10 are reviewed -- two open drafts already own the S1 and S4 slices.",
-      "last_pulse_at": "2026-11-27T13:19:00Z"
+      "next_legal_task": "Await human review of #9 (head 3e034ca) and #10 (head e1f952a); do not open a parallel PR for a slice an open draft already owns. The remaining S1 gaps are recorded, not hidden: completion is presented once and the service lifecycle is unchanged (docs/SONATA_IMPLEMENTATION_LEDGER.md 10.5). S2 (a natural offline neural voice) is unstarted and is the next unowned slice.",
+      "last_pulse_at": "2026-11-27T16:22:00Z"
     },
     {
       "repository": "Arkadia-Oversoul-Prism/family-safety-network",
-      "phase": "F2 \u2014 privacy and data lifecycle (retention)",
+      "phase": "F2 — privacy and data lifecycle (retention)",
       "active_issue_or_pr": "#19 (F3 permission and transport boundary guard), #18 (F0 integration-closure record + README status correction), #17 (F4 scheduled retention purge runner), #16 (F2 rate-limit coverage), #15 (authz resource-existence oracle), #14 (F2 rate-limit table bound), #12 (F5 audit append-only), #10 (F6 signing-key rotation). Eight open drafts, measured 2026-11-27T15:12Z.",
       "blocked": false,
       "blockers": [
@@ -29,7 +30,7 @@
     },
     {
       "repository": "Arkadia-Oversoul-Prism/Arkadia",
-      "phase": "ARK-OPS-CONTINUOUS-001 \u2014 continuous reconciliation and gap closure",
+      "phase": "ARK-OPS-CONTINUOUS-001 — continuous reconciliation and gap closure",
       "active_issue_or_pr": "#736 (cycle 30: the wave dry-run now separates a base conflict from a wave conflict) plus the 64 drafts it measured; #744 carries this ledger. #686 is CONFLICTING/DIRTY against main on its own -- a rebase task for that branch, not a wave adjudication.",
       "blocked": false,
       "blockers": [
