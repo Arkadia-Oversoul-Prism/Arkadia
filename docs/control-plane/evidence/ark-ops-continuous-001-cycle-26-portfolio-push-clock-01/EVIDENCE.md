@@ -184,7 +184,31 @@ the clock.
   /branches/main/protection` answers `403 Resource not accessible by integration` for this
   token, which is an absence of permission, not an absence of protection.
 
-## 8. Next action
+## 8. A property of the repair worth naming: the refresh push advances its own clock
+
+`pushed_at` is repository-level, so the commit that carries a refreshed snapshot is itself a
+push and moves the row it just recorded. At `derived_at 2026-11-27T05:12:20Z` the Arkadia row
+reads `pushed_at 2026-11-27T02:13:18Z`; the commit carrying it was pushed later, so by the
+time a reader loads the snapshot the Arkadia clock is already behind live. `--check` still
+passes, because it validates the snapshot's *internal* arithmetic (`last_progress_at` must be
+the maximum of the row's own fields) and never claims the row is current.
+
+This is the same class already recorded for `lane-state.json` — a snapshot cannot both be
+written by a commit and describe the state after that commit. The mitigations are the ones
+this ledger already has and they are not accidental:
+
+- `derived_at` is recorded, so staleness is visible in review rather than inferred;
+- the selection is a function of the *snapshot*, so it is reproducible offline and never
+  silently re-derived;
+- the next pulse re-derives before acting, which is what §4.1 requires anyway.
+
+Do **not** "fix" this by having the refresh subtract its own push, or by treating a refresh
+commit as not-progress: the second is exactly the no-op-pulse-resets-fairness failure in
+reverse, and the first would make the clock unmeasurable. A future slice could record
+`observed_at` per row and let `--check` scope the claim, which is the same reasoning
+recorded for `head_sha` in the lane snapshot. Proposed, not implemented.
+
+## 9. Next action
 
 Current state: PR #744 (draft) carries the ledger, the selector, the gate, and this repair.
 Evidence: this record, `--check` PASS, 22 passed, two live negative controls.
