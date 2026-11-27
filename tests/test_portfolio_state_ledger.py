@@ -120,8 +120,15 @@ def test_a_verified_row_without_a_head_is_reported(state, cursor):
 
 
 def test_a_recorded_selection_that_disagrees_with_arithmetic_is_reported(state, cursor):
+    # The control must disagree with the *recomputation*, not with a remembered
+    # winner: pinning SONATA here passed only while the live clock happened to
+    # select Arkadia, so a correct ledger refresh reddened it.
     broken = copy.deepcopy(state)
-    broken["selection"] = {"repository": SONATA, "reason": "typed"}
+    recomputed = portfolio_state.select_next(broken, cursor)["repository"]
+    disagreeing = next(
+        name for name in portfolio_state.CANONICAL_REPOS if name != recomputed
+    )
+    broken["selection"] = {"repository": disagreeing, "reason": "typed"}
     problems = portfolio_state.findings(broken, cursor)
     assert any("not the recomputed selection" in problem for problem in problems)
 

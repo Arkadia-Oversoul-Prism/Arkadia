@@ -1,6 +1,6 @@
 {
   "schema": "arkadia.portfolio-state/1.1",
-  "derived_at": "2026-11-27T05:12:20Z",
+  "derived_at": "2026-11-27T06:15:52Z",
   "authority": "read-only observation; GET only. Not a merge, deployment or acceptance record.",
   "repositories": [
     {
@@ -24,14 +24,14 @@
       "default_branch": "main",
       "head_sha": "18c729735fd428622ea70b76571aa38e518a9774",
       "head_committed_at": "2026-11-26T08:22:33Z",
-      "pushed_at": "2026-11-27T03:14:30Z",
-      "open_pulls": 5,
+      "pushed_at": "2026-11-27T06:13:11Z",
+      "open_pulls": 6,
       "open_issues": 3,
       "latest_open_pull": {
-        "number": 16,
-        "updated_at": "2026-11-27T03:14:49Z"
+        "number": 17,
+        "updated_at": "2026-11-27T06:13:29Z"
       },
-      "last_progress_at": "2026-11-27T03:14:30Z",
+      "last_progress_at": "2026-11-27T06:13:11Z",
       "observation": "VERIFIED",
       "detail": ""
     },
@@ -40,21 +40,21 @@
       "default_branch": "main",
       "head_sha": "8f746f9eab6df51733f6d43c8bab26af63eb6471",
       "head_committed_at": "2026-11-27T00:13:03Z",
-      "pushed_at": "2026-11-27T02:13:18Z",
+      "pushed_at": "2026-11-27T05:28:00Z",
       "open_pulls": 63,
       "open_issues": 10,
       "latest_open_pull": {
         "number": 744,
-        "updated_at": "2026-11-27T02:13:19Z"
+        "updated_at": "2026-11-27T05:28:01Z"
       },
-      "last_progress_at": "2026-11-27T02:13:18Z",
+      "last_progress_at": "2026-11-27T05:28:00Z",
       "observation": "VERIFIED",
       "detail": ""
     }
   ],
   "selection": {
-    "repository": "Arkadia-Oversoul-Prism/Arkadia",
-    "reason": "oldest verified last_progress_at among unblocked repositories (2026-11-27T02:13:18Z); tie-break order Sonata -> FSN -> Arkadia",
+    "repository": "Arkadia-Oversoul-Prism/sonata",
+    "reason": "oldest verified last_progress_at among unblocked repositories (2026-11-27T04:17:56Z); tie-break order Sonata -> FSN -> Arkadia",
     "skipped": []
   }
 }

@@ -1,12 +1,12 @@
 {
   "schema": "arkadia.portfolio-cursor/1.0",
-  "updated_at": "2026-11-27T05:20:00Z",
+  "updated_at": "2026-11-27T06:20:00Z",
   "authority": "authored judgements. The directive is the source of each phase label; this file records no measurement -- portfolio-state.json does.",
   "repositories": [
     {
       "repository": "Arkadia-Oversoul-Prism/sonata",
-      "phase": "S1 — playback state and connectivity truth",
-      "active_issue_or_pr": "#9 (S1: decide the speech tier from the build's capability, not the preference). #7 and #8 are MERGED, measured 2026-11-27 at main 7c4e6a64 — the previous cursor named them as active.",
+      "phase": "S1 \u2014 playback state and connectivity truth",
+      "active_issue_or_pr": "#9 (S1: decide the speech tier from the build's capability, not the preference). #7 and #8 are MERGED, measured 2026-11-27 at main 7c4e6a64 \u2014 the previous cursor named them as active.",
       "blocked": false,
       "blockers": [
         "physical-device acceptance needs the household Samsung A23 and OPPO; CI is not device evidence"
@@ -16,18 +16,20 @@
     },
     {
       "repository": "Arkadia-Oversoul-Prism/family-safety-network",
-      "phase": "F0 — integrate and recover CI",
-      "active_issue_or_pr": "#16 (F2 rate-limit coverage), #15 (authz resource-existence oracle), #14 (F2 rate-limit table bound), #12 (F5 audit append-only), #10 (F6 signing-key rotation)",
+      "phase": "F2 \u2014 privacy and data lifecycle (retention)",
+      "active_issue_or_pr": "#17 (F4 scheduled retention purge runner), #16 (F2 rate-limit coverage), #15 (authz resource-existence oracle), #14 (F2 rate-limit table bound), #12 (F5 audit append-only), #10 (F6 signing-key rotation)",
       "blocked": false,
       "blockers": [
-        "F0 integration/CI recovery is not evidenced since 2026-11-07 on the integration branch; the five open drafts are security slices"
+        "physical-device acceptance needs real hardware; CI is not device evidence",
+        "the purge runner is implemented but no scheduler is deployed (human-authorised)",
+        "F8 process-local rate limiter still needs a shared store before scaling"
       ],
-      "next_legal_task": "Reproduce the Gradle build and a green CI on the candidate tree before opening any further F-series slice.",
-      "last_pulse_at": null
+      "next_legal_task": "Continue #17 if review asks; otherwise take the next unowned F-series gap. Do not open a parallel PR for a task an open draft already owns.",
+      "last_pulse_at": "2026-11-27T06:06:00Z"
     },
     {
       "repository": "Arkadia-Oversoul-Prism/Arkadia",
-      "phase": "ARK-OPS-CONTINUOUS-001 — continuous reconciliation and gap closure",
+      "phase": "ARK-OPS-CONTINUOUS-001 \u2014 continuous reconciliation and gap closure",
       "active_issue_or_pr": "open PR queue (63 open, all draft) plus the ARK-OPS-CONTINUOUS-001 cycle ledger; #744 carries this ledger",
       "blocked": false,
       "blockers": [
