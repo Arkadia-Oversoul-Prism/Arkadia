@@ -166,6 +166,54 @@ def test_a_noop_pulse_does_not_reset_fairness(state, cursor):
     assert portfolio_state.select_next(state, pulsed)["repository"] == baseline
 
 
+def test_a_comment_does_not_reset_the_fairness_clock():
+    """Negative control: ``updated_at`` is a comment clock, so it is not progress.
+
+    The shape is the measured one -- PR #741 carried ``updated_at``
+    ``2026-11-26T08:37:43Z`` while its head commit was ``2026-11-25T22:13:53Z``,
+    and the timeline's ``commented`` event at ``08:37:43Z`` was the only cause.
+    Reading ``updated_at`` as progress lets a conversation starve a repository.
+    """
+    row = {
+        "head_committed_at": "2026-11-25T22:13:53Z",
+        "pushed_at": "2026-11-25T22:14:12Z",
+        "latest_open_pull": {"number": 741, "updated_at": "2026-11-26T08:37:43Z"},
+    }
+    assert portfolio_state.last_progress_at(row) == "2026-11-25T22:14:12Z"
+
+
+def test_a_push_moves_the_fairness_clock():
+    """Positive control for the same node: a push *is* progress."""
+    row = {
+        "head_committed_at": "2026-11-26T08:22:33Z",
+        "pushed_at": "2026-11-27T03:14:30Z",
+        "latest_open_pull": {"number": 16, "updated_at": "2026-11-26T09:00:00Z"},
+    }
+    assert portfolio_state.last_progress_at(row) == "2026-11-27T03:14:30Z"
+
+
+def test_a_comment_time_recorded_as_progress_is_a_finding(state, cursor):
+    """The guard rejects a row whose clock is a pull's ``updated_at``."""
+    broken = copy.deepcopy(state)
+    row = _row(broken, FSN)
+    row["last_progress_at"] = row["latest_open_pull"]["updated_at"]
+    if row["last_progress_at"] == portfolio_state.last_progress_at(row):
+        row["last_progress_at"] = "2030-01-01T00:00:00Z"
+    problems = portfolio_state.findings(broken, cursor)
+    assert any("maximum observed activity" in problem for problem in problems)
+
+
+def test_a_verified_row_without_a_push_time_is_reported(state, cursor):
+    """``pushed_at`` is the clock, so a VERIFIED row without it fails closed."""
+    broken = copy.deepcopy(state)
+    row = _row(broken, SONATA)
+    row["pushed_at"] = None
+    row["last_progress_at"] = portfolio_state.last_progress_at(row)
+    broken["selection"] = portfolio_state.select_next(broken, cursor)
+    problems = portfolio_state.findings(broken, cursor)
+    assert any("VERIFIED but pushed_at is empty" in problem for problem in problems)
+
+
 def test_an_unverified_observation_is_not_selected(state, cursor):
     """Fail closed: a repository that could not be observed is not a candidate."""
     unobserved = copy.deepcopy(state)
@@ -197,10 +245,11 @@ def test_no_eligible_repository_refuses_instead_of_guessing(state, cursor):
 
 
 def _routes(repository: str, *, branch="main", sha="a" * 40,
-            committed="2026-11-20T00:00:00Z", pulls=(), issues=()) -> list[tuple[str, object]]:
+            committed="2026-11-20T00:00:00Z", pushed="2026-11-20T00:00:00Z",
+            pulls=(), issues=()) -> list[tuple[str, object]]:
     quoted = urllib.parse.quote(branch)
     return [
-        (f"/repos/{repository}", {"default_branch": branch}),
+        (f"/repos/{repository}", {"default_branch": branch, "pushed_at": pushed}),
         (f"/repos/{repository}/commits/{quoted}",
          {"sha": sha, "commit": {"committer": {"date": committed}}}),
         (f"/repos/{repository}/pulls?state=open&per_page=100", list(pulls)),
@@ -251,6 +300,29 @@ def test_refresh_reads_the_declared_default_branch_not_main():
     branch_ref = f"/commits/{urllib.parse.quote('feature/sonata-tts-app')}"
     assert any(url.endswith(branch_ref) for url in transport.requested)
     assert not any(url.endswith("/commits/main") for url in transport.requested)
+
+
+def test_refresh_derives_the_clock_from_the_push_not_the_comment():
+    """``observe`` must not let a pull's ``updated_at`` become the clock.
+
+    ``updated_at`` (``03:14:49``) is *later* than ``pushed_at`` (``03:14:30``)
+    here on purpose: the pre-repair derivation recorded the pull's timestamp as
+    progress, so this node discriminates the two implementations rather than
+    passing on both.
+    """
+    transport = _Transport(
+        _routes(
+            FSN,
+            committed="2026-11-26T08:22:33Z",
+            pushed="2026-11-27T03:14:30Z",
+            pulls=[{"number": 16, "updated_at": "2026-11-27T03:14:49Z"}],
+        )
+    )
+    row = portfolio_state_refresh.observe(FSN, get=transport, token="x")
+
+    assert row["pushed_at"] == "2026-11-27T03:14:30Z"
+    assert row["last_progress_at"] == "2026-11-27T03:14:30Z"
+    assert row["latest_open_pull"]["updated_at"] == "2026-11-27T03:14:49Z"
 
 
 def test_a_failed_observation_is_recorded_not_omitted():

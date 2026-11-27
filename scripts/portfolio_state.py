@@ -32,6 +32,17 @@ the observed activity timestamps) without needing the network.
 letting a no-op pulse reset the clock is how a stalled repository is starved
 forever -- the exact failure this fairness rule exists to prevent.
 
+"Repository activity" has to mean *push-bearing* activity, which is why the
+clock reads `pushed_at` and not a pull request's `updated_at`. GitHub moves
+`updated_at` on a comment, a label or a title edit, so a pulse that merely talks
+about a repository would reset the very clock the fairness rule reads. Measured
+2026-11-27 at `main` `8f746f9e`: PR #741 carried `updated_at`
+`2026-11-26T08:37:43Z` against a head commit of `2026-11-25T22:13:53Z` -- 10h24m
+of apparent progress whose only cause was the `commented` timeline event at that
+exact second (#747: 1h13m, same cause). `pushed_at` cannot be moved that way, so
+it is the clock; `latest_open_pull.updated_at` is recorded for a reviewer and is
+deliberately not an input.
+
 Usage:
     python scripts/portfolio_state.py --check      # validate, exit 1 on findings
     python scripts/portfolio_state.py --select     # print the next repository
@@ -53,7 +64,7 @@ HOURLY_DIR = REPO / "docs" / "control-plane" / "openhands" / "hourly-weaver"
 STATE_PATH = HOURLY_DIR / "portfolio-state.json"
 CURSOR_PATH = HOURLY_DIR / "portfolio-cursor.json"
 
-STATE_SCHEMA = "arkadia.portfolio-state/1.0"
+STATE_SCHEMA = "arkadia.portfolio-state/1.1"
 CURSOR_SCHEMA = "arkadia.portfolio-cursor/1.0"
 
 # The authorized repository set, in the directive's tie-break order
@@ -79,17 +90,22 @@ def parse_iso(value: str) -> datetime.datetime:
 
 
 def last_progress_at(row: dict) -> str | None:
-    """The verified progress timestamp: the latest repository activity.
+    """The verified progress timestamp: the latest *push-bearing* activity.
 
     Only measured activity counts. A cursor's ``last_pulse_at`` is deliberately
     excluded -- see the module docstring.
+
+    ``latest_open_pull.updated_at`` is excluded as well, and that exclusion is
+    the point: GitHub advances it on a comment, so including it lets a
+    conversation reset a repository's fairness clock (measured on #741 and
+    #747 -- see the module docstring). ``pushed_at`` is the widest push-bearing
+    signal available without one request per open pull.
     """
     candidates = []
     if row.get("head_committed_at"):
         candidates.append(row["head_committed_at"])
-    latest = row.get("latest_open_pull")
-    if isinstance(latest, dict) and latest.get("updated_at"):
-        candidates.append(latest["updated_at"])
+    if row.get("pushed_at"):
+        candidates.append(row["pushed_at"])
     if not candidates:
         return None
     return max(candidates, key=parse_iso)
@@ -166,6 +182,7 @@ def _check_row(row: dict) -> list[str]:
         ("default_branch", str),
         ("head_sha", (str, type(None))),
         ("head_committed_at", (str, type(None))),
+        ("pushed_at", (str, type(None))),
         ("open_pulls", int),
         ("open_issues", int),
         ("latest_open_pull", (dict, type(None))),
@@ -184,7 +201,7 @@ def _check_row(row: dict) -> list[str]:
         problems.append(
             f"{name}: head_sha must be a full 40-character sha, got {sha!r}"
         )
-    for field in ("head_committed_at", "last_progress_at"):
+    for field in ("head_committed_at", "pushed_at", "last_progress_at"):
         value = row.get(field)
         if value is not None and not (isinstance(value, str) and _ISO.match(value)):
             problems.append(f"{name}: {field} must be UTC ISO-8601 ending in Z")
@@ -192,13 +209,16 @@ def _check_row(row: dict) -> list[str]:
     if isinstance(latest, dict):
         if not isinstance(latest.get("number"), int):
             problems.append(f"{name}: latest_open_pull.number must be an int")
+        # Descriptive only: recorded so a reviewer can see which pull was
+        # touched, never an input to the fairness clock (see last_progress_at).
         updated = latest.get("updated_at")
         if not (isinstance(updated, str) and _ISO.match(updated)):
             problems.append(f"{name}: latest_open_pull.updated_at must be UTC ISO-8601")
     if row.get("observation") == "VERIFIED":
         # A "verified" row with no head is the shape a hardcoded `main` produces
-        # for a repository whose default branch is something else.
-        for field in ("default_branch", "head_sha", "head_committed_at"):
+        # for a repository whose default branch is something else. `pushed_at`
+        # belongs in this list because it is the fairness clock's only input.
+        for field in ("default_branch", "head_sha", "head_committed_at", "pushed_at"):
             if not row.get(field):
                 problems.append(
                     f"{name}: observation is VERIFIED but {field} is empty"

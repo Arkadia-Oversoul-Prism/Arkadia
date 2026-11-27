@@ -84,6 +84,7 @@ def observe(repository: str, get=_get, token: str | None = None) -> dict:
         "default_branch": None,
         "head_sha": None,
         "head_committed_at": None,
+        "pushed_at": None,
         "open_pulls": 0,
         "open_issues": 0,
         "latest_open_pull": None,
@@ -95,6 +96,8 @@ def observe(repository: str, get=_get, token: str | None = None) -> dict:
         meta = get(f"{API}/repos/{repository}", token)
         branch = meta["default_branch"]
         row["default_branch"] = branch
+        # The fairness clock. Push-bearing only -- see last_progress_at().
+        row["pushed_at"] = meta.get("pushed_at")
         commit = get(f"{API}/repos/{repository}/commits/{urllib.parse.quote(branch)}", token)
         row["head_sha"] = commit["sha"]
         row["head_committed_at"] = commit["commit"]["committer"]["date"]
@@ -102,6 +105,8 @@ def observe(repository: str, get=_get, token: str | None = None) -> dict:
         pulls = get(f"{API}/repos/{repository}/pulls?state=open&per_page=100", token)
         row["open_pulls"] = len(pulls)
         if pulls:
+            # Descriptive only. `updated_at` advances on a comment, so it is
+            # recorded for review but is not a progress input.
             newest = max(pulls, key=lambda pull: pull["updated_at"])
             row["latest_open_pull"] = {
                 "number": newest["number"],
