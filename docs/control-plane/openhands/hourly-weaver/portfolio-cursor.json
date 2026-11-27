@@ -1,6 +1,6 @@
 {
   "schema": "arkadia.portfolio-cursor/1.0",
-  "updated_at": "2026-11-27T09:12:00Z",
+  "updated_at": "2026-11-27T12:12:32Z",
   "authority": "authored judgements. The directive is the source of each phase label; this file records no measurement -- portfolio-state.json does.",
   "repositories": [
     {
@@ -11,7 +11,7 @@
       "blockers": [
         "physical-device acceptance needs the household Samsung A23 and OPPO; CI is not device evidence"
       ],
-      "next_legal_task": "Continue PR #9: make the speech tier follow the build's measured capability instead of a stored preference.",
+      "next_legal_task": "Continue PR #9: make the speech tier follow the build's measured capability instead of a stored preference. Selected next by the ledger derivation (last_progress_at 2026-11-27T10:25:30Z is the oldest of the three).",
       "last_pulse_at": "2026-11-26T13:40:00Z"
     },
     {
@@ -30,14 +30,14 @@
     {
       "repository": "Arkadia-Oversoul-Prism/Arkadia",
       "phase": "ARK-OPS-CONTINUOUS-001 \u2014 continuous reconciliation and gap closure",
-      "active_issue_or_pr": "open PR queue (63 open, all draft) plus the ARK-OPS-CONTINUOUS-001 cycle ledger; #744 carries this ledger",
+      "active_issue_or_pr": "#750 (cycle 29: the open-PR integration oracle) plus the 63 drafts it measured. #744 carries this ledger.",
       "blocked": false,
       "blockers": [
         "merge execution is human-only under GOV-04; a draft PR also needs its owner to mark it ready",
         "63 draft PRs accumulate faster than human review can absorb them"
       ],
-      "next_legal_task": "Continue the oldest owned branch/PR for one bounded objective per pulse; do not open a parallel PR for a task that already has one.",
-      "last_pulse_at": "2026-11-27T05:20:00Z"
+      "next_legal_task": "Continue #736 (pr_wave_dry_run) for consolidation: measured 2026-11-27 at main 8f746f9eab6d, all 63 open drafts read CONTRIBUTES, so closure-as-obsolete is not available for any of them and reduction must come from composing related drafts. Do not open a parallel PR for a task #733/#736 already owns.",
+      "last_pulse_at": "2026-11-27T12:12:00Z"
     }
   ]
 }
