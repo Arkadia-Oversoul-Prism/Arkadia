@@ -151,3 +151,112 @@ def test_string_keys_and_absent_mergeable_are_handled():
     for key in DETAIL_ONLY:
         assert key in inventory_mod.DETAIL_ONLY_KEYS
     assert inventory_mod.DETAIL_ONLY_KEYS == DETAIL_ONLY
+
+
+# ---------------------------------------------------------------------------
+# Composition conflicts
+#
+# `mergeable` is a per-PR answer about the PR's own base. It says nothing about
+# whether two open PRs can both merge, which is the question that decides merge
+# order. These tests drive the real `git merge-tree` path against a real
+# temporary repository: no fixture substitutes for the code under test.
+# ---------------------------------------------------------------------------
+
+import shutil  # noqa: E402  (appended section)
+import subprocess  # noqa: E402
+
+
+def _git(repo: Path, *args: str) -> str:
+    return subprocess.run(
+        ["git", *args], cwd=repo, check=True, capture_output=True, text=True
+    ).stdout.strip()
+
+
+def _composable_repo(tmp_path: Path) -> Path:
+    """A repository with two conflicting branches and one disjoint branch."""
+    if not shutil.which("git"):  # pragma: no cover - git is a hard dependency here
+        pytest.skip("git is required to judge composition")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git(repo, "init", "-q", "-b", "main")
+    _git(repo, "config", "user.email", "t@example.com")
+    _git(repo, "config", "user.name", "t")
+    (repo / "shared.txt").write_text("base\n")
+    (repo / "a.txt").write_text("a\n")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-qm", "base")
+    base = _git(repo, "rev-parse", "HEAD")
+
+    for branch, text in (("left", "left\n"), ("right", "right\n")):
+        _git(repo, "checkout", "-q", base)
+        _git(repo, "checkout", "-qb", branch)
+        (repo / "shared.txt").write_text(text)
+        _git(repo, "commit", "-qam", branch)
+
+    _git(repo, "checkout", "-q", base)
+    _git(repo, "checkout", "-qb", "disjoint")
+    (repo / "a.txt").write_text("a changed\n")
+    _git(repo, "commit", "-qam", "disjoint")
+    return repo
+
+
+def test_merge_conflict_paths_flags_a_real_conflict(tmp_path):
+    repo = _composable_repo(tmp_path)
+    assert inventory_mod.merge_conflict_paths("left", "right", str(repo)) == ["shared.txt"]
+
+
+def test_merge_conflict_paths_is_silent_for_disjoint_edits(tmp_path):
+    """Negative control for the detector: it must not report a conflict for a
+    pair that composes, or every pair would read as conflicting."""
+    repo = _composable_repo(tmp_path)
+    assert inventory_mod.merge_conflict_paths("left", "disjoint", str(repo)) == []
+
+
+def test_merge_conflict_paths_is_unprovable_for_an_unknown_revision(tmp_path):
+    """An unresolvable revision is UNPROVABLE, never CLEAN: an unanswered
+    composition question must not read as a pass."""
+    repo = _composable_repo(tmp_path)
+    paths = inventory_mod.merge_conflict_paths("left", "no-such-revision", str(repo))
+    assert paths is None
+    assert inventory_mod.conflict_verdict(paths) == "UNPROVABLE"
+
+
+def test_conflict_matrix_reports_every_pair_once_with_its_verdict(tmp_path):
+    repo = _composable_repo(tmp_path)
+    rows = inventory_mod.conflict_matrix(
+        {"left": "left", "right": "right", "disjoint": "disjoint"}, repo=str(repo)
+    )
+    assert len(rows) == 3  # C(3, 2); each unordered pair judged once
+    assert {(r["a"], r["b"]) for r in rows} == {
+        ("disjoint", "left"),
+        ("disjoint", "right"),
+        ("left", "right"),
+    }
+    verdicts = {(r["a"], r["b"]): r["verdict"] for r in rows}
+    assert verdicts[("left", "right")] == "CONFLICT"
+    assert verdicts[("disjoint", "left")] == "CLEAN"
+    assert verdicts[("disjoint", "right")] == "CLEAN"
+
+
+def test_cli_conflicts_reports_json_without_network(tmp_path, capsys):
+    """The wiring is exercised, not just the function: `--conflicts` must work
+    with no token and no GitHub call."""
+    repo = _composable_repo(tmp_path)
+    code = inventory_mod.main(
+        [
+            "--conflicts",
+            "--ref", "left=left",
+            "--ref", "right=right",
+            "--git-repo", str(repo),
+            "--json",
+        ]
+    )
+    assert code == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["pairs"] == [
+        {"a": "left", "b": "right", "verdict": "CONFLICT", "paths": ["shared.txt"]}
+    ]
+
+
+def test_cli_conflicts_needs_two_refs():
+    assert inventory_mod.main(["--conflicts", "--ref", "only=HEAD"]) == 2
