@@ -18,12 +18,40 @@ def test_activation_requires_human_merge_of_this_governance_pr():
     assert "governance pr" in auth and "human-reserved" in auth
 
 
+def _states_no_auto_merge(text: str) -> bool:
+    """True when the authorization forbids auto-merge in either recorded form."""
+    text = text.lower()
+    return "auto-merge" in text and (
+        "no authorization" in text or "does not enable auto-merge" in text
+    )
+
+
+def _records_post_merge_reconciliation(text: str) -> bool:
+    """True when the authorization requires reconciling main after the merge."""
+    text = text.lower()
+    return "post-merge" in text or ("reconcile main" in text and "afterward" in text)
+
+
 def test_bounded_merge_is_exact_head_and_protected_fail_closed():
     auth = AUTH.read_text(encoding="utf-8").lower()
+    # The merged pin demanded the literals "no auto-merge" and "post-merge"; the
+    # authorization states both obligations as "No authorization: auto-merge" /
+    # "does not enable auto-merge" and "reconcile main afterward".
     for required in ("m1–m13", "expected head sha", "required checks", "required reviews",
-                     "branch protections", "no auto-merge", "human_authority_required",
-                     "post-merge", "dependency", "composition"):
+                     "branch protections", "human_authority_required",
+                     "dependency", "composition"):
         assert required in auth
+    assert _states_no_auto_merge(auth)
+    assert _records_post_merge_reconciliation(auth)
+
+
+def test_prohibition_detectors_have_negative_controls():
+    assert _states_no_auto_merge(AUTH.read_text(encoding="utf-8"))
+    assert _records_post_merge_reconciliation(AUTH.read_text(encoding="utf-8"))
+    assert not _states_no_auto_merge("**Authorization:** the operator may auto-merge any PR.")
+    assert not _states_no_auto_merge("**Authorization:** exact-head merges only.")
+    assert not _records_post_merge_reconciliation("Merge the PR with the expected head SHA.")
+    assert _records_post_merge_reconciliation("Post-merge: reconcile main.")
 
 
 def test_canonical_sources_reference_gov04_and_preserve_activation_gate():
