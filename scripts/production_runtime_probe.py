@@ -18,6 +18,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import served_asset_manifest  # noqa: E402  (script-dir import, same convention as the gate scripts)
+
 BASE = os.environ.get("ARKADIA_PRODUCTION_ORIGIN", "https://arkadia-qzu4.onrender.com").rstrip("/")
 OUT = Path(os.environ.get("ARKADIA_PROBE_OUTPUT", "artifacts/canonical-render-runtime"))
 OUT.mkdir(parents=True, exist_ok=True)
@@ -190,6 +193,7 @@ report = {
     "openapi": {},
     "endpoint_inventory": [],
     "frontend_routes": {},
+    "served_assets": {},
     "authorization_matrix": {},
     "limitations": [],
 }
@@ -216,6 +220,14 @@ for path in ("/", "/health", "/api/version", "/openapi.json", "/operator", "/sol
     result = request(path, {"Accept": "text/html" if path in ("/", "/operator", "/solariun/opportunity-radar", "/n-atlas-lab", "/n-atlas-tester") else "application/json"})
     result["classification"] = classify(result.get("status"))
     report["frontend_routes" if path in ("/", "/operator", "/solariun/opportunity-radar", "/n-atlas-lab", "/n-atlas-tester") else "baseline"][path] = result
+
+# Record the artifact the origin actually serves. Revision identity says which
+# source the deployment was built from; this says which bytes a browser gets.
+try:
+    report["served_assets"] = served_asset_manifest.observe(BASE, timeout=TIMEOUT)
+except Exception as error:  # a capture failure is a limitation, never a silent empty
+    report["served_assets"] = {"error": f"{type(error).__name__}: {error}"}
+    report["limitations"].append("Served asset manifest unavailable: " + type(error).__name__)
 
 openapi_result = request("/openapi.json", {"Accept": "application/json"})
 if openapi_result.get("status") != 200:
