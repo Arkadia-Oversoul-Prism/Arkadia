@@ -150,13 +150,22 @@ Negative controls carried by the guard:
 
 ## 8. Next legal task
 
-`family-safety-network` is the oldest verified `last_progress_at` **after** this pulse's own
-Arkadia work lands (its newest open draft, #18, was last updated 2026-11-27T11:12Z; Arkadia's
-will now be newer). FSN already has seven open drafts, so the next FSN pulse should continue
-an existing draft rather than open an eighth.
+Re-derived, not asserted. `scripts/portfolio_state_refresh.py --write` run at
+2026-11-27T12:12:32Z records:
+
+```
+sonata                 last_progress_at 2026-11-27T10:25:30Z   2 open PRs
+family-safety-network  last_progress_at 2026-11-27T11:12:00Z   7 open PRs
+Arkadia                last_progress_at 2026-11-27T12:11:57Z  64 open PRs  <- this pulse
+next: sonata -- oldest verified last_progress_at among unblocked repositories
+```
+
+So the next pulse selects **`sonata`** (10:25:30Z is older than FSN's 11:12:00Z). An earlier
+draft of this section guessed FSN from the *pre-pulse* ordering; the derivation corrects it,
+which is the reason the ledger is derived rather than typed.
 
 For Arkadia specifically: the queue needs **consolidation**, not closure. The cheapest next
-bounded Arkadia slice is to group the 63 drafts by changed-path overlap and measure which
+bounded Arkadia slice is to group the 64 drafts by changed-path overlap and measure which
 groups compose cleanly — but `scripts/pr_wave_dry_run.py` (#736) already owns that
 measurement, so the next Arkadia pulse should **continue #736** rather than duplicate it.
 
@@ -172,7 +181,7 @@ measurement, so the next Arkadia pulse should **continue #736** rather than dupl
 ## 10. Deterministic resumption block
 
 ```
-current state      : main 8f746f9eab6d; 63 open Arkadia drafts; all CONTRIBUTES
+current state      : main 8f746f9eab6d; 64 open Arkadia drafts (63 + this PR); all CONTRIBUTES
 evidence           : this record; scripts/pr_integration_oracle.py; 11 tests
 blockers           : merge execution is human-only; drafts need their owner to mark ready
 authorized action  : continue an existing draft; one bounded objective per pulse
