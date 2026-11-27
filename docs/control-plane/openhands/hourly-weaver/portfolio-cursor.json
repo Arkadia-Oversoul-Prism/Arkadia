@@ -1,6 +1,6 @@
 {
   "schema": "arkadia.portfolio-cursor/1.0",
-  "updated_at": "2026-11-27T06:20:00Z",
+  "updated_at": "2026-11-27T09:12:00Z",
   "authority": "authored judgements. The directive is the source of each phase label; this file records no measurement -- portfolio-state.json does.",
   "repositories": [
     {
@@ -17,15 +17,15 @@
     {
       "repository": "Arkadia-Oversoul-Prism/family-safety-network",
       "phase": "F2 \u2014 privacy and data lifecycle (retention)",
-      "active_issue_or_pr": "#17 (F4 scheduled retention purge runner), #16 (F2 rate-limit coverage), #15 (authz resource-existence oracle), #14 (F2 rate-limit table bound), #12 (F5 audit append-only), #10 (F6 signing-key rotation)",
+      "active_issue_or_pr": "#18 (F0 integration-closure record + README status correction), #17 (F4 scheduled retention purge runner), #16 (F2 rate-limit coverage), #15 (authz resource-existence oracle), #14 (F2 rate-limit table bound), #12 (F5 audit append-only), #10 (F6 signing-key rotation)",
       "blocked": false,
       "blockers": [
         "physical-device acceptance needs real hardware; CI is not device evidence",
         "the purge runner is implemented but no scheduler is deployed (human-authorised)",
         "F8 process-local rate limiter still needs a shared store before scaling"
       ],
-      "next_legal_task": "Continue #17 if review asks; otherwise take the next unowned F-series gap. Do not open a parallel PR for a task an open draft already owns.",
-      "last_pulse_at": "2026-11-27T06:06:00Z"
+      "next_legal_task": "Await human review: seven open drafts, all green and pairwise non-conflicting (measured 2026-11-27, 15/15 merge-tree pairs clean). Do not open a parallel PR for a task an open draft already owns. The next unowned F-series gap is F10 (no invitation endpoint), which needs a consent/authorisation decision first.",
+      "last_pulse_at": "2026-11-27T09:12:00Z"
     },
     {
       "repository": "Arkadia-Oversoul-Prism/Arkadia",
