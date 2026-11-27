@@ -160,3 +160,45 @@ sed -i 's/if entry.get("blocked"):/if False:  # NEGATIVE CONTROL/' scripts/portf
 python -m pytest tests/test_portfolio_state_ledger.py -q -rEf          # 1 failed, 16 passed
 git checkout -- scripts/portfolio_state.py
 ```
+
+---
+
+## 8. Ledger refreshed, and a selection deviation disclosed
+
+The snapshot was re-derived after the repair (`portfolio_state_refresh.py --write`), so the
+ledger records this pulse rather than the previous one:
+
+| repository | branch | head | pulls | issues | `last_progress_at` |
+|---|---|---|---|---|---|
+| sonata | `feature/sonata-tts-app` | `7c4e6a64e39e` | 1 | 1 | 2026-11-27T02:11:59Z |
+| family-safety-network | `main` | `18c729735fd4` | 4 | 3 | 2026-11-27T01:13:14Z |
+| Arkadia | `main` | `8f746f9eab6d` | 63 | 10 | 2026-11-27T02:11:11Z |
+
+`scripts/portfolio_state.py --check` → **PASS**, exit `0`, next
+`Arkadia-Oversoul-Prism/family-safety-network`.
+
+**This is the decisive verification of the repair.** The refresh is precisely the operation
+that reddened the gate in §1. Re-running `tests/test_portfolio_state_ledger.py` against the
+freshly written snapshot gives **`17 passed`** — the node is now refresh-stable by
+construction, not by luck.
+
+### 8.1 Deviation: this pulse selected Arkadia, the rule names FSN
+
+Preserved explicitly rather than reconciled in favour of the work that was already done:
+
+- I selected **Arkadia** by comparing the *canonical-branch head commit* timestamps —
+  Arkadia `2026-11-27T00:13:03Z` against FSN `2026-11-26T08:22:33Z` and Sonata
+  `2026-11-26T17:52:36Z` — and by treating Sonata as unavailable because a concurrent pulse
+  had committed to `fix/s1-tier-truth-001` 30 seconds before this one started.
+- The ledger's `last_progress_at` is a **different metric**: the maximum observed activity
+  (head commit, PR updates, issue updates). By that metric FSN
+  (`2026-11-27T01:13:14Z`) is the oldest unblocked repository and the rule names **FSN**.
+
+The ledger's metric is the implemented one, so the rule's answer is FSN. The two metrics are
+not interchangeable and the choice changed the selected repository; recording the
+discrepancy is the contract's requirement (§"Cycle protocol"), not a courtesy.
+
+**Consequence for the next pulse:** the next legal selection is
+`family-safety-network`, phase F0/F1, continuing its existing draft PRs #10/#12/#14/#15 —
+not another Arkadia edit. Switching mid-pulse would have put two bounded tasks in one cycle,
+which §4.3 forbids, so the deviation is recorded rather than repaired by doing both.
