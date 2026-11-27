@@ -18,6 +18,8 @@ from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 import os as _os
 
+from api import github_corpus
+
 # ── Arkadia auth + node registry ─────────────────────────────────────────────
 # In production (ENVIRONMENT=production) an auth import failure is a fatal
 # startup error — the server must not run with authentication silently disabled.
@@ -51,7 +53,6 @@ logger = logging.getLogger("arkadia")
 
 GITHUB_REPO    = "Arkadia-Oversoul-Prism/Arkadia"
 GITHUB_BRANCH  = "main"
-GITHUB_TOKEN   = os.environ.get("GITHUB_PERSONAL_ACCESS_TOKEN", "")
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 SOVEREIGN_KEY  = os.environ.get("SOVEREIGN_KEY", "")
 _is_production = os.environ.get("ENVIRONMENT", "").strip().lower() == "production"
@@ -500,33 +501,24 @@ def _is_readable(path: str) -> bool:
 # ── GitHub helpers ────────────────────────────────────────────────────────────
 
 def GH_HEADERS() -> dict:
-    h = {"Accept": "application/vnd.github.v3+json"}
-    if GITHUB_TOKEN:
-        h["Authorization"] = f"Bearer {GITHUB_TOKEN}"
-    return h
+    return github_corpus.headers()
 
 
 async def _fetch_github_tree() -> list[dict]:
     url = f"https://api.github.com/repos/{GITHUB_REPO}/git/trees/{GITHUB_BRANCH}?recursive=1"
-    async with httpx.AsyncClient(timeout=15) as client:
-        resp = await client.get(url, headers=GH_HEADERS())
-        resp.raise_for_status()
+    payload = await github_corpus.get_json(url, timeout=15)
     return [
-        item for item in resp.json().get("tree", [])
+        item for item in payload.get("tree", [])
         if item.get("type") == "blob" and _is_corpus_file(item.get("path", ""))
     ]
 
 
 async def _fetch_raw(path: str) -> tuple[str, str | None]:
-    headers = {"Authorization": f"Bearer {GITHUB_TOKEN}"} if GITHUB_TOKEN else {}
     url = f"https://raw.githubusercontent.com/{GITHUB_REPO}/{GITHUB_BRANCH}/{path}"
-    async with httpx.AsyncClient(timeout=12) as client:
-        try:
-            resp = await client.get(url, headers=headers)
-            resp.raise_for_status()
-            return resp.text, None
-        except Exception as e:
-            return "", str(e)
+    try:
+        return await github_corpus.get_text(url, timeout=12), None
+    except Exception as e:
+        return "", str(e)
 
 
 async def _build_scrolls(tree_items: list[dict]) -> dict:
@@ -890,12 +882,16 @@ async def health():
 async def sources():
     cached = _cache.get("scrolls") or {}
     github_live = any(v.get("source") == "github" for v in cached.values())
+    credential = github_corpus.credential_state()
     return {
         "sources": [
             {
                 "name": "github",
-                "configured": bool(GITHUB_REPO),
-                "authenticated": bool(GITHUB_TOKEN),
+                "configured": bool(github_corpus.token()),
+                # Acceptance, not presence: a rejected credential is reported as
+                # rejected rather than as "authenticated" because the env var is set.
+                "authenticated": credential == "accepted",
+                "credential_state": credential,
                 "live": github_live,
                 "repo": GITHUB_REPO,
                 "branch": GITHUB_BRANCH,
