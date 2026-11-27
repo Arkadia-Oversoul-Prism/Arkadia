@@ -1,8 +1,8 @@
 {
  "schema": "arkadia.pr_backlog_reconciliation/1",
  "observed_at": "2026-11-26",
- "main_sha": "e4cc45c4ddbcb63121d767106d8fb867033e4f75",
- "open_pr_count": 64,
+ "main_sha": "8f746f9eab6df51733f6d43c8bab26af63eb6471",
+ "open_pr_count": 63,
  "prs": [
   {
    "number": 680,
@@ -1892,7 +1892,6 @@
   703
  ],
  "merge_batch_a_order": [
-  705,
   680,
   698,
   738,
@@ -1913,6 +1912,23 @@
    "merged_at": "2026-11-26T23:38:27Z",
    "merge_method": "squash",
    "post_merge_baseline_nodes_sha256": "4118e2ff698f90bb018a8f396c7c729be8cb55cb6d816683a2cd1feb4c8ee916"
+  },
+  {
+   "number": 705,
+   "head_sha": "2732b81a05d2cb8bc25ce93841f6d97ff4264f51",
+   "merge_commit": "8f746f9eab6df51733f6d43c8bab26af63eb6471",
+   "merged_at": "2026-11-27T00:13:03Z",
+   "merge_method": "squash",
+   "post_merge_baseline_nodes_sha256": "4118e2ff698f90bb018a8f396c7c729be8cb55cb6d816683a2cd1feb4c8ee916"
   }
- ]
+ ],
+ "remaining_four_composed": {
+  "base": "8f746f9eab6df51733f6d43c8bab26af63eb6471",
+  "nodes_sha256": "143891ac5880a9e756f1e4ccc1192780869d40c0e1ef2308f7afbd8686124f39",
+  "nodes": 20,
+  "repaired": [
+   "tests/test_static_ingestion_idempotency.py::test_open_loop_content_is_checksum_stable_through_a_vault_round_trip"
+  ],
+  "added": []
+ }
 }

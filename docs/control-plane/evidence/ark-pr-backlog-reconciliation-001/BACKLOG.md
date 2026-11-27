@@ -583,3 +583,68 @@ interaction is unchanged — but "unchanged" is an expectation, not a measuremen
 
 **Next authorized action required:** authorization for #705 at
 `2732b81a05d2cb8bc25ce93841f6d97ff4264f51`.
+
+---
+
+## 13. Merge record — #705 (second in the batch), executed 2026-11-27
+
+**Authorization:** explicit human instruction — *"mark #705 ready and merge at head
+`2732b81a05d2cb8bc25ce93841f6d97ff4264f51`"*. Scoped to #705 only.
+
+### 13.1 Pre-write verification
+
+| Check | Observed |
+|---|---|
+| head SHA | `2732b81a05d2cb8bc25ce93841f6d97ff4264f51` — **equals the authorized head** |
+| state / base | `OPEN`, `base=main` |
+| mergeability | `MERGEABLE`, `mergeStateStatus: CLEAN` |
+| checks on that head | 6/6 `completed/success`; **0** red, **0** pending |
+| `main` before merge | `e4cc45c4ddbcb63121d767106d8fb867033e4f75` — unchanged since §12 |
+| path policy | CP10 judge **PASS** on all 15 paths |
+
+### 13.2 Result (GitHub-confirmed)
+
+| Fact | Value |
+|---|---|
+| PR state | `MERGED` at `2026-11-27T00:13:03Z`, merged by `Arkadia-Oversoul-Prism` |
+| Merge commit = new `main` | **`8f746f9eab6df51733f6d43c8bab26af63eb6471`** |
+| Intended diff landed | **15 files, +2873/−0** — exactly the pre-flighted shape |
+| Merge method | squash, `sha` = expected head |
+
+### 13.3 Post-merge re-measurement of `main`
+
+```
+20 failed, 4325 passed, 22 skipped, 6 warnings, 1 error in 290.97s
+21 failing/error nodes — sha256 4118e2ff698f90bb018a8f396c7c729be8cb55cb6d816683a2cd1feb4c8ee916
+```
+
+Identical to the `68db6619` and `e4cc45c4` baselines: two merges, **zero** node
+change.
+
+### 13.4 Remaining four — reconciled **and** re-composed against `8f746f9e`
+
+Individual reconciliation (all heads unchanged, all drafts, all `merge-tree` clean):
+
+| Order | PR | Head | Behind | Checks |
+|---|---|---|---|---|
+| **3 (next)** | **#680** | `0023c7813eda7aa90221c176ace9e8f3d7df2a76` | 11 | 10/10 |
+| 4 | #698 | `91e73dfd8deabf9becd243e733c52b236e8ad325` | 8 | 10/10 |
+| 5 | #738 | `4ede192898f535f8090681ff4ec453941c423ab3` | 7 | 10/10 |
+| 6 | #683 | `4c9261cf7f28d612ca59f77c551a39cf90d9bbf5` | 10 | 10/10 |
+
+Composed-tree measurement (the §12.5 obligation, discharged):
+
+```
+merged #680 -> aaf7a5c8, #698 -> 1fd5d5eb, #738 -> 7e8e421b, #683 -> 484315bb
+0 conflicted files
+19 failed, 4335 passed, 22 skipped, 1 error in 290.70s
+20 nodes — sha256 143891ac5880a9e756f1e4ccc1192780869d40c0e1ef2308f7afbd8686124f39
+```
+
+Delta vs post-#705 `main`: **exactly one node removed**
+(`tests/test_static_ingestion_idempotency.py::test_open_loop_content_is_checksum_stable_through_a_vault_round_trip`,
+repaired by #698) and **zero nodes added**. The hash matches the earlier batch-A
+composed run exactly, which is the reproducibility check on the measurement itself.
+
+**Next authorized action required:** authorization for #680 at
+`0023c7813eda7aa90221c176ace9e8f3d7df2a76`.
