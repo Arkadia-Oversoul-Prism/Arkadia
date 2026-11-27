@@ -235,3 +235,89 @@ def test_entry_targets_resolve_to_themselves_via_the_router():
     # every declared target is reachable
     for t in targets:
         assert t in {"solariun", "login", "solspire", "about"}, t
+
+
+# ---------------------------------------------------------------------------
+# 4. A portal never renders the same label twice.
+# ---------------------------------------------------------------------------
+
+def _portal_block(text: str) -> str:
+    """The `Portal` component body."""
+    match = re.search(r"function Portal\(.*?(?=\n/\*\*|\nexport function)", text, re.DOTALL)
+    assert match, "HomePage declares no Portal component"
+    return match.group(0)
+
+
+def _portal_eyebrow_is_conditional(text: str) -> bool:
+    """The boundary eyebrow is suppressed when it would repeat the surface name.
+
+    The eyebrow is the product *boundary* (`lib/surfaces.ts` `boundary`), while
+    the card title is the surface `name`. For a surface that is its own boundary
+    the two strings are equal, so an unconditional eyebrow renders the same word
+    twice.
+    """
+    block = _portal_block(text)
+    compared = "boundary.trim().toLowerCase() === surface.name.trim().toLowerCase()" in block
+    guarded = re.search(r"\{boundary\s*&&", block) is not None
+    return compared and guarded
+
+
+def _surface_triples(text: str) -> list[tuple[str, str, str]]:
+    """(id, name, boundary) for every declared surface, in source order."""
+    triples: list[tuple[str, str, str]] = []
+    for block in re.split(r"\n  \{\n", text)[1:]:
+        id_match = re.search(r'id:\s*"([^"]+)"', block)
+        name_match = re.search(r'name:\s*"([^"]+)"', block)
+        boundary_match = re.search(r'boundary:\s*"([^"]+)"', block)
+        if id_match and name_match and boundary_match:
+            triples.append((id_match.group(1), name_match.group(1), boundary_match.group(1)))
+    return triples
+
+
+def _rendered_labels(name: str, boundary: str) -> tuple[str | None, str]:
+    """What a portal prints for (name, boundary) under the suppressed-eyebrow rule."""
+    eyebrow = None if boundary.strip().lower() == name.strip().lower() else boundary
+    return eyebrow, name
+
+
+def test_portal_suppresses_an_eyebrow_that_repeats_the_name():
+    assert _portal_eyebrow_is_conditional(HOME), (
+        "Portal must suppress its boundary eyebrow when the boundary equals the surface "
+        "name — otherwise the card prints the same label twice"
+    )
+
+
+def test_negative_control_flags_the_unconditional_eyebrow():
+    """The detector must fire on the shape that shipped the duplicated labels."""
+    pre_fix = HOME.replace(
+        '      {boundary && (\n'
+        '        <p className={`font-mono text-[11px] uppercase tracking-[0.18em] ${surface.accent}`}>{boundary}</p>\n'
+        "      )}",
+        '      <p className={`font-mono text-[11px] uppercase tracking-[0.18em] ${surface.accent}`}>{surface.boundary}</p>',
+    )
+    assert pre_fix != HOME, "the negative control no longer matches the shipped shape"
+    assert not _portal_eyebrow_is_conditional(pre_fix), (
+        "the detector must catch an eyebrow rendered unconditionally"
+    )
+    assert _portal_eyebrow_is_conditional(HOME)
+
+
+def test_no_portal_renders_a_repeated_label():
+    """Judged against the live registry, not a literal list of surface names."""
+    triples = _surface_triples(SURFACES)
+    assert triples, "surfaces.ts declares no surfaces"
+    repeats = [
+        surface_id
+        for surface_id, name, boundary in triples
+        if (eyebrow := _rendered_labels(name, boundary)[0]) is not None
+        and eyebrow.strip().lower() == name.strip().lower()
+    ]
+    assert not repeats, f"portals that would print a repeated label: {repeats}"
+    # The rule is load-bearing today: five declared surfaces are their own
+    # boundary. If this becomes empty the suppression is inert, not wrong.
+    suppressed = [
+        surface_id
+        for surface_id, name, boundary in triples
+        if _rendered_labels(name, boundary)[0] is None
+    ]
+    assert suppressed, "no surface is its own boundary — the suppression rule is inert"
