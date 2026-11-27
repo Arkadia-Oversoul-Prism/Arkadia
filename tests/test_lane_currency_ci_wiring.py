@@ -14,6 +14,11 @@ Two properties, each with a negative control:
 2. The workflow's trigger filters name every input the contract reads. A filter
    that omits the guard script, the refresh script or the snapshot means a
    change to what the guard asserts does not execute the guard.
+3. The workflow executes the *whole* lane-guard domain, derived at test time
+   rather than restated. A fixed inventory drifted once already: the aggregate-PR
+   classifier guard arrived after this gate was written, so a change to
+   ``aggregate-prs.json`` or ``lane_state_refresh.py`` selected the gate and the
+   gate ran everything except the guard that judges them.
 
 The detectors parse the workflow with a real command tokeniser (`shlex`), not a
 substring search: `echo pytest ...` and a commented-out line must both fail to
@@ -24,6 +29,7 @@ from __future__ import annotations
 
 import re
 import shlex
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -33,10 +39,34 @@ WORKFLOW = REPO / ".github/workflows/lane-doc-currency.yml"
 CONTRACT = "tests/test_lane_instruction_doc_currency.py"
 WIRING = "tests/test_lane_currency_ci_wiring.py"
 
-# Every path the currency contract reads. A change to any of them can change
-# what the contract asserts, so each must select the workflow that runs it.
-# The wiring guard is included so a rewrite of this workflow is judged by the
-# workflow it rewrites.
+# A lane guard belongs to the domain when it names the lane snapshot, the
+# classifier that produces it, or the gate that executes them. ``parallel-ui``
+# alone would over-match: ``test_weaver_merge_authority_contract.py`` reads
+# ``SHARED-CONTRACTS.md`` and guards merge authority, not the lane snapshot.
+DOMAIN_NEEDLES = ("lane_state", "lane-state.json", "lane-doc-currency", "aggregate-prs")
+
+
+def _lane_domain() -> list[str]:
+    """Every tracked test that judges the lane snapshot, derived at test time."""
+    tracked = subprocess.run(
+        ["git", "ls-files", "--", "tests/"],
+        cwd=REPO,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.split()
+    domain = []
+    for rel in tracked:
+        if not (Path(rel).name.startswith("test_") and rel.endswith(".py")):
+            continue
+        if any(n in (REPO / rel).read_text(encoding="utf-8") for n in DOMAIN_NEEDLES):
+            domain.append(rel)
+    return sorted(domain)
+
+
+# Every non-test input the currency contract reads. A change to any of them can
+# change what the contract asserts, so each must select the workflow that runs
+# it. Test-file coverage is derived by ``_lane_domain`` below.
 REQUIRED_FILTERS = (
     "docs/control-plane/parallel-ui/**",
     "scripts/lane_state.py",
@@ -158,6 +188,37 @@ def test_trigger_filters_name_every_input_the_contract_reads(path):
     assert path in push, f"push filter omits {path}"
 
 
+def test_domain_derivation_finds_the_known_lane_guards():
+    """Positive control: the derivation must not silently return nothing.
+
+    An empty domain would make the two tests below vacuously true, which is the
+    fail-open direction -- a judge that derives nothing always passes.
+    """
+    domain = _lane_domain()
+    assert CONTRACT in domain
+    assert WIRING in domain
+    assert "tests/test_lane_aggregate_pr_classification.py" in domain
+
+
+@pytest.mark.parametrize("guard", _lane_domain())
+def test_workflow_executes_every_lane_guard(guard):
+    """A guard in the domain that no step executes is decoration."""
+    commands = _commands(_workflow_text())
+    assert any(_invokes(c, guard) for c in commands), (
+        f"the workflow must execute {guard}: it judges the lane snapshot and a "
+        "change to what it asserts selects this gate"
+    )
+
+
+@pytest.mark.parametrize("guard", _lane_domain())
+def test_trigger_filters_name_every_lane_guard(guard):
+    """A guard whose own edit does not select the gate is not self-covering."""
+    text = _workflow_text()
+    pull_request, _, push = text.partition("  push:")
+    assert guard in pull_request, f"pull_request filter omits {guard}"
+    assert guard in push, f"push filter omits {guard}"
+
+
 # ------------------------------------------------------------------ controls
 
 
@@ -180,3 +241,22 @@ def test_detector_accepts_the_two_real_invocations():
 def test_detector_rejects_a_comment():
     """Negative control: a commented-out command executes nothing."""
     assert _commands("# run: pytest " + CONTRACT) == []
+
+
+def test_domain_judge_bites_when_a_guard_step_is_missing():
+    """Negative control: the execution judge must reject an incomplete gate.
+
+    Fed the real workflow text with the aggregate step removed, no pytest
+    invocation names that guard -- so the test above would fail. Without this,
+    a detector that accepted a mention (a comment, a path filter entry) would
+    report a gate as executing a guard it never runs.
+    """
+    text = _workflow_text().replace(
+        "        run: python -m pytest -q tests/test_lane_aggregate_pr_classification.py\n",
+        "",
+    )
+    assert text != _workflow_text(), "control is stale: the step is not in the workflow"
+    commands = _commands(text)
+    assert not any(
+        _invokes(c, "tests/test_lane_aggregate_pr_classification.py") for c in commands
+    )

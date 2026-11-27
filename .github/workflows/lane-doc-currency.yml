@@ -11,6 +11,7 @@ on:
       - "scripts/lane_state_refresh.py"
       - "tests/test_lane_instruction_doc_currency.py"
       - "tests/test_lane_currency_ci_wiring.py"
+      - "tests/test_lane_aggregate_pr_classification.py"
       - ".github/workflows/lane-doc-currency.yml"
   push:
     branches: ["main"]
@@ -20,6 +21,7 @@ on:
       - "scripts/lane_state_refresh.py"
       - "tests/test_lane_instruction_doc_currency.py"
       - "tests/test_lane_currency_ci_wiring.py"
+      - "tests/test_lane_aggregate_pr_classification.py"
       - ".github/workflows/lane-doc-currency.yml"
   workflow_dispatch:
 
@@ -49,6 +51,13 @@ jobs:
       - run: python -m pip install pytest
       - name: Execute lane instruction-doc currency guard
         run: python -m pytest -q tests/test_lane_instruction_doc_currency.py
+      - name: Execute the aggregate-PR classification guard
+        # The classifier that decides lane ownership reads
+        # ``docs/control-plane/parallel-ui/aggregate-prs.json`` and
+        # ``scripts/lane_state_refresh.py`` -- both of which this workflow's
+        # filters select. Before this step existed, a change to either input
+        # executed the gate without executing the guard that judges it.
+        run: python -m pytest -q tests/test_lane_aggregate_pr_classification.py
       - name: Execute the wiring guard (judges this workflow)
         # Run inside the gate so a rewrite of this workflow is judged by the
         # workflow it rewrites -- otherwise the gate can be disarmed by editing
