@@ -23,6 +23,19 @@ on:
       # own sources, so an input added there without being added here fails CI.
       - "AGENTS.md"
       - "docs/verification/PROVIDER-ROUTING-AUDIT-BASELINE.md"
+      # The GOV-04 conformance guard (`tests/test_gov04_bounded_merge_delegation.py`)
+      # is executed by the whole-suite step above, but its own inputs were never
+      # enumerated here, so a revision touching only the authorization record or the
+      # conformance test ran no gate that executes it. This is the same omission the
+      # `AGENTS.md` line above repairs for a different guard, completed for this one.
+      # `tests/test_gov04_conformance_ci_wiring.py` derives the input list from the
+      # guard's own source, so an input added there without being added here fails CI.
+      - "tests/test_gov04_bounded_merge_delegation.py"
+      - "tests/test_gov04_conformance_ci_wiring.py"
+      - "docs/control-plane/evidence/gov-04-bounded-merge-delegation/AUTHORIZATION.md"
+      - "docs/control-plane/WORKER_CONTRACT.md"
+      - "docs/control-plane/overnight/PRISM-UI-RECONCILIATION.md"
+      - "docs/control-plane/parallel-ui/SHARED-CONTRACTS.md"
   workflow_dispatch:
 
 permissions:
