@@ -60,11 +60,21 @@ and both leave a gate that *looks* enforced while being unable to fail.
    not merely assumed here — the corpus declares no ``shell`` anywhere, so an
    explicit abortless shell is a change to a currently-compliant surface.
 
-All four are the same failure mode: a guard that cannot fail. The detectors below
-are stated generically over the whole workflow corpus, derived from ``git ls-files``
-at test time, so a new workflow is judged by the same rule without editing this
-file. Each carries a negative control proving it reports the form it is meant to
-catch, so a rewrite of a workflow cannot silently disarm the boundary.
+5. **Masked outcome reported as a verdict.** A masked step's ``outcome`` is
+   ``success`` by construction, so printing it in an evidence line states a pass
+   that was never measured. Measured at ``main`` ``bb19aabd`` / run
+   ``45044373044``: the CP10-B backend step reported
+   ``9 failed, 4267 passed, 21 skipped, 1 error`` while the CP10 evidence summary
+   recorded ``Broader backend regression: success`` and the job concluded
+   ``success``. The terminal enforcement is exempt from this detector — it *is*
+   the gating surface, and the mask it inherits is the register's business.
+
+All five are the same failure mode: a guard that cannot fail, or an artifact that
+claims a verdict it never measured. The detectors below are stated generically
+over the whole workflow corpus, derived from ``git ls-files`` at test time, so a
+new workflow is judged by the same rule without editing this file. Each carries a
+negative control proving it reports the form it is meant to catch, so a rewrite of
+a workflow cannot silently disarm the boundary.
 """
 
 from __future__ import annotations
@@ -301,6 +311,68 @@ def masked_enforced_inventory() -> dict[tuple[str, str], list[str]]:
 
 
 # ---------------------------------------------------------------------------
+# Detector 5 — a masked step reported as a verdict
+# ---------------------------------------------------------------------------
+
+
+def masked_step_ids(workflow: dict) -> set[str]:
+    """Ids of steps whose verdict command's exit status is discarded by a pipe.
+
+    Independent of enforcement: the masking is a property of the step's own
+    ``run``, and a masked step's ``outcome`` is ``success`` by construction
+    whether or not anything asserts it.
+    """
+    masked: set[str] = set()
+    for job in _jobs(workflow).values():
+        if not isinstance(job, dict):
+            continue
+        for step in _steps(job):
+            sid = step.get("id")
+            run = step.get("run")
+            if isinstance(sid, str) and isinstance(run, str) and masked_verdict_lines(run):
+                masked.add(sid)
+    return masked
+
+
+def _without_shell_comments(run: str) -> str:
+    """The script with whole-line ``#`` comments removed.
+
+    A comment that *names* the reference is documentation, not a report: the CP10
+    workflow's summary carries a comment explaining why it no longer prints
+    ``steps.backend.outcome``, and flagging that would make the repair unable to
+    describe itself.
+    """
+    return "\n".join(
+        line for line in run.splitlines() if not line.strip().startswith("#")
+    )
+
+
+def masked_outcomes_reported(workflow: dict) -> list[tuple[str, str]]:
+    """``(step_id, reporting_step)`` for a masked step's outcome echoed as a result.
+
+    The terminal enforcement step is exempt: ``test '${{ steps.<id>.outcome }}' =
+    success`` is the gating surface, and the masking it inherits is registered
+    separately. Every *other* place the value is printed is a human-read evidence
+    line, and there it states a pass the mask manufactured.
+    """
+    masked = masked_step_ids(workflow)
+    offenders: list[tuple[str, str]] = []
+    for job in _jobs(workflow).values():
+        if not isinstance(job, dict):
+            continue
+        for step in _steps(job):
+            run = step.get("run")
+            if not isinstance(run, str) or _ENFORCEMENT.search(run):
+                continue
+            body = _without_shell_comments(run)
+            reporter = str(step.get("id") or step.get("name") or "?")
+            for sid in sorted(masked):
+                if re.search(r"steps\." + re.escape(sid) + r"\.outcome", body):
+                    offenders.append((sid, reporter))
+    return offenders
+
+
+# ---------------------------------------------------------------------------
 # Detector 3 — exempt enforcement steps
 # ---------------------------------------------------------------------------
 
@@ -484,6 +556,72 @@ def test_masked_enforced_requires_both_properties():
     assert masked_enforced_steps(Path("synthetic.yml"), clean) == set()
 
 
+def test_masked_outcome_is_reported_when_a_summary_prints_it():
+    # Negative control: the exact pre-repair shape measured on `main` @ bb19aabd
+    # and in run 45044373044 — the backend step's exit status is destroyed by
+    # `| tee` without `pipefail`, and the evidence summary prints its `outcome`,
+    # which is `success` for every pytest result.
+    workflow = _synthetic_workflow(
+        [
+            {
+                "id": "backend",
+                "run": "python -m pytest tests/ -q 2>&1 | tee cp10-backend.log",
+                "continue-on-error": True,
+            },
+            {"name": "summary", "run": 'echo "Broader backend regression: ${{ steps.backend.outcome }}"'},
+        ]
+    )
+    assert masked_outcomes_reported(workflow) == [("backend", "summary")]
+
+
+def test_detector_is_silent_when_the_summary_reports_the_log():
+    # Positive control: the repaired form reports the log's own summary line, so
+    # the masked outcome is never presented as a result.
+    workflow = _synthetic_workflow(
+        [
+            {
+                "id": "backend",
+                "run": "python -m pytest tests/ -q 2>&1 | tee cp10-backend.log",
+                "continue-on-error": True,
+            },
+            {
+                "name": "summary",
+                "run": 'r=$(tail -n 1 cp10-backend.log || true)\n'
+                       'echo "Broader backend regression (non-gating diagnostic): ${r:-no log}"',
+            },
+        ]
+    )
+    assert masked_outcomes_reported(workflow) == []
+
+
+def test_detector_is_silent_when_the_step_keeps_its_exit_status():
+    # Positive control: with `pipefail` the outcome is a real verdict, so printing
+    # it is honest.
+    workflow = _synthetic_workflow(
+        [
+            {
+                "id": "backend",
+                "run": "set -o pipefail\npython -m pytest tests/ -q 2>&1 | tee cp10-backend.log",
+                "continue-on-error": True,
+            },
+            {"name": "summary", "run": 'echo "Broader backend regression: ${{ steps.backend.outcome }}"'},
+        ]
+    )
+    assert masked_outcomes_reported(workflow) == []
+
+
+def test_detector_does_not_exempt_the_enforcement_step_from_masking():
+    # The enforcement step is the gating surface, so its own assertion is not
+    # reported here; the masking it inherits is the separate register's business.
+    workflow = _synthetic_workflow(
+        [
+            {"id": "x", "run": "python -m pytest tests/ -q | tee log"},
+            {"name": "enforce", "run": "test '${{ steps.x.outcome }}' = success"},
+        ]
+    )
+    assert masked_outcomes_reported(workflow) == []
+
+
 def test_detector_reports_a_continue_on_error_enforcement_step():
     # Negative control: the enforcement runs, but its exit status is discarded, so
     # the assertion cannot fail the job.
@@ -660,6 +798,49 @@ def test_registered_masked_steps_are_still_enforced(entry: tuple[str, str]):
         "`steps.<id>.outcome` enforcement; the entry no longer describes a "
         "verdict step"
     )
+
+
+def test_a_masked_step_is_not_reported_as_a_verdict():
+    """A masked step's outcome must not be printed as a result anywhere.
+
+    The mask makes ``outcome`` ``success`` for every verdict result, so an
+    evidence line that prints it states a pass that was never measured. Measured
+    on ``main`` @ ``bb19aabd`` / run ``45044373044``: the CP10-B step reported
+    ``9 failed, 4267 passed, 1 error`` while the CP10 evidence summary recorded
+    ``Broader backend regression: success``. The terminal enforcement is exempt
+    (it is the gating surface, and its inherited mask is registered separately).
+    """
+    offenders = {
+        path.name: masked_outcomes_reported(_load(path))
+        for path in _tracked_workflow_paths()
+    }
+    reported = {name: found for name, found in offenders.items() if found}
+    assert not reported, (
+        "masked verdict steps whose outcome is reported as a result: "
+        f"{reported}. A step that pipes its verdict command into a passthrough "
+        "without `pipefail` reports `success` for every result; print the "
+        "command's own summary line instead, or add `set -o pipefail`."
+    )
+
+
+def test_the_corpus_summary_is_reported_when_it_prints_a_masked_outcome():
+    """Negative control on the real workflow file, not a synthetic fixture.
+
+    The pre-repair summary line is reintroduced into the live CP10 workflow in
+    memory and must be reported; the committed file must be silent. A guard that
+    only agrees with its own fixture proves nothing about the corpus.
+    """
+    path = WORKFLOWS / "sg-02-fe-2-v.yml"
+    workflow = _load(path)
+    assert masked_outcomes_reported(workflow) == []
+
+    summary = next(
+        s for s in _steps(next(iter(_jobs(workflow).values())))
+        if s.get("name") == "CP10 evidence summary"
+    )
+    assert isinstance(summary.get("run"), str)
+    summary["run"] += '\n echo "Broader backend regression: ${{ steps.backend.outcome }}"'
+    assert masked_outcomes_reported(workflow) == [("backend", "CP10 evidence summary")]
 
 
 def test_enforcement_steps_are_not_exempt_from_failing():

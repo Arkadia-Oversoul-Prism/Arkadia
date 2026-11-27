@@ -559,7 +559,14 @@ jobs:
             echo "Phase10 binding: ${{ steps.phase10_binding.outcome }}"
             echo "Grove contracts: ${{ steps.grove.outcome }}"
             echo "Lab tests: ${{ steps.lab.outcome }}"
-            echo "Broader backend regression: ${{ steps.backend.outcome }}"
+            # `steps.backend.outcome` is `success` for every pytest result: the step
+            # pipes into `tee` without `pipefail`, so the pipeline reports tee's exit
+            # status (registered in tests/test_ci_verdict_step_integrity.py). Printing
+            # it here stated a pass that was never measured — run 45044373044 recorded
+            # `9 failed, 4267 passed, 1 error` while this line read `success`. Report
+            # the log's own summary line instead.
+            backend_result=$(tail -n 1 cp10-backend.log 2>/dev/null || true)
+            echo "Broader backend regression (non-gating diagnostic): ${backend_result:-no log}"
             echo "Backend readiness: ${{ steps.backend_ready.outcome }}"
             echo "API verification: ${{ steps.api.outcome }}"
             echo "Frontend readiness: ${{ steps.frontend_ready.outcome }}"
