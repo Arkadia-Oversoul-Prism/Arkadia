@@ -30,13 +30,28 @@ RETIRED_LEGACY_ROUTES = {
 
 _ROW = re.compile(r"^\|\s*`(?P<methods>[^`]+)`\s*\|\s*`(?P<path>[^`]+)`\s*\|", re.MULTILINE)
 
+# The guide carries several two-column tables that are not endpoint tables (component
+# owners, environment variables). A row is an endpoint row only when its first cell names
+# HTTP methods; without this gate ``| `PORT` | `entrypoint.sh` |`` is read as the route
+# ``entrypoint.sh`` and reported as documented-but-unserved.
+HTTP_METHODS = frozenset(
+    {"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS", "TRACE", "CONNECT"}
+)
 
-def _documented_routes() -> set[tuple[str, str]]:
+
+def _is_endpoint_row(methods: str) -> bool:
+    tokens = [token.strip().upper() for token in methods.split(",")]
+    return bool(tokens) and all(token in HTTP_METHODS for token in tokens)
+
+
+def _documented_routes(guide: Path | None = None) -> set[tuple[str, str]]:
     """Return {(METHOD, path)} parsed from the guide's endpoint table."""
-    rows = _ROW.findall(GUIDE.read_text(encoding="utf-8"))
+    rows = _ROW.findall((guide or GUIDE).read_text(encoding="utf-8"))
     assert rows, "no endpoint table rows found in DEPLOYMENT_GUIDE.md"
     routes: set[tuple[str, str]] = set()
     for methods, path in rows:
+        if not _is_endpoint_row(methods):
+            continue
         for method in methods.split(","):
             routes.add((method.strip().upper(), path.strip()))
     return routes
@@ -113,3 +128,47 @@ def test_health_route_documentation_matches_the_served_app() -> None:
         assert "is **not** served by this app" in guide_text, (
             "/health is not served but the guide does not warn that it 404s"
         )
+
+
+def test_non_endpoint_rows_are_not_read_as_routes() -> None:
+    """A two-column table that names no HTTP method is not an endpoint table.
+
+    `DEPLOYMENT_GUIDE.md` documents component owners and environment variables in the same
+    `| cell | cell |` shape. Reading those as routes reports e.g. `entrypoint.sh` as a
+    documented-but-unserved path, which is a defect in the extractor, not in the document.
+    """
+    rows = [
+        "| `PORT` | `entrypoint.sh` |",
+        "| `ELEVENLABS_API_KEY` | `kernel/tts.py` |",
+        "| `GET` | `/api/heartbeat` |",
+    ]
+    assert [m for m, _ in (_ROW.match(row).groups() for row in rows)] == [
+        "PORT",
+        "ELEVENLABS_API_KEY",
+        "GET",
+    ]
+    assert [_is_endpoint_row(_ROW.match(row).group("methods")) for row in rows] == [
+        False,
+        False,
+        True,
+    ]
+
+
+def test_the_detector_still_flags_a_documented_route_the_app_does_not_serve(
+    tmp_path,
+) -> None:
+    """Negative control: gating on HTTP methods must not silence a genuine defect."""
+    planted = tmp_path / "guide.md"
+    planted.write_text(
+        "| Methods | Path |\n|---|---|\n"
+        "| `GET` | `/api/heartbeat` |\n"
+        "| `POST` | `/api/totally-unserved-probe` |\n"
+        "| `PORT` | `entrypoint.sh` |\n",
+        encoding="utf-8",
+    )
+    documented = _documented_routes(guide=planted)
+    assert ("POST", "/api/totally-unserved-probe") in documented
+    assert ("PORT", "entrypoint.sh") not in documented
+
+    missing = sorted(documented - _served_routes())
+    assert ("POST", "/api/totally-unserved-probe") in missing
