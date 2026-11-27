@@ -34,6 +34,10 @@ on:
       - "scripts/console_contract_domain.py"
       - "tests/**"
       - ".github/workflows/prism-console-contract.yml"
+      # `tests/test_aeas05_canonical_frontend_acceptance.py` now binds the
+      # canonical browser smoke's route table to the console's surface table, so
+      # an edit to that workflow changes what this gate asserts about it.
+      - ".github/workflows/canonical-render-browser-smoke.yml"
   push:
     branches: ["main"]
     paths:
@@ -42,6 +46,10 @@ on:
       - "scripts/console_contract_domain.py"
       - "tests/**"
       - ".github/workflows/prism-console-contract.yml"
+      # `tests/test_aeas05_canonical_frontend_acceptance.py` now binds the
+      # canonical browser smoke's route table to the console's surface table, so
+      # an edit to that workflow changes what this gate asserts about it.
+      - ".github/workflows/canonical-render-browser-smoke.yml"
   # The gate is path-filtered, so a revision touching none of the above never runs
   # it. `workflow_dispatch` lets the console contract be executed against an exact
   # revision on demand (it runs the workflow file from the dispatched ref, so
