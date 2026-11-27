@@ -244,18 +244,30 @@ export function ContractState({
 }
 
 /**
- * An honest placeholder for a surface whose backend contract is not yet wired.
- * It states exactly what is missing rather than rendering mock data.
+ * An honest placeholder for a surface the console has not built yet. It states
+ * what is missing rather than rendering mock data.
+ *
+ * The copy must stay true for **both** states this panel is used in, because
+ * they are not the same claim:
+ *
+ *   contract absent   the backend does not serve the interface at all
+ *   interface absent  the backend serves it and only the console surface is
+ *                     unbuilt (or deliberately not offered, e.g. a mutating
+ *                     authority act)
+ *
+ * Saying "contract not yet wired" asserts the first, so it is false for every
+ * panel in the second state. The `note` carries the per-surface detail; the
+ * shared copy names only the surface.
  */
 export function NotYetWired({ contract, note }: { contract: string; note?: string }) {
   return (
     <Panel className="border-dashed">
-      <p className="cg-eyebrow">Surface scaffolded · contract not yet wired</p>
+      <p className="cg-eyebrow">Surface scaffolded · interface not built</p>
       <p className="mt-2 text-[13px] leading-relaxed text-white/55">
         This surface is part of the product architecture but its interface is not built yet.
       </p>
       <p className="mt-3 break-words font-mono text-[11px] text-white/45">
-        Expected contract: <span className="text-azure">{contract}</span>
+        Backend contract: <span className="text-azure">{contract}</span>
       </p>
       {note && <p className="mt-2 text-[11.5px] leading-relaxed text-white/35">{note}</p>}
     </Panel>

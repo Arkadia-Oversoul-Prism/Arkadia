@@ -36,6 +36,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "web" / "arkadia_console" / "src"
 ENDPOINTS_PATH = SRC / "lib" / "endpoints.ts"
+NOT_YET_WIRED_PATH = SRC / "components" / "ui.tsx"
 
 
 # ---------------------------------------------------------------------------
@@ -747,6 +748,97 @@ def test_advertised_contract_strings_are_recorded():
     )
     assert invented not in RECORDED_ADVERTISED_DRIFT, (
         "the invented control route must not be pre-recorded, or the control is vacuous"
+    )
+
+
+_CONTRACT_ABSENCE_CLAIM = re.compile(r"contract\s+not\s+yet\s+wired", re.IGNORECASE)
+
+
+def _not_yet_wired_body(source: str) -> str:
+    """The rendered body of the shared ``NotYetWired`` component, comments stripped.
+
+    Sliced from the function declaration so the docstring -- which may legitimately
+    quote the pre-repair wording -- is not read as rendered copy.
+    """
+    marker = "export function NotYetWired"
+    start = source.find(marker)
+    if start == -1:
+        return ""
+    end = source.find("\nexport function ", start + len(marker))
+    body = source[start: end if end != -1 else len(source)]
+    body = re.sub(r"/\*.*?\*/", "", body, flags=re.DOTALL)
+    return re.sub(r"^\s*//.*$", "", body, flags=re.MULTILINE)
+
+
+def _served_contract_claimed_absent(ui_source: str, served_advertised: list[str]) -> list[str]:
+    """Served advertised contracts the shared placeholder still calls unwired.
+
+    The panel is used in two different states -- contract absent, and contract
+    served but interface unbuilt -- so copy asserting the first is false for the
+    second. Returns ``[]`` when the copy makes no such claim, or when no panel
+    advertises a served contract (nothing is misstated). Returning the offending
+    contracts makes a failure name the premise instead of only the copy.
+    """
+    if not served_advertised:
+        return []
+    if not _CONTRACT_ABSENCE_CLAIM.search(_not_yet_wired_body(ui_source)):
+        return []
+    return list(served_advertised)
+
+
+def test_shared_placeholder_does_not_call_a_served_contract_unwired():
+    """The ``NotYetWired`` copy must stay true for every panel that uses it.
+
+    Measured at ``main`` ``034d8879``: six panels advertise a contract the
+    canonical app *serves* (``/solspire/proposals``, ``/solspire/workevents``,
+    ``/solspire/enterprise/workspaces``, ``/solspire/voice/events``,
+    ``/api/lab/engineering/sessions/{session_id}/transition``,
+    ``/api/lab/engineering/sessions/{id}/execute``) while the shared copy read
+    "Surface scaffolded · contract not yet wired". The panel is used for two
+    distinct states and the copy asserted only the first, so it understated the
+    served backend on all six. ``SHARED-CONTRACTS.md`` §3.5 requires honest,
+    distinct states; §3.6 requires a clearly marked blocked state.
+    """
+    served = _served_paths()
+    advertised = _advertised_contract_strings(_tsx_sources())
+    served_advertised = sorted(
+        {v for values in advertised.values() for v in values if _is_served(v, served)}
+    )
+    ui = NOT_YET_WIRED_PATH.read_text(encoding="utf-8")
+
+    # The verdict first, so a red tree names the served contracts rather than a
+    # control. The controls below still catch an inert detector: if this
+    # assertion were vacuous the pre-repair control would fail instead.
+    assert _served_contract_claimed_absent(ui, served_advertised) == [], (
+        "the shared NotYetWired copy claims a served contract is not yet wired; "
+        "panels advertising a served contract: " + ", ".join(served_advertised)
+    )
+
+    # Negative controls, synthetic so they do not depend on the live file's state.
+    # The pre-repair copy is exactly the shape this guard exists to report; a
+    # comment quoting it is not rendered copy and must not be reported.
+    pre_repair = (
+        "export function NotYetWired({ contract }: { contract: string }) {\n"
+        '  return <p className="cg-eyebrow">Surface scaffolded · contract not yet wired</p>;\n'
+        "}\n"
+    )
+    commented = (
+        "export function NotYetWired({ contract }: { contract: string }) {\n"
+        "  /* pre-repair wording: contract not yet wired */\n"
+        "  return <p>Surface scaffolded · interface not built</p>;\n"
+        "}\n"
+    )
+    assert _served_contract_claimed_absent(pre_repair, ["/solspire/proposals"]) == [
+        "/solspire/proposals"
+    ], "detector control: the pre-repair copy must be reported as claiming absence"
+    assert _served_contract_claimed_absent(commented, ["/solspire/proposals"]) == [], (
+        "detector control: a comment quoting the pre-repair wording is not rendered copy"
+    )
+    assert _served_contract_claimed_absent(ui, ["/solspire/proposals"]) == [], (
+        "detector control: the repaired copy must not be reported"
+    )
+    assert _served_contract_claimed_absent(ui, []) == [], (
+        "detector control: with no served advertisement nothing is misstated"
     )
 
 
