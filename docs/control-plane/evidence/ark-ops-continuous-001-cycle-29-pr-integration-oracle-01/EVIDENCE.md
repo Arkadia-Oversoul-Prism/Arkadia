@@ -190,3 +190,49 @@ forbidden actions  : merge, push to main, force-push, deploy, close a PR on orac
 completion         : the selected draft's gap is measured, implemented, and guarded, and
                      this record plus the ledger name the next legal task
 ```
+
+## 11. Cycle 35 continuation — the unreadable file list was a landing claim
+
+Measured 2026-11-28 during a portfolio pulse at `main` `8f746f9e` / this PR's head `3824817a`.
+
+**Defect.** `pr_files()` returned `[]` on *any* failed page — a 403, a rate limit, a
+network error — and `classify([])` returned `INTEGRATED`. So a PR whose file list could
+not be read was reported as "its work has already landed": the single verdict that
+justifies closing live work. `tests/test_pr_integration_oracle.py` pinned that reading
+(`test_an_empty_diff_contributes_nothing` asserted `INTEGRATED`), which is the
+freeze-the-bug shape — the guard protected the defect instead of the property.
+
+```
+before                                    after
+classify([], {})  -> INTEGRATED           classify([], {})  -> UNKNOWN
+pr_files(<fails>) -> []                   pr_files(<fails>) -> None  (evaluate -> UNKNOWN,
+                                                                    reason=file_list_unavailable)
+```
+
+**Repair, three sites, one file.**
+
+| site | change |
+|---|---|
+| `classify` | an empty list is `UNKNOWN`; docstring states an unreadable list is never a landing claim |
+| `pr_files` | returns `None` when a page is unreadable, distinct from a successful empty list |
+| `evaluate` | a `None` file list yields an `UNKNOWN` row with `reason: file_list_unavailable`, and `render_table` prints `n/a` rather than a fabricated `0` |
+
+**Negative controls, both proved against the pre-repair script** (revert `classify`/`pr_files`
+to the head shape, run, restore): `2 failed, 10 passed`. Restored: `12 passed`.
+The unreadable case uses a closed port (`http://127.0.0.1:9`) as a real failing `urlopen`
+— no mock, the same code path a 403 takes.
+
+**Checks run**
+
+```
+python -m py_compile scripts/pr_integration_oracle.py                     -> ok
+python -m pytest tests/test_pr_integration_oracle.py -q -rEf              -> 12 passed
+python -m pytest tests/test_pr_integration_oracle.py \
+      tests/test_open_pr_inventory.py tests/architecture -q -rEf          -> 30 passed
+printf '<3 paths>' | python scripts/cp10_mutation_boundary_policy.py --judge -> PASS
+```
+
+**Not claimed.** No PR was closed; no merge, deployment or acceptance. The live queue
+measurement in §"Measured effect" was not re-run in this continuation (needs network +
+token), so its `63 open PRs | CONTRIBUTES=63` figures remain bound to base `8f746f9e`.
+`api/main.py` is untouched.

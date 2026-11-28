@@ -136,7 +136,13 @@ def classify(files: list[dict], base_blobs: dict[str, str]) -> tuple[str, list[d
     ``INTEGRATED``  every changed path already carries the PR's content at base.
     ``PARTIAL``     at least one path landed and at least one still differs.
     ``CONTRIBUTES`` no changed path is already at base.
-    ``UNKNOWN``     a path could not be decided (or the list was truncated).
+    ``UNKNOWN``     a path could not be decided, the list was truncated, or the
+                    list is empty.
+
+    An empty list is ``UNKNOWN``, never ``INTEGRATED``. ``pr_files`` returns
+    ``None`` when the endpoint could not be read, and a lenient reader that
+    treats "no paths" as "nothing outstanding" reports an unreadable PR as
+    landed -- the one direction that would justify closing live work.
     """
     if len(files) >= FILE_LIST_CEILING:
         return UNKNOWN, []
@@ -157,7 +163,7 @@ def classify(files: list[dict], base_blobs: dict[str, str]) -> tuple[str, list[d
     if any(row["landed"] is None for row in rows):
         return UNKNOWN, rows
     if not rows:
-        return INTEGRATED, rows
+        return UNKNOWN, rows
     if all(row["landed"] for row in rows):
         return INTEGRATED, rows
     if not any(row["landed"] for row in rows):
@@ -186,7 +192,13 @@ def list_open_prs(token: str, repo: str, api: str = API) -> list[dict]:
     return out
 
 
-def pr_files(token: str, repo: str, number: int, api: str = API) -> list[dict]:
+def pr_files(token: str, repo: str, number: int, api: str = API) -> list[dict] | None:
+    """The PR's changed paths, or ``None`` when the endpoint could not be read.
+
+    ``None`` is distinct from ``[]`` on purpose: a rate limit, a 403 or a network
+    failure must not be reported as an empty diff, because an empty diff is not a
+    landing claim and an unreadable one certainly is not.
+    """
     out: list[dict] = []
     page = 1
     while True:
@@ -194,12 +206,11 @@ def pr_files(token: str, repo: str, number: int, api: str = API) -> list[dict]:
             _url(api, f"/repos/{repo}/pulls/{number}/files", per_page=100, page=page), token, api
         )
         if status != 200 or not isinstance(payload, list):
-            break
+            return None
         out.extend(payload)
         if len(payload) < 100 or len(out) >= FILE_LIST_CEILING:
-            break
+            return out
         page += 1
-    return out
 
 
 def evaluate(
@@ -214,6 +225,20 @@ def evaluate(
     for pr in prs:
         number = pr.get("number")
         files = pr_files(token, repo, int(number), api)
+        if files is None:
+            rows.append(
+                {
+                    "number": number,
+                    "title": (pr.get("title") or "")[:80],
+                    "head": (pr.get("head") or {}).get("sha"),
+                    "changed_paths": None,
+                    "verdict": UNKNOWN,
+                    "reason": "file_list_unavailable",
+                    "base_rev": base_rev,
+                    "paths": [],
+                }
+            )
+            continue
         verdict, detail = classify(files, base_blobs)
         rows.append(
             {
@@ -222,6 +247,7 @@ def evaluate(
                 "head": (pr.get("head") or {}).get("sha"),
                 "changed_paths": len(files),
                 "verdict": verdict,
+                "reason": "empty_diff" if not files else "",
                 "base_rev": base_rev,
                 "paths": detail,
             }
@@ -232,8 +258,9 @@ def evaluate(
 def render_table(rows: list[dict]) -> str:
     lines = [f"{'PR':>5}  {'verdict':<10} {'paths':>5}  title"]
     for row in rows:
+        paths = "n/a" if row["changed_paths"] is None else str(row["changed_paths"])
         lines.append(
-            f"{row['number']:>5}  {row['verdict']:<10} {row['changed_paths']:>5}  {row['title']}"
+            f"{row['number']:>5}  {row['verdict']:<10} {paths:>5}  {row['title']}"
         )
     counts: dict[str, int] = {}
     for row in rows:

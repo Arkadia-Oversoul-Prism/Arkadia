@@ -176,10 +176,41 @@ def test_a_truncated_file_list_is_undecidable_not_integrated(repo: Path) -> None
     assert oracle.classify(truncated, base)[0] == oracle.UNKNOWN
 
 
-def test_an_empty_diff_contributes_nothing(repo: Path) -> None:
+def test_an_empty_diff_is_undecidable_not_integrated(repo: Path) -> None:
+    """Superseded pin: this test asserted ``INTEGRATED`` for an empty file list.
+
+    A zero-path list carries no content to compare, so it cannot establish that
+    anything landed -- and ``pr_files`` returns ``None`` (not ``[]``) when the
+    endpoint is unreadable, so the lenient reading also turned a failed fetch into
+    a landing claim. Both read ``UNKNOWN`` now.
+    """
     base = oracle.blob_map(str(repo), _head(repo))
     assert base is not None
-    assert oracle.classify([], base)[0] == oracle.INTEGRATED
+    assert oracle.classify([], base)[0] == oracle.UNKNOWN
+
+
+def test_an_unreadable_file_list_is_unknown_not_integrated(repo: Path) -> None:
+    """Negative control: a closed port stands in for a rate limit or a 403.
+
+    The pre-repair shape returned ``[]`` on any failed page and classified it
+    ``INTEGRATED``; the same call now yields ``None`` and an ``UNKNOWN`` row.
+    """
+    unreachable = "http://127.0.0.1:9"
+    assert oracle.pr_files("token", "owner/repo", 1, api=unreachable) is None
+
+    base = oracle.blob_map(str(repo), _head(repo))
+    assert base is not None
+    rows = oracle.evaluate(
+        [{"number": 1, "title": "unreadable", "head": {"sha": "0" * 40}}],
+        "token",
+        "owner/repo",
+        base,
+        _head(repo),
+        api=unreachable,
+    )
+    assert rows[0]["verdict"] == oracle.UNKNOWN
+    assert rows[0]["reason"] == "file_list_unavailable"
+    assert rows[0]["changed_paths"] is None
 
 
 # --------------------------------------------------------------------------- read-only
