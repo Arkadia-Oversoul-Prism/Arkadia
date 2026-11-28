@@ -18,18 +18,20 @@
     },
     {
       "repository": "Arkadia-Oversoul-Prism/family-safety-network",
-      "phase": "F4 — deployment security boundary (this cycle: the request-time TLS guard, #22/#23); F2 — privacy and data lifecycle (audit requirements); F1 identity provider and guardian consent remain human decisions",
-      "active_issue_or_pr": "#23 (F4 transport guard pin, issue #22, head 0dc96d7, 1 commit), #21 (F2 audit completeness for the device location read, issue #20, head 796d4a6), #19 (F3 permission/transport guard), #18 (F0 integration closure + README), #17 (retention purge runner), #16 (F2 rate-limit coverage), #15 (authz resource-existence oracle), #14 (F2 rate-limit table bound), #12 (audit append-only), #10 (signing-key rotation). Ten open drafts, all CI-green on their own heads, measured 2026-11-28T02:13Z. Three phase labels stay misaligned with the directive's definitions (#12 is F2/F4 content, #10 is F1 content, #17 is F2 content). Recorded, not rewritten.",
+      "phase": "F4 — deployment security boundary (cycle 34: the release gate checklist, #24/#25); request-time TLS guard (#22/#23); F2 — privacy and data lifecycle (audit requirements); F1 identity provider and guardian consent remain human decisions",
+      "active_issue_or_pr": "#25 (F4 release gate checklist, issue #24, head c5ef595, 1 commit) — every gate with the source that carries or lacks it, plus a guard that fails when a row omits a finding, invents one, uses an undeclared status, or claims approval while a gate is open; #23 (F4 transport guard pin, issue #22), #21 (F2 audit completeness for the device location read, issue #20), #19 (F3 permission/transport guard), #18 (F0 integration closure + README), #17 (retention purge runner), #16 (F2 rate-limit coverage), #15 (authz resource-existence oracle), #14 (F2 rate-limit table bound), #12 (audit append-only), #10 (signing-key rotation). Eleven open drafts, measured 2026-11-28T04:12Z.",
       "blocked": false,
       "blockers": [
         "physical-device acceptance needs real hardware; CI is not device evidence",
         "the purge runner is implemented but no scheduler is deployed (human-authorised)",
         "F1 production identity provider is a product/deployment decision, so F1 cannot be closed by an agent",
         "F2 guardian/minor consent needs a documented legal/product decision",
-        "the THREAT-MODEL F3/F4 rows and §5.5 still deny controls that exist; correcting them conflicts with open drafts #16 and #21 (measured, see #22)"
+        "the THREAT-MODEL F3/F4 rows and §5.5 still deny controls that exist; correcting them conflicts with open drafts #16 and #21 (measured, see #22)",
+        "the release gate checklist records F1 and F2 as the release blockers, F5/F7/F8 as not met, and physical-device acceptance as BLOCKED; it is an assessment, not an acceptance record",
+        "THREAT-MODEL F3/F4 rows and §5.5 still deny controls that exist; correcting them waits on #16 and #21, which carry those sections as diff context, so a third concurrent edit conflicts"
       ],
-      "next_legal_task": "Await human review of the ten drafts; do not open a parallel PR for a slice an open draft owns. Next F4 slices, in order: (1) correct THREAT-MODEL F3 (line 92) once #16 lands — the edit conflicts with #16 today because its findings-table hunk carries F3/F4 as context (measured: merge of fsn/route-rate-limit-coverage-01 -> CONFLICT in documentation/security/THREAT-MODEL.md; #21 and #15 merge cleanly); (2) F4 (line 93) and §5.5 (line 81) still say no retention or deletion policy exists while backend/app/retention.py implements purge, member erasure and account erasure — §5.5 is context in #21's hunk, so it waits on #21; (3) the F4 release checklist is absent (grep -rlin 'release checklist' . -> 0) and is unowned. Recorded, not repaired: enforce_https compares X-Forwarded-Proto to 'https' exactly, so 'HTTPS' and 'https, http' are refused; widening it is a behaviour change to a security control and needs its own decision. Physical-device acceptance (F3) stays BLOCKED on hardware.",
-      "last_pulse_at": "2026-11-28T02:20:00Z",
+      "next_legal_task": "Await human review of the eleven drafts; do not open a parallel PR for a slice an open draft owns. The unblocked follow-up is to correct THREAT-MODEL F3 (line 92) once #16 lands, then F4 (line 93) and §5.5 (line 81) once #21 lands — both are recorded in issue #24. The F4 release checklist itself is now present and guarded, so further release-gate work means closing gates, not describing them. Physical-device acceptance (F3) stays BLOCKED on hardware; the F1 identity provider and the guardian-consent semantics stay human decisions.",
+      "last_pulse_at": "2026-11-28T04:15:00Z",
       "last_composition_measurement": {
         "measured_at": "2026-11-28T00:16:00Z",
         "base_sha": "18c729735fd428622ea70b76571aa38e518a9774",
