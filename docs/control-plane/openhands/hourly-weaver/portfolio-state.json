@@ -1,6 +1,6 @@
 {
   "schema": "arkadia.portfolio-state/1.1",
-  "derived_at": "2026-11-28T04:14:15Z",
+  "derived_at": "2026-11-28T06:14:17Z",
   "authority": "read-only observation; GET only. Not a merge, deployment or acceptance record.",
   "repositories": [
     {
@@ -8,14 +8,14 @@
       "default_branch": "feature/sonata-tts-app",
       "head_sha": "7c4e6a64e39e34685b06e2e1698cf9eb896b9720",
       "head_committed_at": "2026-11-26T17:52:36Z",
-      "pushed_at": "2026-11-28T03:16:48Z",
+      "pushed_at": "2026-11-28T05:21:05Z",
       "open_pulls": 4,
       "open_issues": 1,
       "latest_open_pull": {
-        "number": 12,
-        "updated_at": "2026-11-28T03:17:04Z"
+        "number": 9,
+        "updated_at": "2026-11-28T05:21:20Z"
       },
-      "last_progress_at": "2026-11-28T03:16:48Z",
+      "last_progress_at": "2026-11-28T05:21:05Z",
       "observation": "VERIFIED",
       "detail": ""
     },
@@ -24,14 +24,14 @@
       "default_branch": "main",
       "head_sha": "18c729735fd428622ea70b76571aa38e518a9774",
       "head_committed_at": "2026-11-26T08:22:33Z",
-      "pushed_at": "2026-11-28T04:12:32Z",
+      "pushed_at": "2026-11-28T04:15:50Z",
       "open_pulls": 11,
       "open_issues": 6,
       "latest_open_pull": {
         "number": 25,
-        "updated_at": "2026-11-28T04:12:45Z"
+        "updated_at": "2026-11-28T04:16:15Z"
       },
-      "last_progress_at": "2026-11-28T04:12:32Z",
+      "last_progress_at": "2026-11-28T04:15:50Z",
       "observation": "VERIFIED",
       "detail": ""
     },
@@ -40,21 +40,21 @@
       "default_branch": "main",
       "head_sha": "8f746f9eab6df51733f6d43c8bab26af63eb6471",
       "head_committed_at": "2026-11-27T00:13:03Z",
-      "pushed_at": "2026-11-28T03:18:07Z",
+      "pushed_at": "2026-11-28T06:13:37Z",
       "open_pulls": 64,
       "open_issues": 10,
       "latest_open_pull": {
-        "number": 744,
-        "updated_at": "2026-11-28T03:18:08Z"
+        "number": 750,
+        "updated_at": "2026-11-28T06:13:45Z"
       },
-      "last_progress_at": "2026-11-28T03:18:07Z",
+      "last_progress_at": "2026-11-28T06:13:37Z",
       "observation": "VERIFIED",
       "detail": ""
     }
   ],
   "selection": {
-    "repository": "Arkadia-Oversoul-Prism/sonata",
-    "reason": "oldest verified last_progress_at among unblocked repositories (2026-11-28T03:16:48Z); tie-break order Sonata -> FSN -> Arkadia",
+    "repository": "Arkadia-Oversoul-Prism/family-safety-network",
+    "reason": "oldest verified last_progress_at among unblocked repositories (2026-11-28T04:15:50Z); tie-break order Sonata -> FSN -> Arkadia",
     "skipped": []
   }
 }
