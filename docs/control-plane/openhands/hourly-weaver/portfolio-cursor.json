@@ -5,15 +5,16 @@
   "repositories": [
     {
       "repository": "Arkadia-Oversoul-Prism/sonata",
-      "phase": "S1 \u2014 playback state and connectivity truth",
-      "active_issue_or_pr": "#9 (S1: speech tier from measured capability, then S1b the progressive-read gate, S1c completed/failed states, S1d the terminal outcome survives the screen). #10 owns the S4 slice (screen reaches the engine). Both open drafts, measured 2026-11-27 at head 3e034ca / e1f952a.",
+      "phase": "S1 \u2014 playback state and connectivity truth (open drafts #9, #10); S3/S4 \u2014 recovery-path truth (this cycle: #11)",
+      "active_issue_or_pr": "#11 (S4: the offline engine refuses empty audio on the retry path, not only on narrate; base 7c4e6a64, head f85e779, 2 commits), #9 (S1 speech tier + progressive read + completed/failed states), #10 (S4 screen reaches the engine). Three open drafts, measured 2026-11-28 at heads f85e779 / 3e034ca / e1f952a.",
       "blocked": false,
       "blockers": [
         "physical-device acceptance needs the household Samsung A23 and OPPO; CI is not device evidence",
-        "the service still stops itself on completion, so a finished read is not resumable in place"
+        "the service still stops itself on completion, so a finished read is not resumable in place",
+        "retry() has no production caller yet, so #11 repairs the engine boundary before the recovery UI is wired to it"
       ],
-      "next_legal_task": "Await human review of #9 (head 3e034ca) and #10 (head e1f952a); do not open a parallel PR for a slice an open draft already owns. The remaining S1 gaps are recorded, not hidden: completion is presented once and the service lifecycle is unchanged (docs/SONATA_IMPLEMENTATION_LEDGER.md 10.5). S2 (a natural offline neural voice) is unstarted and is the next unowned slice.",
-      "last_pulse_at": "2026-11-27T16:22:00Z"
+      "next_legal_task": "Await human review of #11 (head f85e779), #9 (head 3e034ca) and #10 (head e1f952a); do not open a parallel PR for a slice an open draft owns. S2 (a natural offline neural voice) is still unstarted and is the next unowned slice; the engine/ package already carries the compatibility gate (ModelCompatibility, BundledModels, DeviceProfile) and no model file, so the first real step is a bundled licensed model plus a device measurement, not more policy code.",
+      "last_pulse_at": "2026-11-28T01:34:00Z"
     },
     {
       "repository": "Arkadia-Oversoul-Prism/family-safety-network",
