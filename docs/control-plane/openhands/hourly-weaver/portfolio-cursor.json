@@ -1,0 +1,73 @@
+{
+  "schema": "arkadia.portfolio-cursor/1.0",
+  "updated_at": "2026-11-28T14:40:00Z",
+  "authority": "authored judgements. The directive is the source of each phase label; this file records no measurement -- portfolio-state.json does.",
+  "repositories": [
+    {
+      "repository": "Arkadia-Oversoul-Prism/sonata",
+      "phase": "S1 — playback state and connectivity truth (#9 now carries S1e + S1f); S3/S4 — recovery-path and reachability truth (#10, #11, #12, #13)",
+      "active_issue_or_pr": "#9 (S1: speech tier + progressive read + completed/failed states + a sample's end attributed to the sample's own line; base 7c4e6a64, head 1031701, 4 commits, 498 tests PASS), #10 (S4 screen reaches the engine), #11 (S4 offline engine refuses empty audio on the retry path), #12 (S3 document import), #13 (S3 per-document reading position). Five open drafts, all mergeable, all awaiting human review. Cycle 40 selected sonata at 15:06Z because its last_progress_at 2026-11-28T12:12:32Z was the oldest of the three.",
+      "blocked": false,
+      "blockers": [
+        "physical-device acceptance needs the household Samsung A23 and OPPO; CI and the JVM harness are not device evidence",
+        "the service stops itself on completion, so a finished read is not resumable in place",
+        "every actionable S1/S3/S4 slice is owned by an open draft; S2 (a natural offline neural voice) is unowned but needs a bundled licensed model and a device measurement, not more policy code"
+      ],
+      "next_legal_task": "Await human review of #9 (head 1031701), #10 (e1f952a), #11 (f85e779), #12 (206344da), #13 (5f2c9002); do not open a parallel PR for a slice an open draft owns. The next unowned slice remains S2, whose first real step is a bundled licensed model plus a device measurement. Presentation question left open by #9: after a sample ends the read line repaints to READY (position kept) rather than PAUSED — a presentation decision, recorded in SONATA_KNOWN_LIMITATIONS L24.",
+      "last_pulse_at": "2026-11-28T15:20:00Z",
+      "pulse_blockers": [
+        "CORRECTS the cycle-39 record that 'this execution sandbox has no JDK... so no Kotlin change can be compiled or tested before push'. Measured this pulse: the toolchain is provable-by-provisioning — Temurin JDK 17 (api.adoptium.net tarball), kotlin-compiler-1.9.22 from GitHub releases, and the nine classpath jars, with androidx room-common/annotation taken from dl.google.com/dl/android/maven2 rather than Maven Central. ./ci/run-ci.sh then reproduces the recorded baseline exactly (490 tests at f488815) and measures the change (498). Do not record 'no JDK' as a blocker again without attempting that recipe.",
+        "the harness preflight is what caught the platform-jar problem (RESULT=TOOLCHAIN_BROKEN), not a code failure — that distinction is the harness working as designed and should be preserved in any future provisioning note",
+        "the five open drafts are all mergeable and await human review, so a new slice must not duplicate owned work"
+      ]
+    },
+    {
+      "repository": "Arkadia-Oversoul-Prism/family-safety-network",
+      "phase": "F2 — privacy and data lifecycle (#28/#29 member-level erasure); F0 — migration-graph composition guard (#31, opened 13:11Z); F4 — deployment security boundary (#24/#25, #22/#23)",
+      "active_issue_or_pr": "#29 (F2 member erasure, issue #28, head 39e9cac, 1 commit) — erase_member_data() left a `scope='member'` SharingSession granted TO the erased member live, and left the FamilyMembership row, so the erased member kept reading another member's location and stayed listed. Repaired by revoking that grant and marking removed_at, both as updates (the subject's observations RESTRICT-reference the grant row); 4 DB-backed tests, 61 -> 65 passed, negative control reddens 3 of 4. Plus #27 (erasure identity revocation), #25 (release gate checklist), #23 (transport guard), #21 (audit completeness), #19 (manifest guard), #18 (F0 closure), #17 (purge runner), #16 (rate-limit coverage), #15 (authz oracle), #14 (rate-limit bound), #12 (audit append-only), #10 (signing-key rotation). Thirteen open drafts, #29 measured at head 39e9cac. Cycle 39 observed the 13:11Z pulse: FSN #31 (migration graph stays single-headed when PRs compose; heads e0817455, base 18c72973, 4 new tests, CI log 65 passed and alembic upgrade head succeeded) plus #30, the account-erasure FK-violation defect that stays HUMAN_DECISION_REQUIRED.",
+      "blocked": false,
+      "blockers": [
+        "physical-device acceptance needs real hardware; CI is not device evidence",
+        "the purge runner is implemented but no scheduler is deployed (human-authorised)",
+        "F1 production identity provider is a product/deployment decision, so F1 cannot be closed by an agent",
+        "F2 guardian/minor consent needs a documented legal/product decision",
+        "the THREAT-MODEL F3/F4 rows and §5.5 still deny controls that exist; correcting them conflicts with open drafts #16 and #21 (measured, see #22)",
+        "the release gate checklist records F1 and F2 as the release blockers, F5/F7/F8 as not met, and physical-device acceptance as BLOCKED; it is an assessment, not an acceptance record",
+        "SUPERSEDES the cycle-35 claim that 'no unowned legal slice remains': F2 account erasure is STILL unowned and returns 500 — see issue #30, measured this pulse and pre-existing",
+        "the erasure marker and the audit-immutability migration (#12) both branch from 0002 and compose into two Alembic heads; see last_composition_measurement"
+      ],
+      "next_legal_task": "Await human review of the thirteen drafts; do not open a parallel PR for a slice an open draft owns. Migration order: #12 (0003_audit_immu) first, then #27 with its down_revision moved to 0003_audit_immu — measured, not assumed. NEW this pulse, measured 2026-11-28T11:1xZ at main 18c72973 and owned by no draft: issue #30 records that DELETE /account raises ForeignKeyViolation (500) when the erased account holds a member-level grant whose subject has recorded an observation. Same root cause as #28, on the account path, proven pre-existing by reverting app/retention.py. It is NOT repaired because each fix changes the schema or the retention semantics (null the grantee, make obs.sharing_session_id ON DELETE SET NULL, or revoke-and-retain), so it is HUMAN_DECISION_REQUIRED. The THREAT-MODEL F3 correction (line 92) still waits on #16, then F4 (line 93) and §5.5 (line 81) on #21, both recorded in issue #24. Physical-device acceptance (F3) stays BLOCKED on hardware; the F1 identity provider and guardian-consent semantics stay human decisions.",
+      "last_pulse_at": "2026-11-28T11:16:00Z",
+      "pulse_blockers_detail": [
+        "CORRECTS the cycle-36/37 record that this sandbox has 'no PostgreSQL/PostGIS reachable'. It does, when provisioned: `sudo dockerd` + `docker run postgis/postgis:15-3.3` (PostGIS 3.3, 15-3.3) plus `alembic upgrade head` reproduces the CI baseline exactly — 61 passed on unmodified main 18c72973. The erasure tests are NOT unreachable; the earlier blocker was an unprovisioned environment, not an inaccessible dependency. Do not record 45 skips again without trying the container first.",
+        "the four (now thirteen) open drafts are all drafts awaiting human review, so a new slice must not duplicate owned work; #29 was safe because #28 was measured unowned"
+      ],
+      "last_composition_measurement": {
+        "measured_at": "2026-11-28T07:14:00Z",
+        "base_sha": "18c729735fd428622ea70b76571aa38e518a9774",
+        "branches": [
+          "fsn/f2-erasure-identity-revocation-01",
+          "fsn/f5-audit-append-only"
+        ],
+        "conflicted_files": [],
+        "order_dependent": true,
+        "composed_suite": "not run unreconciled: two Alembic heads, `alembic upgrade head` -> ERROR Multiple head revisions; after setting down_revision to 0003_audit_immu and rebuilding the schema from clean, 74 passed (#27 67 + #12 7)",
+        "baseline_suite": "61 passed (main 18c72973)",
+        "not_run": "physical-device acceptance (no hardware); Android assembleDebug and secret-scan (no Android or secret-bearing file touched)"
+      }
+    },
+    {
+      "repository": "Arkadia-Oversoul-Prism/Arkadia",
+      "phase": "ARK-OPS-CONTINUOUS-001 — continuous reconciliation and gap closure (cycle 39: live reconstruction, re-derived selection, queue reconciliation, Gate-2 revision parity)",
+      "active_issue_or_pr": "#750 (already-landed oracle, head 818cc3a7) plus the 64 drafts it measures; #744 carries this ledger; #736 (wave dry-run) and #733 (batch packet) remain the consolidation drafts; #718 (Knowledge OS 5xx) and #729 (eight api/ 5xx handlers) own the exception-text class. Cycle 39 measured the queue at 64 open, 64 drafts, 0 reviewDecision, 0 reviews, 40 SUCCESS / 24 FAILURE heads, oldest PR 2026-11-21.",
+      "blocked": false,
+      "blockers": [
+        "merge execution is human-only under GOV-04; a draft PR also needs its owner to mark it ready",
+        "64/64 open PRs are drafts with 0 reviews, so GOV-04 gates 1 and 2 are unsatisfied on every one",
+        "24 of 64 PR heads are CI-failing, so those could not merge even if made ready"
+      ],
+      "next_legal_task": "Triage the 24 CI-failing drafts by node identity before any of them is proposed as ready — a red head is now the binding blocker for a third of the queue, and no cycle record has carried that split before. Do not open a parallel PR for a slice #736/#733/#750 own. CLOCK NOTE, measured this pulse: the 13:11Z pulse worked FSN (#31), sonata moved at 12:12Z and Arkadia at 11:14Z, so Arkadia was the fair selection and the ledger-refresh push recorded here advances Arkadia past FSN again — a push that exists only to write the ledger competes with real progress for the clock, and the selection must be read from the per-repository heads, not from this refresh alone.",
+      "last_pulse_at": "2026-11-28T14:40:00Z"
+    }
+  ]
+}
