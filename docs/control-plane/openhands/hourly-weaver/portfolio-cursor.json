@@ -1,11 +1,11 @@
 {
   "schema": "arkadia.portfolio-cursor/1.0",
-  "updated_at": "2026-11-27T16:22:00Z",
+  "updated_at": "2026-11-28T00:24:00Z",
   "authority": "authored judgements. The directive is the source of each phase label; this file records no measurement -- portfolio-state.json does.",
   "repositories": [
     {
       "repository": "Arkadia-Oversoul-Prism/sonata",
-      "phase": "S1 — playback state and connectivity truth",
+      "phase": "S1 \u2014 playback state and connectivity truth",
       "active_issue_or_pr": "#9 (S1: speech tier from measured capability, then S1b the progressive-read gate, S1c completed/failed states, S1d the terminal outcome survives the screen). #10 owns the S4 slice (screen reaches the engine). Both open drafts, measured 2026-11-27 at head 3e034ca / e1f952a.",
       "blocked": false,
       "blockers": [
@@ -17,8 +17,8 @@
     },
     {
       "repository": "Arkadia-Oversoul-Prism/family-safety-network",
-      "phase": "F4 — deployment boundary (earliest incomplete phase after F0–F3)",
-      "active_issue_or_pr": "#19 (F3 permission/transport guard), #18 (F0 integration closure + README), #17 (retention purge runner), #16 (F2 rate-limit coverage), #15 (authz resource-existence oracle), #14 (F2 rate-limit table bound), #12 (audit append-only), #10 (signing-key rotation). Eight open drafts, all CI-green on their own heads, measured 2026-11-27T17:12Z. Phase labels above follow the issue/PR titles; three are misaligned with the directive's phase definitions (#12 audit immutability is F4/F2 content, not F5 product features; #10 signing-key rotation is F1 content, not F6 pilot readiness; #17 retention is F2 content, not F4 deployment boundary). Recorded, not rewritten: renaming issue labels is a separate change.",
+      "phase": "F2 \u2014 privacy and data lifecycle (audit requirements); F1 identity provider and guardian consent remain human decisions",
+      "active_issue_or_pr": "#21 (F2 audit completeness for the device location read, issue #20, head 796d4a6), #19 (F3 permission/transport guard), #18 (F0 integration closure + README), #17 (retention purge runner), #16 (F2 rate-limit coverage), #15 (authz resource-existence oracle), #14 (F2 rate-limit table bound), #12 (audit append-only), #10 (signing-key rotation). Nine open drafts, all CI-green on their own heads, measured 2026-11-28T00:19Z. Phase labels above follow the issue/PR titles; three are misaligned with the directive's phase definitions (#12 audit immutability is F2/F4 content, not F5 product features; #10 signing-key rotation is F1 content, not F6 pilot readiness; #17 retention is F2 content, not F4 deployment boundary). Recorded, not rewritten: renaming issue labels is a separate change.",
       "blocked": false,
       "blockers": [
         "physical-device acceptance needs real hardware; CI is not device evidence",
@@ -26,32 +26,28 @@
         "F1 production identity provider is a product/deployment decision, so F1 cannot be closed by an agent",
         "F2 guardian/minor consent needs a documented legal/product decision"
       ],
-      "next_legal_task": "Merge wave is now evidence-backed: the eight drafts compose. Measured 2026-11-27 at main 18c72973 by merging all eight branches into a detached worktree in phase order — zero conflicted files, alembic chain linear 0001->0002->0003, backend suite 123 passed / 0 failed on PostGIS 15-3.3 (main baseline: 61 passed). The contended pair #15/#16 both edit backend/app/routes.py and documentation/security/THREAT-MODEL.md and composes clean in BOTH orders, so merge order is not load-bearing. Next unowned F-series slice: F4's threat-model re-review. THREAT-MODEL.md F3 still reads 'No TLS enforcement in application code' and F4 still reads 'No data retention or deletion policy; no right-to-erasure path', but both controls are implemented (backend/app/main.py X-Forwarded-Proto middleware + config.validate_settings require_https; backend/app/retention.py purge_expired / erase_member_data / erase_account_data behind DELETE /v1/account and /v1/maintenance/purge). No open draft owns those two rows. F4's release checklist is also absent (grep -rlin 'release checklist' -> 0). Create the F4 phase issue before implementing, per the directive. Do not open a ninth FSN PR for a slice an existing draft owns.",
-      "last_pulse_at": "2026-11-27T17:12:00Z",
+      "next_legal_task": "Await human review of the nine drafts; do not open a parallel PR for a slice an open draft owns. Two unowned slices remain recorded, in trajectory order: (1) F2 \u2014 THREAT-MODEL.md T14 and \u00a75.4 are now satisfied by both location-read paths (this cycle), but \u00a75.5 still says 'no retention or deletion policy is implemented' while backend/app/retention.py implements purge, member erasure and account erasure; PR #17 touches the retention documentation, so that row belongs to it. (2) F4 \u2014 the threat-model re-review the previous cursor named: THREAT-MODEL.md F3 still reads 'No TLS enforcement in application code' and F4 still reads 'No data retention or deletion policy; no right-to-erasure path', but both controls are implemented (backend/app/main.py X-Forwarded-Proto middleware + config.validate_settings require_https; backend/app/retention.py behind DELETE /v1/account and /v1/maintenance/purge). No open draft owns those two rows, and F4's release checklist is still absent (grep -rlin 'release checklist' -> 0). Create the F4 phase issue before implementing, per the directive. Physical-device acceptance (F3) stays BLOCKED on hardware.",
+      "last_pulse_at": "2026-11-28T00:24:00Z",
       "last_composition_measurement": {
-        "measured_at": "2026-11-27T17:08:00Z",
+        "measured_at": "2026-11-28T00:16:00Z",
         "base_sha": "18c729735fd428622ea70b76571aa38e518a9774",
         "branches": [
-          "fsn/f0-integration-closure-01",
-          "fsn/f6-signing-key-rotation",
-          "fsn/ratelimit-memory-bound-01",
-          "fsn/f5-audit-append-only",
+          "fsn/location-read-audit-completeness-01",
           "fsn/resource-existence-oracle-01",
-          "fsn/route-rate-limit-coverage-01",
-          "fsn/f4-scheduled-purge-runner",
-          "fsn/f3-manifest-boundary-guard-01"
+          "fsn/route-rate-limit-coverage-01"
         ],
-        "conflicted_files": [],
+        "conflicted_files": [
+          "documentation/api/API-CONTRACT-v1.md (branch pair only; resolved by keeping both sentences in 3.13)"
+        ],
         "order_dependent": false,
-        "composed_suite": "123 passed, 0 failed",
+        "composed_suite": "85 passed, 0 failed (#21 + #15 + #16)",
         "baseline_suite": "61 passed",
-        "alembic_head": "0003_audit_immu",
-        "not_run": "physical-device acceptance (no hardware); Android assembleDebug (no Android SDK in sandbox)"
+        "not_run": "physical-device acceptance (no hardware); Android assembleDebug (not needed; no Android source touched)"
       }
     },
     {
       "repository": "Arkadia-Oversoul-Prism/Arkadia",
-      "phase": "ARK-OPS-CONTINUOUS-001 — continuous reconciliation and gap closure",
+      "phase": "ARK-OPS-CONTINUOUS-001 \u2014 continuous reconciliation and gap closure",
       "active_issue_or_pr": "#736 (cycle 30: the wave dry-run now separates a base conflict from a wave conflict) plus the 64 drafts it measured; #744 carries this ledger. #686 is CONFLICTING/DIRTY against main on its own -- a rebase task for that branch, not a wave adjudication.",
       "blocked": false,
       "blockers": [
