@@ -1,6 +1,6 @@
 {
   "schema": "arkadia.portfolio-state/1.1",
-  "derived_at": "2026-11-28T07:12:30Z",
+  "derived_at": "2026-11-28T09:09:41Z",
   "authority": "read-only observation; GET only. Not a merge, deployment or acceptance record.",
   "repositories": [
     {
@@ -40,14 +40,14 @@
       "default_branch": "main",
       "head_sha": "8f746f9eab6df51733f6d43c8bab26af63eb6471",
       "head_committed_at": "2026-11-27T00:13:03Z",
-      "pushed_at": "2026-11-28T06:14:41Z",
+      "pushed_at": "2026-11-28T07:12:49Z",
       "open_pulls": 64,
       "open_issues": 10,
       "latest_open_pull": {
         "number": 744,
-        "updated_at": "2026-11-28T06:14:42Z"
+        "updated_at": "2026-11-28T07:12:57Z"
       },
-      "last_progress_at": "2026-11-28T06:14:41Z",
+      "last_progress_at": "2026-11-28T07:12:49Z",
       "observation": "VERIFIED",
       "detail": ""
     }

@@ -1,6 +1,6 @@
 {
   "schema": "arkadia.portfolio-cursor/1.0",
-  "updated_at": "2026-11-28T07:15:00Z",
+  "updated_at": "2026-11-28T09:20:00Z",
   "authority": "authored judgements. The directive is the source of each phase label; this file records no measurement -- portfolio-state.json does.",
   "repositories": [
     {
@@ -13,8 +13,12 @@
         "the service still stops itself on completion, so a finished read is not resumable in place",
         "retry() has no production caller yet, so #11 repairs the engine boundary before the recovery UI is wired to it"
       ],
-      "next_legal_task": "Await human review of #11 (head f85e779), #9 (head 3e034ca) and #10 (head e1f952a); do not open a parallel PR for a slice an open draft owns. S2 (a natural offline neural voice) is still unstarted and is the next unowned slice; the engine/ package already carries the compatibility gate (ModelCompatibility, BundledModels, DeviceProfile) and no model file, so the first real step is a bundled licensed model plus a device measurement, not more policy code.",
-      "last_pulse_at": "2026-11-28T01:34:00Z"
+      "next_legal_task": "COMPLETE_FOR_NOW for new slices at this revision: the rule selects Sonata (oldest verified last_progress_at 2026-11-28T05:21:05Z, re-derived live by scripts/portfolio_state_refresh.py this pulse), but every actionable slice is owned. Await human review of #11 (head f85e779), #9 (head 3e034ca) and #10 (head e1f952a); do not open a parallel PR for a slice an open draft owns. S2 (a natural offline neural voice) is still unstarted and is the next unowned slice; the engine/ package already carries the compatibility gate (ModelCompatibility, BundledModels, DeviceProfile) and no model file, so the first real step is a bundled licensed model plus a device measurement, not more policy code. S3 document import is owned by #12 (head 206344da, measured this pulse).",
+      "last_pulse_at": "2026-11-28T09:20:00Z",
+      "pulse_blockers": [
+        "verification environment: this execution sandbox has no JDK (java/javac/kotlinc absent) and no Android SDK (ANDROID_HOME and ANDROID_SDK_ROOT empty), so no Kotlin or Gradle change can be compiled or tested before push; ci-evidence.log at main 7c4e6a64 records 405 JUnit tests passing (236 app core + 169 narration core) in the project's CI, which is the only verification path available",
+        "the four open drafts are all mergeable and all await human review, so a new slice would duplicate owned work"
+      ]
     },
     {
       "repository": "Arkadia-Oversoul-Prism/family-safety-network",
@@ -32,8 +36,11 @@
         "SUPERSEDES the cycle-35 claim that 'no unowned legal slice remains': F2 account erasure was owned by no draft and left an erased identity authenticating. Measured 2026-11-28T07:09Z on main 18c72973 — a prior-cycle judgement that every finding was carried by a draft was wrong, so 'every finding is owned' is not a safe inference from the open-PR list alone",
         "the erasure marker and the audit-immutability migration (#12) both branch from 0002 and compose into two Alembic heads; see last_composition_measurement"
       ],
-      "next_legal_task": "Await human review of the twelve drafts; do not open a parallel PR for a slice an open draft owns. Migration order: #12 (0003_audit_immu) first, then #27 with its down_revision moved to 0003_audit_immu — measured, not assumed. The unblocked follow-up is still to correct THREAT-MODEL F3 (line 92) once #16 lands, then F4 (line 93) and §5.5 (line 81) once #21 lands, both recorded in issue #24. Physical-device acceptance (F3) stays BLOCKED on hardware; the F1 identity provider and guardian-consent semantics stay human decisions.",
-      "last_pulse_at": "2026-11-28T07:15:00Z",
+      "next_legal_task": "Await human review of the twelve drafts; do not open a parallel PR for a slice an open draft owns. Migration order: #12 (0003_audit_immu) first, then #27 with its down_revision moved to 0003_audit_immu — measured, not assumed. The unblocked follow-up is still to correct THREAT-MODEL F3 (line 92) once #16 lands, then F4 (line 93) and §5.5 (line 81) once #21 lands, both recorded in issue #24. Physical-device acceptance (F3) stays BLOCKED on hardware; the F1 identity provider and guardian-consent semantics stay human decisions. NEW this pulse (measured 2026-11-28T09:12Z at main 18c72973, owned by no issue and no draft): DELETE /families/{family_id}/members/{member_id}/data -> erase_member_data() deletes sharing sessions whose subject_member_id is the erased member, but never sessions whose granted_to_member_id is the erased member, and never removes the membership row. An erased member therefore keeps live view grants into another member's location and remains listed by list_members. Contrast the account path, which deletes memberships and so cascades those grants. Verified absent from coverage: granted_to_member_id appears in no erasure test (grep over app/ and tests/). Implementation is one clause in erase_member_data plus a DB-backed test, and the erasure tests are PostGIS-gated (45 of 61 skip without a database), so it needs a pulse with a reachable PostGIS instance.",
+      "last_pulse_at": "2026-11-28T09:20:00Z",
+      "pulse_blockers_detail": [
+        "verification environment: no PostgreSQL/PostGIS is reachable in this sandbox (connection refused on localhost:5432), and 45 of the backend's 61 tests skip for exactly that reason; the member-erasure repair above is only testable through them"
+      ],
       "last_composition_measurement": {
         "measured_at": "2026-11-28T07:14:00Z",
         "base_sha": "18c729735fd428622ea70b76571aa38e518a9774",
@@ -57,8 +64,8 @@
         "merge execution is human-only under GOV-04; a draft PR also needs its owner to mark it ready",
         "63 draft PRs accumulate faster than human review can absorb them"
       ],
-      "next_legal_task": "Continue #736 (wave dry-run) or #733 (batch packet) for consolidation; do not open a parallel PR for a task they own. Note the fairness clock now reports FSN oldest only because this pulse pushed to Arkadia; FSN's own next legal task waits on human review of its eleven drafts, so the next pulse rotates here.",
-      "last_pulse_at": "2026-11-28T07:15:00Z"
+      "next_legal_task": "Continue #736 (wave dry-run) or #733 (batch packet) for consolidation; do not open a parallel PR for a task they own. This pulse discharged the ARK-OPS-CONTINUOUS-001 §3 ledger obligation on this PR (#744): portfolio-state.json was re-derived live at 2026-11-28T09:09:41Z by scripts/portfolio_state_refresh.py, and the fair selection it printed is Sonata, not Arkadia. Arkadia stays the only repository fully verifiable in this sandbox (Python + node present, 64 drafts measured), which is why the pulse's own bounded unit landed here.",
+      "last_pulse_at": "2026-11-28T09:20:00Z"
     }
   ]
 }
