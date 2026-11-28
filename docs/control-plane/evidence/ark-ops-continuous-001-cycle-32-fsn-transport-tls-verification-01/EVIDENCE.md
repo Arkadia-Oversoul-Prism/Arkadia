@@ -50,7 +50,7 @@ default branch `feature/sonata-tts-app`, FSN `private: true`). Nothing was omitt
 The cursor's FSN `next_legal_task` named the **F4 threat-model re-review** and required an F4
 phase issue before implementation (directive §7). No F4 issue existed, so **#22** was created
 first, then the slice was implemented as **draft PR #23** (`fsn/f4-transport-tls-boundary-01`,
-head `0dc96d7`).
+head `93af128`).
 
 The slice is the part of F4 that is a **code** defect rather than a documentation refresh:
 *verify TLS* — the directive's first F4 item.
@@ -88,7 +88,7 @@ code changed.
 | Check | Result |
 |---|---|
 | Baseline `main` `18c7297` (`pytest tests/ -q`) | **61 passed** |
-| Branch `0dc96d7` (same tree + new file) | **68 passed** |
+| Branch `93af128` (same tree + new file) | **68 passed** |
 | Attribution | `--collect-only` on the new file → **7**, exactly the delta |
 | Negative control (guard condition → `if False:` in `app/main.py`) | **3 failed, 4 passed** — exactly the three refusal assertions; every positive control stayed green |
 | Restore | `git diff` empty (byte-identical) |
@@ -138,13 +138,21 @@ obviously safe — so it is stated in the test module and left for a deliberate 
 **Sonata** next. That is the ledger's own push clock advancing itself — the property cycle 26
 (`…-cycle-26-portfolio-push-clock-01`) fixed — not a judgement about which repository needs work.
 
+### A stale citation, corrected
+
+The first draft of this record named the branch head `0dc96d7`. That SHA was superseded within the
+same pulse: `0dc96d7` still carried the `THREAT-MODEL.md` edit, and restoring that file from
+`origin/main` and amending produced `93af128`. The tree measured above is `93af128`, and FSN CI ran
+twice on it (`FSN CI`, both `completed/success`, 2026-11-28T02:13Z). `0dc96d7` is recorded here only
+so the superseded value is traceable rather than silently replaced.
+
 ## 7. Deterministic next action
 
 **Current state.** Arkadia `main` `8f746f9eab6d`. FSN `main` `18c729735fd4`, 10 open drafts
 (#10, #12, #14–#19, #21, #23) plus issue #22. Sonata `7c4e6a64e39e`, 3 open drafts (#9, #10,
 #11). All three reachable.
 
-**Evidence.** PR #23 (FSN) head `0dc96d7`: 68 passed vs 61 on `main`, negative control
+**Evidence.** PR #23 (FSN) head `93af128`: 68 passed vs 61 on `main`, negative control
 `3 failed, 4 passed`, #21/#15 compose cleanly, #16 conflicts on `THREAT-MODEL.md`.
 
 **Blockers.** (a) Human review of ten FSN drafts; (b) the F3/F4/§5.5 row corrections wait on
