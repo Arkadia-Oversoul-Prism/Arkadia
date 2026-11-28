@@ -123,7 +123,9 @@ revocation, `#21/#20` the device-location read audit, `#16` the unthrottled rout
 `#17` the purge runner, `#19` the manifest boundary, `#23/#22` the TLS guard, `#25/#24` the
 release checklist, `#18` F0 integration.
 
-It was **not** implemented this pulse. The erasure tests are PostGIS-gated — 45 of FSN's 61
+It was **not** implemented this pulse. It is now recorded **repository-natively** as FSN
+issue #28, so the finding no longer depends on this Arkadia-side ledger surviving. The
+erasure tests are PostGIS-gated — 45 of FSN's 61
 backend tests skip here with `connection to server at "localhost", port 5432 failed:
 Connection refused` — so the repair could not be verified within the cycle ceiling. A
 one-clause change plus a DB-backed test is the next pulse's unit, recorded in the cursor.
