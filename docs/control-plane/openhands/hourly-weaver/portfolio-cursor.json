@@ -1,6 +1,6 @@
 {
   "schema": "arkadia.portfolio-cursor/1.0",
-  "updated_at": "2026-11-28T09:20:00Z",
+  "updated_at": "2026-11-28T11:16:00Z",
   "authority": "authored judgements. The directive is the source of each phase label; this file records no measurement -- portfolio-state.json does.",
   "repositories": [
     {
@@ -22,8 +22,8 @@
     },
     {
       "repository": "Arkadia-Oversoul-Prism/family-safety-network",
-      "phase": "F4 — deployment security boundary (cycle 34: the release gate checklist, #24/#25); request-time TLS guard (#22/#23); F2 — privacy and data lifecycle (cycle 36: account erasure now revokes the identity, #26/#27; audit requirements); F1 identity provider and guardian consent remain human decisions",
-      "active_issue_or_pr": "#27 (F2 erasure identity revocation, issue #26, head 0e9f66f, 1 commit) — DELETE /v1/account anonymised the users row but left the identity authenticating: the erased token still read /v1/me, created a family, and /v1/dev/token minted a fresh token for the erased id; repaired with a durable users.erased_at marker read by get_current_user (401 identity_erased) plus a dev-token refusal (404, no oracle), 6 new tests, 61 -> 67 passed. Plus #25 (F4 release gate checklist, issue #24, head c5ef595), #23 (F4 transport guard pin, issue #22), #21 (F2 audit completeness, issue #20), #19 (F3 permission/transport guard), #18 (F0 integration closure + README), #17 (retention purge runner), #16 (F2 rate-limit coverage), #15 (authz resource-existence oracle), #14 (F2 rate-limit table bound), #12 (audit append-only), #10 (signing-key rotation). Twelve open drafts, measured 2026-11-28T07:12Z.",
+      "phase": "F2 — privacy and data lifecycle (cycle 38: member-level erasure now revokes the erased member's grants and tombstones the membership, #28/#29); F4 — deployment security boundary (#24/#25, #22/#23); request-time TLS guard (#22/#23)",
+      "active_issue_or_pr": "#29 (F2 member erasure, issue #28, head 39e9cac, 1 commit) — erase_member_data() left a `scope='member'` SharingSession granted TO the erased member live, and left the FamilyMembership row, so the erased member kept reading another member's location and stayed listed. Repaired by revoking that grant and marking removed_at, both as updates (the subject's observations RESTRICT-reference the grant row); 4 DB-backed tests, 61 -> 65 passed, negative control reddens 3 of 4. Plus #27 (erasure identity revocation), #25 (release gate checklist), #23 (transport guard), #21 (audit completeness), #19 (manifest guard), #18 (F0 closure), #17 (purge runner), #16 (rate-limit coverage), #15 (authz oracle), #14 (rate-limit bound), #12 (audit append-only), #10 (signing-key rotation). Thirteen open drafts, #29 measured at head 39e9cac.",
       "blocked": false,
       "blockers": [
         "physical-device acceptance needs real hardware; CI is not device evidence",
@@ -32,14 +32,14 @@
         "F2 guardian/minor consent needs a documented legal/product decision",
         "the THREAT-MODEL F3/F4 rows and §5.5 still deny controls that exist; correcting them conflicts with open drafts #16 and #21 (measured, see #22)",
         "the release gate checklist records F1 and F2 as the release blockers, F5/F7/F8 as not met, and physical-device acceptance as BLOCKED; it is an assessment, not an acceptance record",
-        "THREAT-MODEL F3/F4 rows and §5.5 still deny controls that exist; correcting them waits on #16 and #21, which carry those sections as diff context, so a third concurrent edit conflicts",
-        "SUPERSEDES the cycle-35 claim that 'no unowned legal slice remains': F2 account erasure was owned by no draft and left an erased identity authenticating. Measured 2026-11-28T07:09Z on main 18c72973 — a prior-cycle judgement that every finding was carried by a draft was wrong, so 'every finding is owned' is not a safe inference from the open-PR list alone",
+        "SUPERSEDES the cycle-35 claim that 'no unowned legal slice remains': F2 account erasure is STILL unowned and returns 500 — see issue #30, measured this pulse and pre-existing",
         "the erasure marker and the audit-immutability migration (#12) both branch from 0002 and compose into two Alembic heads; see last_composition_measurement"
       ],
-      "next_legal_task": "Await human review of the twelve drafts; do not open a parallel PR for a slice an open draft owns. Migration order: #12 (0003_audit_immu) first, then #27 with its down_revision moved to 0003_audit_immu — measured, not assumed. The unblocked follow-up is still to correct THREAT-MODEL F3 (line 92) once #16 lands, then F4 (line 93) and §5.5 (line 81) once #21 lands, both recorded in issue #24. Physical-device acceptance (F3) stays BLOCKED on hardware; the F1 identity provider and guardian-consent semantics stay human decisions. NEW this pulse (measured 2026-11-28T09:12Z at main 18c72973, owned by no draft): recorded as issue #28 (https://github.com/Arkadia-Oversoul-Prism/family-safety-network/issues/28, created 2026-11-28T09:14Z) DELETE /families/{family_id}/members/{member_id}/data -> erase_member_data() deletes sharing sessions whose subject_member_id is the erased member, but never sessions whose granted_to_member_id is the erased member, and never removes the membership row. An erased member therefore keeps live view grants into another member's location and remains listed by list_members. Contrast the account path, which deletes memberships and so cascades those grants. Verified absent from coverage: granted_to_member_id appears in no erasure test (grep over app/ and tests/). Implementation is one clause in erase_member_data plus a DB-backed test, and the erasure tests are PostGIS-gated (45 of 61 skip without a database), so it needs a pulse with a reachable PostGIS instance.",
-      "last_pulse_at": "2026-11-28T09:20:00Z",
+      "next_legal_task": "Await human review of the thirteen drafts; do not open a parallel PR for a slice an open draft owns. Migration order: #12 (0003_audit_immu) first, then #27 with its down_revision moved to 0003_audit_immu — measured, not assumed. NEW this pulse, measured 2026-11-28T11:1xZ at main 18c72973 and owned by no draft: issue #30 records that DELETE /account raises ForeignKeyViolation (500) when the erased account holds a member-level grant whose subject has recorded an observation. Same root cause as #28, on the account path, proven pre-existing by reverting app/retention.py. It is NOT repaired because each fix changes the schema or the retention semantics (null the grantee, make obs.sharing_session_id ON DELETE SET NULL, or revoke-and-retain), so it is HUMAN_DECISION_REQUIRED. The THREAT-MODEL F3 correction (line 92) still waits on #16, then F4 (line 93) and §5.5 (line 81) on #21, both recorded in issue #24. Physical-device acceptance (F3) stays BLOCKED on hardware; the F1 identity provider and guardian-consent semantics stay human decisions.",
+      "last_pulse_at": "2026-11-28T11:16:00Z",
       "pulse_blockers_detail": [
-        "verification environment: no PostgreSQL/PostGIS is reachable in this sandbox (connection refused on localhost:5432), and 45 of the backend's 61 tests skip for exactly that reason; the member-erasure repair above is only testable through them"
+        "CORRECTS the cycle-36/37 record that this sandbox has 'no PostgreSQL/PostGIS reachable'. It does, when provisioned: `sudo dockerd` + `docker run postgis/postgis:15-3.3` (PostGIS 3.3, 15-3.3) plus `alembic upgrade head` reproduces the CI baseline exactly — 61 passed on unmodified main 18c72973. The erasure tests are NOT unreachable; the earlier blocker was an unprovisioned environment, not an inaccessible dependency. Do not record 45 skips again without trying the container first.",
+        "the four (now thirteen) open drafts are all drafts awaiting human review, so a new slice must not duplicate owned work; #29 was safe because #28 was measured unowned"
       ],
       "last_composition_measurement": {
         "measured_at": "2026-11-28T07:14:00Z",
@@ -57,15 +57,15 @@
     },
     {
       "repository": "Arkadia-Oversoul-Prism/Arkadia",
-      "phase": "ARK-OPS-CONTINUOUS-001 — continuous reconciliation and gap closure (cycle 35: #750 fail-closed repair)",
+      "phase": "ARK-OPS-CONTINUOUS-001 — continuous reconciliation and gap closure (cycle 38: the FSN member-erasure repair)",
       "active_issue_or_pr": "#750 (cycle 29 oracle, head 818cc3a7 — cycle 35 repaired its fail-open path: pr_files returned [] on a failed page and classify([]) read INTEGRATED, so a 403/rate-limit/network error was reported as \"already landed\"; now None -> UNKNOWN, empty diff -> UNKNOWN, 12 tests, negative control proved by reverting the script) plus the 64 drafts it measured; #744 carries this ledger (refreshed by the cycle-36 pulse: FSN state derived live at 07:12Z). #736 (wave dry-run) and #733 (batch packet) remain the consolidation drafts. #686 still CONFLICTING on its own.",
       "blocked": false,
       "blockers": [
         "merge execution is human-only under GOV-04; a draft PR also needs its owner to mark it ready",
         "63 draft PRs accumulate faster than human review can absorb them"
       ],
-      "next_legal_task": "Continue #736 (wave dry-run) or #733 (batch packet) for consolidation; do not open a parallel PR for a task they own. This pulse discharged the ARK-OPS-CONTINUOUS-001 §3 ledger obligation on this PR (#744): portfolio-state.json was re-derived live at 2026-11-28T09:09:41Z by scripts/portfolio_state_refresh.py, and the fair selection it printed is Sonata, not Arkadia. Arkadia stays the only repository fully verifiable in this sandbox (Python + node present, 64 drafts measured), which is why the pulse's own bounded unit landed here.",
-      "last_pulse_at": "2026-11-28T09:20:00Z"
+      "next_legal_task": "Continue #736 (wave dry-run) or #733 (batch packet) for consolidation; do not open a parallel PR for a task they own. This pulse re-derived portfolio-state.json live at 2026-11-28T11:13:21Z via scripts/portfolio_state_refresh.py and discharged the FSN slice on #29. NOTE the clock after this pulse: FSN is now the most recent (its own push at 11:11:57Z), so the next fair selection is Arkadia at 09:10:55Z — and the ledger-refresh push recorded here will advance Arkadia past that. A push that exists only to write the ledger therefore competes with real progress for the clock; that is a known distortion, not a fairness input, and the selection must be read from the per-repository heads, not from this refresh alone.",
+      "last_pulse_at": "2026-11-28T11:16:00Z"
     }
   ]
 }
