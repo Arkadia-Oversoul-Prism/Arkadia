@@ -1,11 +1,11 @@
 {
   "schema": "arkadia.portfolio-cursor/1.0",
-  "updated_at": "2026-11-28T00:24:00Z",
+  "updated_at": "2026-11-28T02:20:00Z",
   "authority": "authored judgements. The directive is the source of each phase label; this file records no measurement -- portfolio-state.json does.",
   "repositories": [
     {
       "repository": "Arkadia-Oversoul-Prism/sonata",
-      "phase": "S1 \u2014 playback state and connectivity truth (open drafts #9, #10); S3/S4 \u2014 recovery-path truth (this cycle: #11)",
+      "phase": "S1 — playback state and connectivity truth (open drafts #9, #10); S3/S4 — recovery-path truth (this cycle: #11)",
       "active_issue_or_pr": "#11 (S4: the offline engine refuses empty audio on the retry path, not only on narrate; base 7c4e6a64, head f85e779, 2 commits), #9 (S1 speech tier + progressive read + completed/failed states), #10 (S4 screen reaches the engine). Three open drafts, measured 2026-11-28 at heads f85e779 / 3e034ca / e1f952a.",
       "blocked": false,
       "blockers": [
@@ -18,17 +18,18 @@
     },
     {
       "repository": "Arkadia-Oversoul-Prism/family-safety-network",
-      "phase": "F2 \u2014 privacy and data lifecycle (audit requirements); F1 identity provider and guardian consent remain human decisions",
-      "active_issue_or_pr": "#21 (F2 audit completeness for the device location read, issue #20, head 796d4a6), #19 (F3 permission/transport guard), #18 (F0 integration closure + README), #17 (retention purge runner), #16 (F2 rate-limit coverage), #15 (authz resource-existence oracle), #14 (F2 rate-limit table bound), #12 (audit append-only), #10 (signing-key rotation). Nine open drafts, all CI-green on their own heads, measured 2026-11-28T00:19Z. Phase labels above follow the issue/PR titles; three are misaligned with the directive's phase definitions (#12 audit immutability is F2/F4 content, not F5 product features; #10 signing-key rotation is F1 content, not F6 pilot readiness; #17 retention is F2 content, not F4 deployment boundary). Recorded, not rewritten: renaming issue labels is a separate change.",
+      "phase": "F4 — deployment security boundary (this cycle: the request-time TLS guard, #22/#23); F2 — privacy and data lifecycle (audit requirements); F1 identity provider and guardian consent remain human decisions",
+      "active_issue_or_pr": "#23 (F4 transport guard pin, issue #22, head 0dc96d7, 1 commit), #21 (F2 audit completeness for the device location read, issue #20, head 796d4a6), #19 (F3 permission/transport guard), #18 (F0 integration closure + README), #17 (retention purge runner), #16 (F2 rate-limit coverage), #15 (authz resource-existence oracle), #14 (F2 rate-limit table bound), #12 (audit append-only), #10 (signing-key rotation). Ten open drafts, all CI-green on their own heads, measured 2026-11-28T02:13Z. Three phase labels stay misaligned with the directive's definitions (#12 is F2/F4 content, #10 is F1 content, #17 is F2 content). Recorded, not rewritten.",
       "blocked": false,
       "blockers": [
         "physical-device acceptance needs real hardware; CI is not device evidence",
         "the purge runner is implemented but no scheduler is deployed (human-authorised)",
         "F1 production identity provider is a product/deployment decision, so F1 cannot be closed by an agent",
-        "F2 guardian/minor consent needs a documented legal/product decision"
+        "F2 guardian/minor consent needs a documented legal/product decision",
+        "the THREAT-MODEL F3/F4 rows and §5.5 still deny controls that exist; correcting them conflicts with open drafts #16 and #21 (measured, see #22)"
       ],
-      "next_legal_task": "Await human review of the nine drafts; do not open a parallel PR for a slice an open draft owns. Two unowned slices remain recorded, in trajectory order: (1) F2 \u2014 THREAT-MODEL.md T14 and \u00a75.4 are now satisfied by both location-read paths (this cycle), but \u00a75.5 still says 'no retention or deletion policy is implemented' while backend/app/retention.py implements purge, member erasure and account erasure; PR #17 touches the retention documentation, so that row belongs to it. (2) F4 \u2014 the threat-model re-review the previous cursor named: THREAT-MODEL.md F3 still reads 'No TLS enforcement in application code' and F4 still reads 'No data retention or deletion policy; no right-to-erasure path', but both controls are implemented (backend/app/main.py X-Forwarded-Proto middleware + config.validate_settings require_https; backend/app/retention.py behind DELETE /v1/account and /v1/maintenance/purge). No open draft owns those two rows, and F4's release checklist is still absent (grep -rlin 'release checklist' -> 0). Create the F4 phase issue before implementing, per the directive. Physical-device acceptance (F3) stays BLOCKED on hardware.",
-      "last_pulse_at": "2026-11-28T00:24:00Z",
+      "next_legal_task": "Await human review of the ten drafts; do not open a parallel PR for a slice an open draft owns. Next F4 slices, in order: (1) correct THREAT-MODEL F3 (line 92) once #16 lands — the edit conflicts with #16 today because its findings-table hunk carries F3/F4 as context (measured: merge of fsn/route-rate-limit-coverage-01 -> CONFLICT in documentation/security/THREAT-MODEL.md; #21 and #15 merge cleanly); (2) F4 (line 93) and §5.5 (line 81) still say no retention or deletion policy exists while backend/app/retention.py implements purge, member erasure and account erasure — §5.5 is context in #21's hunk, so it waits on #21; (3) the F4 release checklist is absent (grep -rlin 'release checklist' . -> 0) and is unowned. Recorded, not repaired: enforce_https compares X-Forwarded-Proto to 'https' exactly, so 'HTTPS' and 'https, http' are refused; widening it is a behaviour change to a security control and needs its own decision. Physical-device acceptance (F3) stays BLOCKED on hardware.",
+      "last_pulse_at": "2026-11-28T02:20:00Z",
       "last_composition_measurement": {
         "measured_at": "2026-11-28T00:16:00Z",
         "base_sha": "18c729735fd428622ea70b76571aa38e518a9774",
@@ -48,8 +49,8 @@
     },
     {
       "repository": "Arkadia-Oversoul-Prism/Arkadia",
-      "phase": "ARK-OPS-CONTINUOUS-001 \u2014 continuous reconciliation and gap closure",
-      "active_issue_or_pr": "#736 (cycle 30: the wave dry-run now separates a base conflict from a wave conflict) plus the 64 drafts it measured; #744 carries this ledger. #686 is CONFLICTING/DIRTY against main on its own -- a rebase task for that branch, not a wave adjudication.",
+      "phase": "ARK-OPS-CONTINUOUS-001 — continuous reconciliation and gap closure",
+      "active_issue_or_pr": "#736 (cycle 30: the wave dry-run now separates a base conflict from a wave conflict) plus the 64 drafts it measured; #744 carries this ledger and is MERGEABLE/CLEAN, 5 behind main, 16 ahead. #686 is CONFLICTING/DIRTY against main on its own -- a rebase task for that branch, not a wave adjudication.",
       "blocked": false,
       "blockers": [
         "merge execution is human-only under GOV-04; a draft PR also needs its owner to mark it ready",

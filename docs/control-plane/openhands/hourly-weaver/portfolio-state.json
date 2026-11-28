@@ -1,6 +1,6 @@
 {
   "schema": "arkadia.portfolio-state/1.1",
-  "derived_at": "2026-11-28T01:23:04Z",
+  "derived_at": "2026-11-28T02:14:09Z",
   "authority": "read-only observation; GET only. Not a merge, deployment or acceptance record.",
   "repositories": [
     {
@@ -24,14 +24,14 @@
       "default_branch": "main",
       "head_sha": "18c729735fd428622ea70b76571aa38e518a9774",
       "head_committed_at": "2026-11-26T08:22:33Z",
-      "pushed_at": "2026-11-28T00:17:44Z",
-      "open_pulls": 9,
-      "open_issues": 4,
+      "pushed_at": "2026-11-28T02:13:12Z",
+      "open_pulls": 10,
+      "open_issues": 5,
       "latest_open_pull": {
-        "number": 21,
-        "updated_at": "2026-11-28T00:17:58Z"
+        "number": 23,
+        "updated_at": "2026-11-28T02:13:26Z"
       },
-      "last_progress_at": "2026-11-28T00:17:44Z",
+      "last_progress_at": "2026-11-28T02:13:12Z",
       "observation": "VERIFIED",
       "detail": ""
     },
@@ -40,21 +40,21 @@
       "default_branch": "main",
       "head_sha": "8f746f9eab6df51733f6d43c8bab26af63eb6471",
       "head_committed_at": "2026-11-27T00:13:03Z",
-      "pushed_at": "2026-11-28T00:21:11Z",
+      "pushed_at": "2026-11-28T01:24:08Z",
       "open_pulls": 64,
       "open_issues": 10,
       "latest_open_pull": {
         "number": 744,
-        "updated_at": "2026-11-28T00:21:12Z"
+        "updated_at": "2026-11-28T01:24:09Z"
       },
-      "last_progress_at": "2026-11-28T00:21:11Z",
+      "last_progress_at": "2026-11-28T01:24:08Z",
       "observation": "VERIFIED",
       "detail": ""
     }
   ],
   "selection": {
-    "repository": "Arkadia-Oversoul-Prism/family-safety-network",
-    "reason": "oldest verified last_progress_at among unblocked repositories (2026-11-28T00:17:44Z); tie-break order Sonata -> FSN -> Arkadia",
+    "repository": "Arkadia-Oversoul-Prism/sonata",
+    "reason": "oldest verified last_progress_at among unblocked repositories (2026-11-28T01:22:22Z); tie-break order Sonata -> FSN -> Arkadia",
     "skipped": []
   }
 }
