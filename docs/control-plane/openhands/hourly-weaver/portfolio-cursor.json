@@ -1,11 +1,11 @@
 {
   "schema": "arkadia.portfolio-cursor/1.0",
-  "updated_at": "2026-11-28T06:20:00Z",
+  "updated_at": "2026-11-28T07:15:00Z",
   "authority": "authored judgements. The directive is the source of each phase label; this file records no measurement -- portfolio-state.json does.",
   "repositories": [
     {
       "repository": "Arkadia-Oversoul-Prism/sonata",
-      "phase": "S1 \u2014 playback state and connectivity truth (open drafts #9, #10); S3/S4 \u2014 recovery-path truth (this cycle: #11)",
+      "phase": "S1 — playback state and connectivity truth (open drafts #9, #10); S3/S4 — recovery-path truth (this cycle: #11)",
       "active_issue_or_pr": "#11 (S4: the offline engine refuses empty audio on the retry path, not only on narrate; base 7c4e6a64, head f85e779, 2 commits), #9 (S1 speech tier + progressive read + completed/failed states), #10 (S4 screen reaches the engine). Three open drafts, measured 2026-11-28 at heads f85e779 / 3e034ca / e1f952a.",
       "blocked": false,
       "blockers": [
@@ -18,49 +18,47 @@
     },
     {
       "repository": "Arkadia-Oversoul-Prism/family-safety-network",
-      "phase": "F4 \u2014 deployment security boundary (cycle 34: the release gate checklist, #24/#25); request-time TLS guard (#22/#23); F2 \u2014 privacy and data lifecycle (audit requirements); F1 identity provider and guardian consent remain human decisions",
-      "active_issue_or_pr": "#25 (F4 release gate checklist, issue #24, head c5ef595, 1 commit) \u2014 every gate with the source that carries or lacks it, plus a guard that fails when a row omits a finding, invents one, uses an undeclared status, or claims approval while a gate is open; #23 (F4 transport guard pin, issue #22), #21 (F2 audit completeness for the device location read, issue #20), #19 (F3 permission/transport guard), #18 (F0 integration closure + README), #17 (retention purge runner), #16 (F2 rate-limit coverage), #15 (authz resource-existence oracle), #14 (F2 rate-limit table bound), #12 (audit append-only), #10 (signing-key rotation). Eleven open drafts, measured 2026-11-28T04:12Z.",
+      "phase": "F4 — deployment security boundary (cycle 34: the release gate checklist, #24/#25); request-time TLS guard (#22/#23); F2 — privacy and data lifecycle (cycle 36: account erasure now revokes the identity, #26/#27; audit requirements); F1 identity provider and guardian consent remain human decisions",
+      "active_issue_or_pr": "#27 (F2 erasure identity revocation, issue #26, head 0e9f66f, 1 commit) — DELETE /v1/account anonymised the users row but left the identity authenticating: the erased token still read /v1/me, created a family, and /v1/dev/token minted a fresh token for the erased id; repaired with a durable users.erased_at marker read by get_current_user (401 identity_erased) plus a dev-token refusal (404, no oracle), 6 new tests, 61 -> 67 passed. Plus #25 (F4 release gate checklist, issue #24, head c5ef595), #23 (F4 transport guard pin, issue #22), #21 (F2 audit completeness, issue #20), #19 (F3 permission/transport guard), #18 (F0 integration closure + README), #17 (retention purge runner), #16 (F2 rate-limit coverage), #15 (authz resource-existence oracle), #14 (F2 rate-limit table bound), #12 (audit append-only), #10 (signing-key rotation). Twelve open drafts, measured 2026-11-28T07:12Z.",
       "blocked": false,
       "blockers": [
         "physical-device acceptance needs real hardware; CI is not device evidence",
         "the purge runner is implemented but no scheduler is deployed (human-authorised)",
         "F1 production identity provider is a product/deployment decision, so F1 cannot be closed by an agent",
         "F2 guardian/minor consent needs a documented legal/product decision",
-        "the THREAT-MODEL F3/F4 rows and \u00a75.5 still deny controls that exist; correcting them conflicts with open drafts #16 and #21 (measured, see #22)",
+        "the THREAT-MODEL F3/F4 rows and §5.5 still deny controls that exist; correcting them conflicts with open drafts #16 and #21 (measured, see #22)",
         "the release gate checklist records F1 and F2 as the release blockers, F5/F7/F8 as not met, and physical-device acceptance as BLOCKED; it is an assessment, not an acceptance record",
-        "THREAT-MODEL F3/F4 rows and \u00a75.5 still deny controls that exist; correcting them waits on #16 and #21, which carry those sections as diff context, so a third concurrent edit conflicts",
-        "cycle 35 (2026-11-28): no unowned legal slice remains \u2014 every open finding (F2/F3/F4/F5/F6) is carried by a draft PR, and the THREAT-MODEL F3/F4/\u00a75.5 corrections wait on #16/#21 landing; FSN is agent-blocked pending human review, not blocked on work"
+        "THREAT-MODEL F3/F4 rows and §5.5 still deny controls that exist; correcting them waits on #16 and #21, which carry those sections as diff context, so a third concurrent edit conflicts",
+        "SUPERSEDES the cycle-35 claim that 'no unowned legal slice remains': F2 account erasure was owned by no draft and left an erased identity authenticating. Measured 2026-11-28T07:09Z on main 18c72973 — a prior-cycle judgement that every finding was carried by a draft was wrong, so 'every finding is owned' is not a safe inference from the open-PR list alone",
+        "the erasure marker and the audit-immutability migration (#12) both branch from 0002 and compose into two Alembic heads; see last_composition_measurement"
       ],
-      "next_legal_task": "Await human review of the eleven drafts; do not open a parallel PR for a slice an open draft owns. The unblocked follow-up is to correct THREAT-MODEL F3 (line 92) once #16 lands, then F4 (line 93) and \u00a75.5 (line 81) once #21 lands \u2014 both are recorded in issue #24. The F4 release checklist itself is now present and guarded, so further release-gate work means closing gates, not describing them. Physical-device acceptance (F3) stays BLOCKED on hardware; the F1 identity provider and the guardian-consent semantics stay human decisions.",
-      "last_pulse_at": "2026-11-28T04:15:00Z",
+      "next_legal_task": "Await human review of the twelve drafts; do not open a parallel PR for a slice an open draft owns. Migration order: #12 (0003_audit_immu) first, then #27 with its down_revision moved to 0003_audit_immu — measured, not assumed. The unblocked follow-up is still to correct THREAT-MODEL F3 (line 92) once #16 lands, then F4 (line 93) and §5.5 (line 81) once #21 lands, both recorded in issue #24. Physical-device acceptance (F3) stays BLOCKED on hardware; the F1 identity provider and guardian-consent semantics stay human decisions.",
+      "last_pulse_at": "2026-11-28T07:15:00Z",
       "last_composition_measurement": {
-        "measured_at": "2026-11-28T00:16:00Z",
+        "measured_at": "2026-11-28T07:14:00Z",
         "base_sha": "18c729735fd428622ea70b76571aa38e518a9774",
         "branches": [
-          "fsn/location-read-audit-completeness-01",
-          "fsn/resource-existence-oracle-01",
-          "fsn/route-rate-limit-coverage-01"
+          "fsn/f2-erasure-identity-revocation-01",
+          "fsn/f5-audit-append-only"
         ],
-        "conflicted_files": [
-          "documentation/api/API-CONTRACT-v1.md (branch pair only; resolved by keeping both sentences in 3.13)"
-        ],
-        "order_dependent": false,
-        "composed_suite": "85 passed, 0 failed (#21 + #15 + #16)",
-        "baseline_suite": "61 passed",
-        "not_run": "physical-device acceptance (no hardware); Android assembleDebug (not needed; no Android source touched)"
+        "conflicted_files": [],
+        "order_dependent": true,
+        "composed_suite": "not run unreconciled: two Alembic heads, `alembic upgrade head` -> ERROR Multiple head revisions; after setting down_revision to 0003_audit_immu and rebuilding the schema from clean, 74 passed (#27 67 + #12 7)",
+        "baseline_suite": "61 passed (main 18c72973)",
+        "not_run": "physical-device acceptance (no hardware); Android assembleDebug and secret-scan (no Android or secret-bearing file touched)"
       }
     },
     {
       "repository": "Arkadia-Oversoul-Prism/Arkadia",
-      "phase": "ARK-OPS-CONTINUOUS-001 \u2014 continuous reconciliation and gap closure (cycle 35: #750 fail-closed repair)",
-      "active_issue_or_pr": "#750 (cycle 29 oracle, head 818cc3a7 \u2014 cycle 35 repaired its fail-open path: pr_files returned [] on a failed page and classify([]) read INTEGRATED, so a 403/rate-limit/network error was reported as \"already landed\"; now None -> UNKNOWN, empty diff -> UNKNOWN, 12 tests, negative control proved by reverting the script) plus the 64 drafts it measured; #744 carries this ledger. #736 (wave dry-run) and #733 (batch packet) remain the consolidation drafts. #686 still CONFLICTING on its own.",
+      "phase": "ARK-OPS-CONTINUOUS-001 — continuous reconciliation and gap closure (cycle 35: #750 fail-closed repair)",
+      "active_issue_or_pr": "#750 (cycle 29 oracle, head 818cc3a7 — cycle 35 repaired its fail-open path: pr_files returned [] on a failed page and classify([]) read INTEGRATED, so a 403/rate-limit/network error was reported as \"already landed\"; now None -> UNKNOWN, empty diff -> UNKNOWN, 12 tests, negative control proved by reverting the script) plus the 64 drafts it measured; #744 carries this ledger (refreshed by the cycle-36 pulse: FSN state derived live at 07:12Z). #736 (wave dry-run) and #733 (batch packet) remain the consolidation drafts. #686 still CONFLICTING on its own.",
       "blocked": false,
       "blockers": [
         "merge execution is human-only under GOV-04; a draft PR also needs its owner to mark it ready",
         "63 draft PRs accumulate faster than human review can absorb them"
       ],
       "next_legal_task": "Continue #736 (wave dry-run) or #733 (batch packet) for consolidation; do not open a parallel PR for a task they own. Note the fairness clock now reports FSN oldest only because this pulse pushed to Arkadia; FSN's own next legal task waits on human review of its eleven drafts, so the next pulse rotates here.",
-      "last_pulse_at": "2026-11-28T06:20:00Z"
+      "last_pulse_at": "2026-11-28T07:15:00Z"
     }
   ]
 }
